@@ -1,0 +1,11 @@
+#! /bin/bash
+
+firefox -no-remote http://www.geogebra.org/geometry &
+
+while ! bwb=`xwininfo  -root -children | grep Navigator`; do
+   sleep 1
+done
+
+id=`echo $bwb | sed 's/^ *//' | cut -d ' ' -f 1`
+
+xwit -id $id -resize $*
