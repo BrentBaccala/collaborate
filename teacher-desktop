@@ -2,10 +2,12 @@
 
 import subprocess
 import os
+import json
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 SCALE = '.49'
 XKEY = "/home/baccala/src/xkey"
+FS_CLI = "/opt/freeswitch/bin/fs_cli"
 
 import sqlite3
 conn = sqlite3.connect('/home/baccala/vnc.db')
@@ -16,25 +18,85 @@ GEOMETRY = ('+0+0', '-0+0', '+0-0', '-0-0')
 
 processes = []
 DISPLAYS = []
+NAMES = []
 
-for i,display in enumerate(c.execute('SELECT display FROM Desktops WHERE name NOT LIKE "%DCPS%"')):
-    display = 'osito:' + str(display[0])
+# Due to the design of this query, we only get student names, not teachers
+
+SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name NOT LIKE "%DCPS%"');
+
+for i,row in enumerate(SQL_results):
+    display = 'osito:' + str(row[0])
     args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', GEOMETRY[i],
             '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
-    print(args)
     processes.append(subprocess.Popen(args))
     DISPLAYS.append(display)
+    NAMES.append(row[1])
+
+#
+# Fetch freeswitch conference data and map names to freeswitch id numbers
+#
+# We ONLY save student ids, because we don't want to
+#
+
+freeswitch_process = subprocess.Popen([FS_CLI, '-x', 'conference json_list'], stdout=subprocess.PIPE)
+(stdoutdata, stderrdata) = freeswitch_process.communicate()
+try:
+    conference = json.loads(stdoutdata.decode())
+except:
+    conference  = [{'members': []}]
+
+freeswitch_ids = {}
+
+for member in conference[0]['members']:
+    try:
+        member_name = member['caller_id_name'].split('-bbbID-')[1]
+        id = member['id']
+        if 'DCPS' not in member_name:
+            freeswitch_ids[member_name] = id
+    except:
+        pass
+
+def freeswitch_cmd(cmd):
+    freeswitch_process = subprocess.Popen([FS_CLI, '-x', cmd])
+    freeswitch_process.wait()
+
+def freeswitch_conference_cmd(*cmd):
+    freeswitch_cmd('conference ' + conference[0]['conference_name'] + ' ' + ' '.join(map(str,cmd)))
+
+def freeswitch_set_broadcast():
+    for id in freeswitch_ids.values():
+        freeswitch_conference_cmd('undeaf', id)
+        freeswitch_conference_cmd('unmute', id)
+
+def freeswitch_set_silence():
+    for id in freeswitch_ids.values():
+        freeswitch_conference_cmd('deaf', id)
+        freeswitch_conference_cmd('mute', id)
+
+def freeswitch_set_private(student_name):
+    for id in freeswitch_ids.values():
+        if student_name in freeswitch_ids and freeswitch_ids[student_name] == id:
+            freeswitch_conference_cmd('undeaf', id)
+            freeswitch_conference_cmd('unmute', id)
+        else:
+            freeswitch_conference_cmd('deaf', id)
+            freeswitch_conference_cmd('mute', id)
+
+
+freeswitch_set_silence()
 
 while True:
     xkey_process = subprocess.Popen([XKEY, os.environ['DISPLAY']], stdout=subprocess.PIPE)
     (stdoutdata, stderrdata) = xkey_process.communicate()
-    print('stdoutdata:', stdoutdata, stderrdata)
+    # print('stdoutdata:', stdoutdata, stderrdata)
     if stdoutdata:
         lines = stdoutdata.split()
         if (len(lines) > 0 and lines[0].isdigit()):
             xkey_digit = int(lines[0])
-            print('xkey_digit:', xkey_digit)
+            # print('xkey_digit:', xkey_digit)
             if ((xkey_digit > 0) and (xkey_digit <= len(DISPLAYS))):
                 viewer = subprocess.Popen(['ssvncviewer', '-fullscreen', '-escape', 'Alt_L',
                                            '-passwd', '/home/baccala/.vnc/passwd', DISPLAYS[xkey_digit-1]]);
+                freeswitch_set_private(NAMES[xkey_digit-1])
                 viewer.wait()
+                freeswitch_set_silence()
