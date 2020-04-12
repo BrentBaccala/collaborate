@@ -1,11 +1,54 @@
 #! /bin/bash
 
-firefox -no-remote http://www.geogebra.org/geometry &
+if [ $3 != "true" ]; then
 
-while ! bwb=`xwininfo  -root -children | grep Navigator`; do
-   sleep 1
-done
+    # Student version
 
-id=`echo $bwb | sed 's/^ *//' | cut -d ' ' -f 1`
+    firefox -no-remote http://www.geogebra.org/geometry &
 
-xwit -id $id -resize $*
+    while ! bwb=`xwininfo  -root -children | grep Navigator`; do
+	sleep 1
+    done
+
+    id=`echo $bwb | sed 's/^ *//' | cut -d ' ' -f 1`
+
+    xwit -id $id -resize $1 $2
+
+else
+
+    # Teacher version
+
+    VIEWONLY_VIEWER=~/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer
+    SCALE=.49
+    XKEY=~/src/xkey
+
+    DISPLAYS=`sqlite3  ~/vnc.db 'SELECT display FROM Desktops WHERE name NOT LIKE "%DCPS%";'`
+
+    GEOMETRY[0]='+0+0'
+    GEOMETRY[1]='-0+0'
+    GEOMETRY[2]='+0-0'
+    GEOMETRY[3]='-0-0'
+
+    i=0
+    for display in $DISPLAYS; do
+	$VIEWONLY_VIEWER -viewonly -geometry ${GEOMETRY[$i]} -scale $SCALE -passwd ~/.vnc/passwd osito:$display &
+	VIEWER_PIDS="$VIEWER_PIDS $!"
+        DISPLAYS[$i]=$display
+	i=$((i+1))
+    done
+    ndisp=$i
+
+    # echo $VIEWER_PIDS
+
+    while true; do
+	result=`$XKEY $DISPLAY`
+	if [ $result -eq 0 ]; then break; fi
+	if [ $result -le $ndisp ]; then
+	    ssvncviewer -fullscreen -escape 'Alt_L' -passwd ~/.vnc/passwd osito:${DISPLAYS[$((result-1))]}
+	fi
+    done
+
+    kill $VIEWER_PIDS
+
+fi
+
