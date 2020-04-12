@@ -9,6 +9,7 @@
  *    Dominic Giampaolo (nick@cs.maxine.wpi.edu)
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
@@ -90,13 +91,11 @@ void main(int argc, char **argv)
      if (string == NULL)
        continue;
 
-     if (*string == '\r')
-       printf("\n");
-     else if (strlen(string) == 1)
-       printf("%s", string);
-     else
-       printf("<<%s>>", string);
-     fflush(stdout);
+     if (strlen(string) == 1) {
+       printf("%s\n", string);
+       exit(0);
+     }
+
    }
 }
 
