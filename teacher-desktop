@@ -82,6 +82,16 @@ def freeswitch_set_private(student_name):
             freeswitch_conference_cmd('deaf', id)
             freeswitch_conference_cmd('mute', id)
 
+def freeswitch_unmute_student(student_name):
+    if student_name in freeswitch_ids:
+        freeswitch_conference_cmd('undeaf', freeswitch_ids[student_name])
+        freeswitch_conference_cmd('unmute', freeswitch_ids[student_name])
+
+def freeswitch_mute_student(student_name):
+    if student_name in freeswitch_ids:
+        freeswitch_conference_cmd('deaf', freeswitch_ids[student_name])
+        freeswitch_conference_cmd('mute', freeswitch_ids[student_name])
+
 
 freeswitch_set_silence()
 
@@ -90,13 +100,19 @@ while True:
     (stdoutdata, stderrdata) = xkey_process.communicate()
     # print('stdoutdata:', stdoutdata, stderrdata)
     if stdoutdata:
-        lines = stdoutdata.split()
-        if (len(lines) > 0 and lines[0].isdigit()):
-            xkey_digit = int(lines[0])
-            # print('xkey_digit:', xkey_digit)
-            if ((xkey_digit > 0) and (xkey_digit <= len(DISPLAYS))):
-                viewer = subprocess.Popen(['ssvncviewer', '-fullscreen', '-escape', 'Alt_L',
-                                           '-passwd', '/home/baccala/.vnc/passwd', DISPLAYS[xkey_digit-1]]);
-                freeswitch_set_private(NAMES[xkey_digit-1])
-                viewer.wait()
+        lines = stdoutdata.decode().split()
+        if (len(lines) > 0) :
+            print(lines[0])
+            if lines[0].isdigit():
+                xkey_digit = int(lines[0])
+                # print('xkey_digit:', xkey_digit)
+                if ((xkey_digit > 0) and (xkey_digit <= len(DISPLAYS))):
+                    viewer = subprocess.Popen(['ssvncviewer', '-fullscreen', '-escape', 'Alt_L',
+                                               '-passwd', '/home/baccala/.vnc/passwd', DISPLAYS[xkey_digit-1]]);
+                    freeswitch_unmute_student(NAMES[xkey_digit-1])
+                    viewer.wait()
+                    freeswitch_mute_student(NAMES[xkey_digit-1])
+            if lines[0] == 'b':
+                freeswitch_set_broadcast()
+            if lines[0] == 's':
                 freeswitch_set_silence()
