@@ -1,0 +1,40 @@
+#!/usr/bin/python3
+
+import subprocess
+import os
+
+VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
+SCALE = '.49'
+XKEY = "/home/baccala/src/xkey"
+
+import sqlite3
+conn = sqlite3.connect('/home/baccala/vnc.db')
+
+c = conn.cursor()
+
+GEOMETRY = ('+0+0', '-0+0', '+0-0', '-0-0')
+
+processes = []
+DISPLAYS = []
+
+for i,display in enumerate(c.execute('SELECT display FROM Desktops WHERE name NOT LIKE "%DCPS%"')):
+    display = 'osito:' + str(display[0])
+    args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', GEOMETRY[i],
+            '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
+    print(args)
+    processes.append(subprocess.Popen(args))
+    DISPLAYS.append(display)
+
+while True:
+    xkey_process = subprocess.Popen([XKEY, os.environ['DISPLAY']], stdout=subprocess.PIPE)
+    (stdoutdata, stderrdata) = xkey_process.communicate()
+    print('stdoutdata:', stdoutdata, stderrdata)
+    if stdoutdata:
+        lines = stdoutdata.split()
+        if (len(lines) > 0 and lines[0].isdigit()):
+            xkey_digit = int(lines[0])
+            print('xkey_digit:', xkey_digit)
+            if ((xkey_digit > 0) and (xkey_digit <= len(DISPLAYS))):
+                viewer = subprocess.Popen(['ssvncviewer', '-fullscreen', '-escape', 'Alt_L',
+                                           '-passwd', '/home/baccala/.vnc/passwd', DISPLAYS[xkey_digit-1]]);
+                viewer.wait()
