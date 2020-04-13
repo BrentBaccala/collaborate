@@ -50,18 +50,19 @@ def get_freeswitch_ids():
     try:
         conference = json.loads(stdoutdata.decode())
     except:
-        conference  = [{'members': []}]
+        conference  = []
 
     freeswitch_ids.clear()
 
-    for member in conference[0]['members']:
-        try:
-            member_name = member['caller_id_name'].split('-bbbID-')[1]
-            id = member['id']
-            if 'DCPS' not in member_name:
-                freeswitch_ids[member_name] = id
-        except:
-            pass
+    if len(conference) > 0:
+        for member in conference[0]['members']:
+            try:
+                member_name = member['caller_id_name'].split('-bbbID-')[1]
+                id = member['id']
+                if 'DCPS' not in member_name:
+                    freeswitch_ids[member_name] = id
+            except:
+                pass
 
 def freeswitch_cmd(cmd):
     freeswitch_process = subprocess.Popen([FS_CLI, '-x', cmd])
@@ -107,26 +108,21 @@ def main_loop():
 
     processes = []
 
-    print("hello")
-
     for i,display in enumerate(DISPLAYS):
         args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', GEOMETRY[i],
                 '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
         processes.append(subprocess.Popen(args))
 
-    print("bye")
-
     freeswitch_set_silence()
 
     while True:
-        print("hi")
         xkey_process = subprocess.Popen([XKEY, os.environ['DISPLAY']], stdout=subprocess.PIPE)
         (stdoutdata, stderrdata) = xkey_process.communicate()
         # print('stdoutdata:', stdoutdata, stderrdata)
         if stdoutdata:
             lines = stdoutdata.decode().split()
             if (len(lines) > 0) :
-                print(lines[0])
+                # print(lines[0])
                 if lines[0].isdigit():
                     xkey_digit = int(lines[0])
                     # print('xkey_digit:', xkey_digit)
