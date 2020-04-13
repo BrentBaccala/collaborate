@@ -10,7 +10,7 @@ if [ $3 != "true" ]; then
 
     # Student version
 
-    firefox -no-remote http://www.geogebra.org/geometry &
+    firefox -no-remote http://www.geogebra.org/CAS &
 
     while ! bwb=`xwininfo  -root -children | grep Navigator`; do
 	sleep 1
