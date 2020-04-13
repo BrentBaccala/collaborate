@@ -1,28 +1,29 @@
 #! /bin/bash
 #
-# Usage: start-vnc-desktop MAX-DIMENSION MIN-DIMENSION IS-TEACHER-FLAG X-DESKTOP-NUMBER
-
-vncserver -geometry ${1}x${2} :${4}
-
-export DISPLAY=:${4}
+# Usage: start-vnc-desktop MAX-DIMENSION MIN-DIMENSION IS-TEACHER-FLAG X-DESKTOP-NUMBER USER-NAME
 
 if [ $3 != "true" ]; then
 
     # Student version
 
-    firefox -no-remote http://www.geogebra.org/CAS &
+    USER=`echo $5 | sed 's/ //g'`       # squash spaces
 
-    while ! bwb=`xwininfo  -root -children | grep Navigator`; do
-	sleep 1
-    done
+    if grep -q ^${USER}: /etc/passwd; then
+        echo found
+    else
+        # student does not exist
+	sudo adduser --gecos ${USER} --disabled-login --force-badname ${USER}
+    fi
 
-    id=`echo $bwb | sed 's/^ *//' | cut -d ' ' -f 1`
-
-    xwit -id $id -resize $1 $2
+    sudo su ${USER} -c "/home/baccala/src/osito/student-desktop $1 $2 $3 $4 $5"
 
 else
 
     # Teacher version
+    vncserver -geometry ${1}x${2} :${4}
+
+    export DISPLAY=:${4}
+
     exec ~/src/osito/teacher-desktop
 
 fi

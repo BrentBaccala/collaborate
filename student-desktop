@@ -1,0 +1,19 @@
+#!/bin/bash
+
+cd $HOME
+
+vncserver -geometry ${1}x${2} :${4}
+
+export DISPLAY=:${4}
+
+firefox -CreateProfile $4
+
+firefox -no-remote -P $4 -new-window http://www.geogebra.org/cas &
+
+while ! bwb=`xwininfo  -root -children | grep Navigator`; do
+    sleep 1
+done
+
+id=`echo $bwb | sed 's/^ *//' | cut -d ' ' -f 1`
+
+xwit -id $id -resize $1 $2
