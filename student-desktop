@@ -17,3 +17,5 @@ done
 id=`echo $bwb | sed 's/^ *//' | cut -d ' ' -f 1`
 
 xwit -id $id -resize $1 $2
+
+/home/baccala/src/osito/raise_hand.py &
