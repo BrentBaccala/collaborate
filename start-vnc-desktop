@@ -1,4 +1,10 @@
 #! /bin/bash
+#
+# Usage: start-vnc-desktop MAX-DIMENSION MIN-DIMENSION IS-TEACHER-FLAG X-DESKTOP-NUMBER
+
+vncserver -geometry ${1}x${2} :${4}
+
+export DISPLAY=:${4}
 
 if [ $3 != "true" ]; then
 
