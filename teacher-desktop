@@ -8,7 +8,6 @@ import os
 import json
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
-SCALE = '.49'
 XKEY = "/home/baccala/src/xkey"
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
 
@@ -17,14 +16,8 @@ conn = sqlite3.connect('/home/baccala/vnc.db')
 
 c = conn.cursor()
 
-GEOMETRY = ('+0+0', '-0+0', '+0-0', '-0-0')
-
 DISPLAYS = []
 NAMES = []
-
-SCALEX = int(int(sys.argv[1]) * .49)
-SCALEY = int(int(sys.argv[2]) * .49)
-SCALE = str(SCALEX) + "x" + str(SCALEY)
 
 def get_DISPLAYS_and_NAMES_from_SQL():
 
@@ -115,12 +108,32 @@ def main_loop():
 
     processes = []
 
+    SCREENX = int(sys.argv[1])
+    SCREENY = int(sys.argv[2])
+
+    SCALEX = int(SCREENX * .49)
+    SCALEY = int(SCREENY * .49)
+    SCALE = str(SCALEX) + "x" + str(SCALEY)
+
+    MIDPOINTX = str(int(SCREENX * .5))
+    MIDPOINTY = str(int(SCREENY * .5))
+
+    GEOMETRY = ('+0+0', '+'+MIDPOINTX+'+0', '+0+'+MIDPOINTY, '+'+MIDPOINTX+'+'+MIDPOINTY)
+
+    cols = 2
+
     for i,display in enumerate(DISPLAYS):
-        args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', GEOMETRY[i],
+        row = int(i/cols)
+        col = i%cols
+        geox = int(col * SCREENX/cols + .005*SCREENX)
+        geoy = int(row * SCREENY/cols + .005*SCREENY)
+        args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
                 '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
         processes.append(subprocess.Popen(args))
 
     freeswitch_set_silence()
+
+    FULLSCREEN_GEOMETRY = str(SCREENX) + 'x' + str(SCREENY)
 
     while True:
         xkey_process = subprocess.Popen([XKEY, os.environ['DISPLAY']], stdout=subprocess.PIPE)
@@ -134,7 +147,7 @@ def main_loop():
                     xkey_digit = int(lines[0])
                     # print('xkey_digit:', xkey_digit)
                     if ((xkey_digit > 0) and (xkey_digit <= len(DISPLAYS))):
-                        viewer = subprocess.Popen(['ssvncviewer', '-fullscreen', '-escape', 'Alt_L',
+                        viewer = subprocess.Popen(['ssvncviewer', '-geometry', FULLSCREEN_GEOMETRY, '-scale', FULLSCREEN_GEOMETRY, '-escape', 'Alt_L',
                                                '-passwd', '/home/baccala/.vnc/passwd', DISPLAYS[xkey_digit-1]]);
                         freeswitch_unmute_student(NAMES[xkey_digit-1])
                         viewer.wait()
