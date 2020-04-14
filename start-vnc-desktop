@@ -24,7 +24,7 @@ else
 
     export DISPLAY=:${4}
 
-    exec ~/src/osito/teacher-desktop
+    exec ~/src/osito/teacher-desktop $*
 
 fi
 

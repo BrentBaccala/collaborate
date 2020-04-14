@@ -1,6 +1,9 @@
 #!/usr/bin/python3
+#
+# Usage: teacher-desktop MAX-DIMENSION MIN-DIMENSION IS-TEACHER-FLAG X-DESKTOP-NUMBER USER-NAME
 
 import subprocess
+import sys
 import os
 import json
 
@@ -18,6 +21,10 @@ GEOMETRY = ('+0+0', '-0+0', '+0-0', '-0-0')
 
 DISPLAYS = []
 NAMES = []
+
+SCALEX = int(int(sys.argv[1]) * .49)
+SCALEY = int(int(sys.argv[2]) * .49)
+SCALE = str(SCALEX) + "x" + str(SCALEY)
 
 def get_DISPLAYS_and_NAMES_from_SQL():
 
