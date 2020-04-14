@@ -6,6 +6,7 @@ import subprocess
 import sys
 import os
 import json
+import math
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 XKEY = "/home/baccala/src/xkey"
@@ -108,19 +109,15 @@ def main_loop():
 
     processes = []
 
+    cols = math.ceil(math.sqrt(len(DISPLAYS)))
+
     SCREENX = int(sys.argv[1])
     SCREENY = int(sys.argv[2])
 
-    SCALEX = int(SCREENX * .49)
-    SCALEY = int(SCREENY * .49)
+    SCALEX = int(SCREENX/cols - .01*SCREENX)
+    SCALEY = int(SCREENY/cols - .01*SCREENY)
+
     SCALE = str(SCALEX) + "x" + str(SCALEY)
-
-    MIDPOINTX = str(int(SCREENX * .5))
-    MIDPOINTY = str(int(SCREENY * .5))
-
-    GEOMETRY = ('+0+0', '+'+MIDPOINTX+'+0', '+0+'+MIDPOINTY, '+'+MIDPOINTX+'+'+MIDPOINTY)
-
-    cols = 2
 
     for i,display in enumerate(DISPLAYS):
         row = int(i/cols)
