@@ -6,16 +6,29 @@ vncserver -geometry ${1}x${2} :${4}
 
 export DISPLAY=:${4}
 
-firefox -CreateProfile $4
+# A web browser
+# firefox -CreateProfile $4
+# firefox -no-remote -P $4 -new-window http://www.geogebra.org/cas &
+# bwb=`xwininfo -root -children`
+# while ! echo $bwb | grep Navigator; do
+#    sleep 1
+#    bwb=`xwininfo -root -children`
+# done
+# id=`xwininfo -root -children | grep Navigator | sed 's/^ *//' | cut -d ' ' -f 1`
+# xwit -id $id -resize $1 $2
 
-firefox -no-remote -P $4 -new-window http://www.geogebra.org/cas &
+xournal /home/baccala/math_problems.xoj &
 
-while ! bwb=`xwininfo  -root -children | grep Navigator`; do
-    sleep 1
+bwb=`xwininfo -root -children`
+while ! echo $bwb | grep math_problems; do
+   sleep 1
+   bwb=`xwininfo -root -children`
 done
-
-id=`echo $bwb | sed 's/^ *//' | cut -d ' ' -f 1`
-
+id=`xwininfo -root -children | grep math_problems | sed 's/^ *//' | cut -d ' ' -f 1`
 xwit -id $id -resize $1 $2
 
+sleep 1
+
 /home/baccala/src/osito/raise_hand.py &
+
+# /home/baccala/math_problems.py &
