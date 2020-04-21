@@ -25,7 +25,7 @@ def get_DISPLAYS_and_NAMES_from_SQL():
     # Due to the design of this query, we only get student names, not teachers
 
     #SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name NOT LIKE "%DCPS%"');
-    SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name != "Teacher"');
+    SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name != "Teacher" AND name NOT LIKE "%DCPS%"');
     DISPLAYS.clear()
     NAMES.clear()
 
