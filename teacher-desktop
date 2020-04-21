@@ -157,5 +157,8 @@ def main_loop():
                 if lines[0] == 'r':
                     break
 
+    for proc in processes:
+        proc.kill()
+
 while True:
     main_loop()
