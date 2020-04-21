@@ -11,6 +11,7 @@ import math
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 XKEY = "/home/baccala/src/osito/xkey"
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
+SIMPLE_TEXT = "/home/baccala/src/osito/simple_text.py"
 
 import sqlite3
 conn = sqlite3.connect('/home/baccala/vnc.db')
@@ -128,6 +129,9 @@ def main_loop():
         args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
                 '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
         processes.append(subprocess.Popen(args))
+
+        args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[i], str(int(geox + SCREENX/cols/2)), str(geoy)]
+        processes.append(subprocess.Popen(args2))
 
     freeswitch_set_silence()
 
