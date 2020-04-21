@@ -9,23 +9,12 @@ AddToFunc StartFunction
  + I All ("Tk") Iconify off
  + I All ("Tk") Layer 0 2
 
-DestroyFunc Desktop67
-AddToFunc Desktop67
- + I Exec exec ssvncviewer -title "BWB" -geometry 1476x830 -scale 1476x830 -escape Alt_L -passwd /home/baccala/.vnc/passwd osito:67
- + I Wait "BWB"
- + I All ("BWB") Layer 0 3
-
-DestroyFunc Desktop69
-AddToFunc Desktop69
- + I Exec exec ssvncviewer -title "BWB" -geometry 1476x830 -scale 1476x830 -escape Alt_L -passwd /home/baccala/.vnc/passwd osito:69
- + I Wait "BWB"
- + I All ("BWB") Layer 0 3
-
-DestroyFunc Desktop70
-AddToFunc Desktop70
- + I Exec exec ssvncviewer -title "BWB" -geometry 1476x830 -scale 1476x830 -escape Alt_L -passwd /home/baccala/.vnc/passwd osito:70
- + I Wait "BWB"
- + I All ("BWB") Layer 0 3
+DestroyFunc ZoomDesktop
+AddToFunc ZoomDesktop
+ + I Echo $[w.name]
+ + I Exec exec /home/baccala/src/osito/teacher-zoom "$[w.name]"
+ + I Wait "Zoomed Student Desktop"
+ + I All ("Zoomed Student Desktop") Layer 0 3
 
 
 #Key F1 R A -
@@ -40,9 +29,7 @@ AddToFunc Desktop70
 #Key Tab A A KeyBWB
 #Mouse 1 R A   KeyBWB
 
-Mouse ("*osito:67*") 1 A A   Desktop67
-Mouse ("*osito:69*") 1 A A   Desktop69
-Mouse ("*osito:70*") 1 A A   Desktop70
+Mouse ("*osito:*") 1 A A   ZoomDesktop
 
 # Key (vncviewer) Tab A S Function Key1
 

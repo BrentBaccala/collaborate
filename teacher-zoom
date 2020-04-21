@@ -1,0 +1,7 @@
+#! /bin/sh
+
+STUDENT_DISPLAY=` echo $1 | sed 's/^.*\(osito:[0-9]*\).*/\1/' `
+
+echo $STUDENT_DISPLAY
+
+exec ssvncviewer -title "Zoomed Student Desktop" -geometry 1476x830 -scale 1476x830 -escape Alt_L -passwd /home/baccala/.vnc/passwd $STUDENT_DISPLAY
