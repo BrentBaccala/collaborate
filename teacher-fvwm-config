@@ -1,0 +1,49 @@
+Style * !Title, !Borders, !Handles
+Style * InitialMapCommand Echo hi
+Style Tk StaysOnTop
+
+DestroyFunc StartFunction
+AddToFunc StartFunction
+ + I All ("vncviewer") Layer 0 1
+ + I All ("xterm") Layer 0 0
+ + I All ("Tk") Iconify off
+ + I All ("Tk") Layer 0 2
+
+DestroyFunc Desktop67
+AddToFunc Desktop67
+ + I Exec exec ssvncviewer -title "BWB" -geometry 1476x830 -scale 1476x830 -escape Alt_L -passwd /home/baccala/.vnc/passwd osito:67
+ + I Wait "BWB"
+ + I All ("BWB") Layer 0 3
+
+DestroyFunc Desktop69
+AddToFunc Desktop69
+ + I Exec exec ssvncviewer -title "BWB" -geometry 1476x830 -scale 1476x830 -escape Alt_L -passwd /home/baccala/.vnc/passwd osito:69
+ + I Wait "BWB"
+ + I All ("BWB") Layer 0 3
+
+DestroyFunc Desktop70
+AddToFunc Desktop70
+ + I Exec exec ssvncviewer -title "BWB" -geometry 1476x830 -scale 1476x830 -escape Alt_L -passwd /home/baccala/.vnc/passwd osito:70
+ + I Wait "BWB"
+ + I All ("BWB") Layer 0 3
+
+
+#Key F1 R A -
+#Key Tab A M -
+#Key Escape A MC -
+#Mouse 1 R A   -
+#Mouse 1 T   A -
+#Mouse 1 FS  A -
+#Mouse 2 FST A -
+
+#IgnoreModifiers L12345
+#Key Tab A A KeyBWB
+#Mouse 1 R A   KeyBWB
+
+Mouse ("*osito:67*") 1 A A   Desktop67
+Mouse ("*osito:69*") 1 A A   Desktop69
+Mouse ("*osito:70*") 1 A A   Desktop70
+
+# Key (vncviewer) Tab A S Function Key1
+
+# Module FvwmDebug -m -1 -x -1
