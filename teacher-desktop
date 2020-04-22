@@ -12,6 +12,7 @@ VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewe
 XKEY = "/home/baccala/src/osito/xkey"
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
 SIMPLE_TEXT = "/home/baccala/src/osito/simple_text.py"
+FVWM_CONFIG = "/home/baccala/src/osito/teacher-fvwm-config"
 
 import sqlite3
 conn = sqlite3.connect('/home/baccala/vnc.db')
@@ -133,36 +134,10 @@ def main_loop():
         args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[i], str(int(geox + SCREENX/cols/2)), str(geoy)]
         processes.append(subprocess.Popen(args2))
 
-    freeswitch_set_silence()
+    args = ["fvwm", "-f", FVWM_CONFIG]
+    processes.append(subprocess.Popen(args))
 
-    FULLSCREEN_GEOMETRY = str(SCREENX) + 'x' + str(SCREENY)
+    #for proc in processes:
+    #    proc.kill()
 
-    while True:
-        xkey_process = subprocess.Popen([XKEY, os.environ['DISPLAY']], stdout=subprocess.PIPE)
-        (stdoutdata, stderrdata) = xkey_process.communicate()
-        # print('stdoutdata:', stdoutdata, stderrdata)
-        if stdoutdata:
-            lines = stdoutdata.decode().split()
-            if (len(lines) > 0) :
-                # print(lines[0])
-                if lines[0].isdigit():
-                    xkey_digit = int(lines[0])
-                    # print('xkey_digit:', xkey_digit)
-                    if ((xkey_digit > 0) and (xkey_digit <= len(DISPLAYS))):
-                        viewer = subprocess.Popen(['ssvncviewer', '-geometry', FULLSCREEN_GEOMETRY, '-scale', FULLSCREEN_GEOMETRY, '-escape', 'Alt_L',
-                                               '-passwd', '/home/baccala/.vnc/passwd', DISPLAYS[xkey_digit-1]]);
-                        freeswitch_unmute_student(NAMES[xkey_digit-1])
-                        viewer.wait()
-                        freeswitch_mute_student(NAMES[xkey_digit-1])
-                if lines[0] == 'b':
-                    freeswitch_set_broadcast()
-                if lines[0] == 's':
-                    freeswitch_set_silence()
-                if lines[0] == 'r':
-                    break
-
-    for proc in processes:
-        proc.kill()
-
-while True:
-    main_loop()
+main_loop()

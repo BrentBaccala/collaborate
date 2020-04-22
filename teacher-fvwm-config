@@ -1,5 +1,6 @@
 Style * !Title, !Borders, !Handles
 Style * InitialMapCommand Echo hi
+Style * SloppyFocus
 Style Tk StaysOnTop
 
 DestroyFunc StartFunction
@@ -9,9 +10,13 @@ AddToFunc StartFunction
  + I All ("Tk") Iconify off
  + I All ("Tk") Layer 0 2
 
+# I call StartFunction here because some of these things didn't get
+# put in the right layers, probably because they were mapped after
+# fvwm started
+
 DestroyFunc ZoomDesktop
 AddToFunc ZoomDesktop
- + I Echo $[w.name]
+ + I StartFunction
  + I Exec exec /home/baccala/src/osito/teacher-zoom "$[w.name]"
  + I Wait "Zoomed Student Desktop"
  + I All ("Zoomed Student Desktop") Layer 0 3

@@ -20,11 +20,7 @@ if [ $3 != "true" ]; then
 else
 
     # Teacher version
-    vncserver -geometry ${1}x${2} :${4}
-
-    export DISPLAY=:${4}
-
-    exec ~/src/osito/teacher-desktop $*
+    STARTUP="/home/baccala/src/osito/teacher-desktop $*" vncserver -geometry ${1}x${2} :${4}
 
 fi
 
