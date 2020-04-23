@@ -108,20 +108,36 @@ def freeswitch_mute_student(student_name):
 
 
 
+# 'processes' maps display names to a list of processes associated
+# with them.  Each one will have a vncviewer and a Tk label.
 
-processes = []
+processes = dict()
+
+# 'locations' maps display names to their location in the on-screen grid.
+
+locations = dict()
 
 def main_loop():
 
     global processes
-
-    for proc in processes:
-        proc.kill()
+    global locations
 
     get_DISPLAYS_and_NAMES_from_SQL()
     get_freeswitch_ids()
 
+    old_cols = math.ceil(math.sqrt(len(locations)))
     cols = math.ceil(math.sqrt(len(DISPLAYS)))
+
+    # If the number of clients changed enough to require a resize of
+    # the entire display grid, kill all of our old processes,
+    # triggering a rebuild of the entire display.
+
+    if old_cols != cols:
+        for procs in processes.values():
+            for proc in procs:
+                proc.kill()
+        processes.clear()
+        locations.clear()
 
     SCREENX = int(sys.argv[1])
     SCREENY = int(sys.argv[2])
@@ -131,17 +147,23 @@ def main_loop():
 
     SCALE = str(SCALEX) + "x" + str(SCALEY)
 
-    for i,display in enumerate(DISPLAYS):
-        row = int(i/cols)
-        col = i%cols
-        geox = int(col * SCREENX/cols + .005*SCREENX)
-        geoy = int(row * SCREENY/cols + .005*SCREENY)
-        args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
-                '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
-        processes.append(subprocess.Popen(args))
+    for display in DISPLAYS:
+        if display not in processes:
+            # pick the first screen location not already claimed in locations
+            i = [i for i in range(len(DISPLAYS)) if i not in locations.values()][0]
+            locations[display] = i
 
-        args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[i], str(int(geox + SCREENX/cols/2)), str(geoy)]
-        processes.append(subprocess.Popen(args2))
+            processes[display] = []
+            row = int(i/cols)
+            col = i%cols
+            geox = int(col * SCREENX/cols + .005*SCREENX)
+            geoy = int(row * SCREENY/cols + .005*SCREENY)
+            args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
+                    '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
+            processes[display].append(subprocess.Popen(args))
+
+            args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[i], str(int(geox + SCREENX/cols/2)), str(geoy)]
+            processes[display].append(subprocess.Popen(args2))
 
 
 
