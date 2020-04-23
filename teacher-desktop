@@ -7,15 +7,17 @@ import sys
 import os
 import json
 import math
+import time
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 XKEY = "/home/baccala/src/osito/xkey"
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
 SIMPLE_TEXT = "/home/baccala/src/osito/simple_text.py"
 FVWM_CONFIG = "/home/baccala/src/osito/teacher-fvwm-config"
+VNCDB = "/home/baccala/vnc.db"
 
 import sqlite3
-conn = sqlite3.connect('/home/baccala/vnc.db')
+conn = sqlite3.connect(VNCDB)
 
 c = conn.cursor()
 
@@ -105,12 +107,19 @@ def freeswitch_mute_student(student_name):
         freeswitch_conference_cmd('mute', freeswitch_ids[student_name])
 
 
+
+
+processes = []
+
 def main_loop():
+
+    global processes
+
+    for proc in processes:
+        proc.kill()
 
     get_DISPLAYS_and_NAMES_from_SQL()
     get_freeswitch_ids()
-
-    processes = []
 
     cols = math.ceil(math.sqrt(len(DISPLAYS)))
 
@@ -134,10 +143,17 @@ def main_loop():
         args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[i], str(int(geox + SCREENX/cols/2)), str(geoy)]
         processes.append(subprocess.Popen(args2))
 
-    args = ["fvwm", "-f", FVWM_CONFIG]
-    processes.append(subprocess.Popen(args))
 
-    #for proc in processes:
-    #    proc.kill()
 
-main_loop()
+args = ["fvwm", "-f", FVWM_CONFIG]
+subprocess.Popen(args)
+
+while True:
+    dbstat = os.stat(VNCDB)
+    main_loop()
+    while True:
+        current_dbstat = os.stat(VNCDB)
+        print(current_dbstat.st_mtime)
+        if current_dbstat.st_mtime != dbstat.st_mtime:
+            break
+        time.sleep(.1)
