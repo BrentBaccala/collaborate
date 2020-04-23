@@ -30,16 +30,19 @@ if not m:
 display = m.group(0)
 
 def update_db(filename):
-    f = open(filename, "r")
-    s = f.read()
-    f.close()
-    lines = s.split('\n')
-    got_connections = len([l for l in lines if re.search(r'Got connection', l)])
-    lost_connections = len([l for l in lines if re.search(r'Client [0-9.]* gone', l)])
-    current_connections = got_connections - lost_connections
-    # print(current_connections)
-    cursor.execute('INSERT OR REPLACE INTO Connections(display, count) VALUES (?, ?)', [display, current_connections]);
-    conn.commit()
+    try:
+        f = open(filename, "r")
+        s = f.read()
+        f.close()
+        lines = s.split('\n')
+        got_connections = len([l for l in lines if re.search(r'Got connection', l)])
+        lost_connections = len([l for l in lines if re.search(r'Client [0-9.]* gone', l)])
+        current_connections = got_connections - lost_connections
+        # print(current_connections)
+        cursor.execute('INSERT OR REPLACE INTO Connections(display, count) VALUES (?, ?)', [display, current_connections]);
+        conn.commit()
+    except:
+        pass
 
 def loop_forever(filename):
     last_dbstat = None
