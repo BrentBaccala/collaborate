@@ -15,6 +15,10 @@ if [ $3 != "true" ]; then
 	sudo adduser --gecos ${USER} --disabled-login --force-badname ${USER}
     fi
 
+    # start monitoring Xvnc log file (which hasn't been created yet) to track number of connections
+    # and record the number in a SQL database
+    /home/baccala/src/osito/monitor-vnc-log /home/${USER}/.vnc/osito\:${4}.log &
+
     sudo su ${USER} -c "/home/baccala/src/osito/student-desktop $1 $2 $3 $4 $5"
 
 else
