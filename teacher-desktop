@@ -22,7 +22,7 @@ conn = sqlite3.connect(VNCDB)
 c = conn.cursor()
 
 DISPLAYS = []
-NAMES = []
+NAMES = dict()
 
 def get_DISPLAYS_and_NAMES_from_SQL():
 
@@ -36,7 +36,7 @@ def get_DISPLAYS_and_NAMES_from_SQL():
     for row in SQL_results:
         display = 'osito:' + str(row[0])
         DISPLAYS.append(display)
-        NAMES.append(row[1])
+        NAMES[display] = row[1]
 
 freeswitch_ids = {}
 conference = None
@@ -125,8 +125,16 @@ def main_loop():
     get_DISPLAYS_and_NAMES_from_SQL()
     get_freeswitch_ids()
 
+    VALID_DISPLAYS = []
+    for display in DISPLAYS:
+        SQL_results = list(c.execute('SELECT count FROM Connections WHERE display = ?', [display]))
+        if len(SQL_results) > 0 and SQL_results[0][0] > 0:
+            VALID_DISPLAYS.append(display)
+
     old_cols = math.ceil(math.sqrt(len(locations)))
-    cols = math.ceil(math.sqrt(len(DISPLAYS)))
+    cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
+
+    print('cols:',old_cols,cols)
 
     # If the number of clients changed enough to require a resize of
     # the entire display grid, kill all of our old processes,
@@ -139,31 +147,33 @@ def main_loop():
         processes.clear()
         locations.clear()
 
-    SCREENX = int(sys.argv[1])
-    SCREENY = int(sys.argv[2])
+    if cols > 0:
 
-    SCALEX = int(SCREENX/cols - .01*SCREENX)
-    SCALEY = int(SCREENY/cols - .01*SCREENY)
+        SCREENX = int(sys.argv[1])
+        SCREENY = int(sys.argv[2])
 
-    SCALE = str(SCALEX) + "x" + str(SCALEY)
+        SCALEX = int(SCREENX/cols - .01*SCREENX)
+        SCALEY = int(SCREENY/cols - .01*SCREENY)
 
-    for display in DISPLAYS:
-        if display not in processes:
-            # pick the first screen location not already claimed in locations
-            i = [i for i in range(len(DISPLAYS)) if i not in locations.values()][0]
-            locations[display] = i
+        SCALE = str(SCALEX) + "x" + str(SCALEY)
 
-            processes[display] = []
-            row = int(i/cols)
-            col = i%cols
-            geox = int(col * SCREENX/cols + .005*SCREENX)
-            geoy = int(row * SCREENY/cols + .005*SCREENY)
-            args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
-                    '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
-            processes[display].append(subprocess.Popen(args))
+        for display in VALID_DISPLAYS:
+            if display not in processes:
+                # pick the first screen location not already claimed in locations
+                i = [i for i in range(len(VALID_DISPLAYS)) if i not in locations.values()][0]
+                locations[display] = i
 
-            args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[i], str(int(geox + SCREENX/cols/2)), str(geoy)]
-            processes[display].append(subprocess.Popen(args2))
+                processes[display] = []
+                row = int(i/cols)
+                col = i%cols
+                geox = int(col * SCREENX/cols + .005*SCREENX)
+                geoy = int(row * SCREENY/cols + .005*SCREENY)
+                args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
+                        '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
+                processes[display].append(subprocess.Popen(args))
+
+                args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[display], str(int(geox + SCREENX/cols/2)), str(geoy)]
+                processes[display].append(subprocess.Popen(args2))
 
 
 
