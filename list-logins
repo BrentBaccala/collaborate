@@ -1,0 +1,30 @@
+#!/usr/bin/python3
+
+import json
+import json5
+
+f = open('/home/baccala/.pm2/logs/app-out.log')
+s = f.read()
+f.close()
+
+lines = s.split('\n')
+
+for l in lines:
+    if l.startswith('{'):
+        j = json.loads(l)
+        msg = j['msg']
+        if msg.startswith('we are using user: '):
+            msg = msg.replace('we are using user: ', '').strip()
+            try:
+                j2 = json5.loads(msg.replace('undefined', '\'undefined\''))
+                if 'name' in j2['_json']:
+                    print(j['time'], j2['_json']['name'])
+                elif 'preferred_username' in j2['_json']:
+                    print(j['time'], j2['_json']['preferred_username'])
+                else:
+                    print(j['time'], '????')
+
+            except Exception as e:
+                print(e)
+                print(msg)
+                break
