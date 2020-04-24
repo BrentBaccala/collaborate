@@ -185,7 +185,7 @@ while True:
     main_loop()
     while True:
         current_dbstat = os.stat(VNCDB)
-        print(current_dbstat.st_mtime)
+        #print(current_dbstat.st_mtime)
         if current_dbstat.st_mtime != dbstat.st_mtime:
             break
         time.sleep(.1)
