@@ -1,0 +1,36 @@
+# no window decorations
+Style * !Title, !Borders, !Handles
+
+# focus follows the mouse
+Style * SloppyFocus
+
+# Maximize both whiteboard (Xournal) and web browser (Navigator)
+# when they start.  We don't maximize all the windows because
+# we don't want things like "Raise your hand" maximized.
+# "Tk" windows (like "Raise your hand") go on top.
+
+DestroyFunc MapFunction
+AddToFunc MapFunction
+ + I All ("Tk") Layer 0 6
+ + I All ("Xournal") Maximize True
+ + I All ("Firefox") Maximize True
+ + I All  Echo $[w.name] $[w.class] $[w.layer]
+
+Style * InitialMapCommand MapFunction
+
+# When we start, apply MapFunction to all existing windows
+
+DestroyFunc StartFunction
+AddToFunc StartFunction
+ + I All  MapFunction
+ + I All  Echo $[w.name] $[w.class] $[w.layer]
+
+# disable all default window manager functions
+
+Key F1 R A -
+Key Tab A M -
+Key Escape A MC -
+Mouse 1 R A   -
+Mouse 1 T   A -
+Mouse 1 FS  A -
+Mouse 2 FST A -

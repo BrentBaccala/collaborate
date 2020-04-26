@@ -2,33 +2,35 @@
 
 cd $HOME
 
-vncserver -geometry ${1}x${2} :${4}
+# Old way: we started vncserver here
+# New way: vncserver is called in start-vnc-desktop
 
-export DISPLAY=:${4}
+# vncserver -geometry ${1}x${2} :${4}
+# export DISPLAY=:${4}
 
 # A web browser
-# firefox -CreateProfile $4
-# firefox -no-remote -P $4 -new-window http://www.geogebra.org/cas &
-# bwb=`xwininfo -root -children`
-# while ! echo $bwb | grep Navigator; do
-#    sleep 1
-#    bwb=`xwininfo -root -children`
-# done
-# id=`xwininfo -root -children | grep Navigator | sed 's/^ *//' | cut -d ' ' -f 1`
-# xwit -id $id -resize $1 $2
+#
+# It gives you all kinds of complaint dialogs if it was killed
+# and is being restarted, so that's why I create a new profile
+# named by the number of the X11 desktop.
+#
+# Would be a problem if a student session was killed, and they came back in
+# on the same desktop number after the system cycled around through
+# all of the desktop numbers.
 
+#firefox -CreateProfile $4
+#firefox -no-remote -P $4 -new-window http://www.geogebra.org/cas &
+
+# A white board
 xournal /home/baccala/math_problems.xoj &
 
-bwb=`xwininfo -root -children`
-while ! echo $bwb | grep math_problems; do
-   sleep 1
-   bwb=`xwininfo -root -children`
-done
-id=`xwininfo -root -children | grep math_problems | sed 's/^ *//' | cut -d ' ' -f 1`
-xwit -id $id -resize $1 $2
-
-sleep 1
-
+# The "raise your hand" button in the upper right hand corner
 /home/baccala/src/osito/raise_hand.py &
 
+# Some click-through problems to do in the lower right hand corner
 # /home/baccala/math_problems.py &
+
+# The 'vncserver' line above actually already started a window manager!
+# (so we need '-r')
+
+exec fvwm -f /home/baccala/src/osito/student-fvwm-config

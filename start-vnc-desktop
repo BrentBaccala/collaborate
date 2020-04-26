@@ -19,7 +19,7 @@ if [ $3 != "true" ]; then
     # and record the number in a SQL database
     /home/baccala/src/osito/monitor-vnc-log /home/${USER}/.vnc/osito\:${4}.log &
 
-    sudo su ${USER} -c "/home/baccala/src/osito/student-desktop $1 $2 $3 $4 $5"
+    sudo su ${USER} -c "STARTUP=\"/home/baccala/src/osito/student-desktop $1 $2 $3 $4 $5\" vncserver -geometry ${1}x${2} :${4}"
 
 else
 
