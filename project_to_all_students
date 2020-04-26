@@ -1,0 +1,38 @@
+#!/usr/bin/python
+
+VNCDB = "/home/baccala/vnc.db"
+
+import sys
+import signal
+import subprocess
+import sqlite3
+
+conn = sqlite3.connect(VNCDB)
+
+c = conn.cursor()
+
+DISPLAYS = []
+NAMES = dict()
+
+SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name != "Teacher" AND name NOT LIKE "%DCPS%"');
+
+command = ' '.join(sys.argv[1:])
+
+processes = []
+
+for row in SQL_results:
+    display = 'osito:' + str(row[0])
+    name = row[1].replace(' ','')
+    
+    process_args = ['sudo', 'su', name, '-c', 'DISPLAY=' + display + ' ' + command]
+    processes.append(subprocess.Popen(process_args))
+
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+#    for proc in processes:
+#        proc.kill()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+print('Press Ctrl+C to terminate')
+signal.pause()
