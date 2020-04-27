@@ -33,4 +33,4 @@ xournal /home/baccala/math_problems.xoj &
 # The 'vncserver' line above actually already started a window manager!
 # (so we need '-r')
 
-exec fvwm -f /home/baccala/src/osito/student-fvwm-config
+exec fvwm -r -f /home/baccala/src/osito/student-fvwm-config
