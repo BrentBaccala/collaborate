@@ -11,17 +11,6 @@ AddToFunc StartFunction
  + I All ("Tk") Layer 0 2
  + I All  Echo $[w.name] $[w.class] $[w.layer] ($[w.width]x$[w.height]+$[w.x]+$[w.y])
 
-# I call StartFunction here because some of these things didn't get
-# put in the right layers, probably because they were mapped after
-# fvwm started
-
-DestroyFunc ZoomDesktop
-AddToFunc ZoomDesktop
- + I StartFunction
- + I Exec exec /home/baccala/src/osito/teacher-zoom "$[w.name]"
- + I Wait "Zoomed Student Desktop"
- + I All ("Zoomed Student Desktop") Layer 0 3
-
 # remove all standard FVWM mouse and key mappings
 
 Key F1 R A -
@@ -32,8 +21,38 @@ Mouse 1 T   A -
 Mouse 1 FS  A -
 Mouse 2 FST A -
 
-# comment out zoomed desktop for now, because I'm having trouble with it
-#Mouse ("*osito:*") 1 A A   ZoomDesktop
+# MAJOR FEATURE: when the teacher clicks on a miniaturized student desktop,
+# we launch a "zoomed" view of that desktop that is fully interactive.
+# We need to remove the mouse binding to allow the zoomed view to
+# work right.  When the teacher exits the zoomed view, we replace
+# the mouse binding.
+
+# I call StartFunction here because some of these things didn't get
+# put in the right layers, probably because they were mapped after
+# fvwm started
+
+DestroyFunc ZoomDesktop
+AddToFunc ZoomDesktop
+ + I StartFunction
+ + I Exec exec /home/baccala/src/osito/teacher-zoom "$[w.name]"
+ + I Wait "Zoomed Student Desktop"
+ + I All ("Zoomed Student Desktop") Layer 0 3
+ + I Mouse ("*osito:*") 1 A A   -
+
+Mouse ("*osito:*") 1 A A   ZoomDesktop
+
+# Whenever a window is destroyed, check to see if there are any zoomed
+# desktops left (there should only be one at any time anyway).  If not,
+# replace the ZoomDesktop mouse binding.
+
+DestroyFunc DestroyWindowEvent
+AddToFunc DestroyWindowEvent
+ + I Echo "DestroyWindowEvent"
+ + I None ("Zoomed Student Desktop") Mouse ("*osito:*") 1 A A ZoomDesktop
+
+*FvwmEvent: destroy_window DestroyWindowEvent
+
+Module FvwmEvent
 
 # edge scrolling doesn't work well at all on our VNC-based desktops
 
