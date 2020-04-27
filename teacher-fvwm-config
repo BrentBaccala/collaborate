@@ -31,12 +31,9 @@ Mouse 1 T   A -
 Mouse 1 FS  A -
 Mouse 2 FST A -
 
-#IgnoreModifiers L12345
-#Key Tab A A KeyBWB
-#Mouse 1 R A   KeyBWB
+# comment out zoomed desktop for now, because I'm having trouble with it
+#Mouse ("*osito:*") 1 A A   ZoomDesktop
 
-Mouse ("*osito:*") 1 A A   ZoomDesktop
+# edge scrolling doesn't work well at all on our VNC-based desktops
 
-# Key (vncviewer) Tab A S Function Key1
-
-# Module FvwmDebug -m -1 -x -1
+EdgeScroll 0 0
