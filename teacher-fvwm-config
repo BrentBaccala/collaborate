@@ -9,6 +9,7 @@ AddToFunc StartFunction
  + I All ("xterm") Layer 0 0
  + I All ("Tk") Iconify off
  + I All ("Tk") Layer 0 2
+ + I All  Echo $[w.name] $[w.class] $[w.layer] ($[w.width]x$[w.height]+$[w.x]+$[w.y])
 
 # I call StartFunction here because some of these things didn't get
 # put in the right layers, probably because they were mapped after
