@@ -21,14 +21,15 @@ AddToFunc ZoomDesktop
  + I Wait "Zoomed Student Desktop"
  + I All ("Zoomed Student Desktop") Layer 0 3
 
+# remove all standard FVWM mouse and key mappings
 
-#Key F1 R A -
-#Key Tab A M -
-#Key Escape A MC -
-#Mouse 1 R A   -
-#Mouse 1 T   A -
-#Mouse 1 FS  A -
-#Mouse 2 FST A -
+Key F1 R A -
+Key Tab A M -
+Key Escape A MC -
+Mouse 1 R A   -
+Mouse 1 T   A -
+Mouse 1 FS  A -
+Mouse 2 FST A -
 
 #IgnoreModifiers L12345
 #Key Tab A A KeyBWB
