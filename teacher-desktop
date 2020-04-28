@@ -11,7 +11,6 @@ import time
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 XKEY = "/home/baccala/src/osito/xkey"
-FS_CLI = "/opt/freeswitch/bin/fs_cli"
 SIMPLE_TEXT = "/home/baccala/src/osito/simple_text.py"
 FVWM_CONFIG = "/home/baccala/src/osito/teacher-fvwm-config"
 VNCDB = "/home/baccala/vnc.db"
@@ -38,76 +37,6 @@ def get_DISPLAYS_and_NAMES_from_SQL():
         DISPLAYS.append(display)
         NAMES[display] = row[1]
 
-freeswitch_ids = {}
-conference = None
-
-def get_freeswitch_ids():
-
-    #
-    # Fetch freeswitch conference data and map names to freeswitch id numbers
-    #
-    # We ONLY save student ids, because we don't want to mute/unmute teachers at all
-    #
-
-    global conference
-
-    freeswitch_process = subprocess.Popen([FS_CLI, '-x', 'conference json_list'], stdout=subprocess.PIPE)
-    (stdoutdata, stderrdata) = freeswitch_process.communicate()
-    try:
-        conference = json.loads(stdoutdata.decode())
-    except:
-        conference  = []
-
-    freeswitch_ids.clear()
-
-    if len(conference) > 0:
-        for member in conference[0]['members']:
-            try:
-                member_name = member['caller_id_name'].split('-bbbID-')[1]
-                id = member['id']
-                if 'DCPS' not in member_name:
-                    freeswitch_ids[member_name] = id
-            except:
-                pass
-
-def freeswitch_cmd(cmd):
-    freeswitch_process = subprocess.Popen([FS_CLI, '-x', cmd])
-    freeswitch_process.wait()
-
-def freeswitch_conference_cmd(*cmd):
-    freeswitch_cmd('conference ' + conference[0]['conference_name'] + ' ' + ' '.join(map(str,cmd)))
-
-def freeswitch_set_broadcast():
-    for id in freeswitch_ids.values():
-        freeswitch_conference_cmd('undeaf', id)
-        freeswitch_conference_cmd('unmute', id)
-
-def freeswitch_set_silence():
-    for id in freeswitch_ids.values():
-        freeswitch_conference_cmd('deaf', id)
-        freeswitch_conference_cmd('mute', id)
-
-def freeswitch_set_private(student_name):
-    for id in freeswitch_ids.values():
-        if student_name in freeswitch_ids and freeswitch_ids[student_name] == id:
-            freeswitch_conference_cmd('undeaf', id)
-            freeswitch_conference_cmd('unmute', id)
-        else:
-            freeswitch_conference_cmd('deaf', id)
-            freeswitch_conference_cmd('mute', id)
-
-def freeswitch_unmute_student(student_name):
-    if student_name in freeswitch_ids:
-        freeswitch_conference_cmd('undeaf', freeswitch_ids[student_name])
-        freeswitch_conference_cmd('unmute', freeswitch_ids[student_name])
-
-def freeswitch_mute_student(student_name):
-    if student_name in freeswitch_ids:
-        freeswitch_conference_cmd('deaf', freeswitch_ids[student_name])
-        freeswitch_conference_cmd('mute', freeswitch_ids[student_name])
-
-
-
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
 
@@ -123,7 +52,6 @@ def main_loop():
     global locations
 
     get_DISPLAYS_and_NAMES_from_SQL()
-    get_freeswitch_ids()
 
     VALID_DISPLAYS = []
     for display in DISPLAYS:
