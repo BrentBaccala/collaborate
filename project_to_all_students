@@ -1,4 +1,21 @@
 #!/usr/bin/python
+#
+# "Project" a program to all student desktops by running a separate copy on each student desktop.
+#
+# Usage: project_to_all_students [--exclude=EXCLUDED_STUDENT] COMMAND ARGS
+#
+# I can "project" a screenshare to all students by projecting a VNC viewer, like this:
+#
+# ./project_to_all_students --exclude=BrentBaccala /home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer -viewonly -geometry 1476x830 -scale 1476x830 -passwd ~/.vnc/passwd osito:7
+#
+# I'm using a custom VNC viewer that disables the escape sequence, at least in part
+# (need to check the code to see if its fully disabled).
+#
+# Geometry is screwed up; depends on knowing the geometry on the target desktop!
+#
+# I made my vnc password world-readable so that this projection would work.
+# Better would be for all of the accounts to have different VNC passwords,
+# and only the account being projected makes it password world-readable.
 
 VNCDB = "/home/baccala/vnc.db"
 
@@ -14,18 +31,28 @@ c = conn.cursor()
 DISPLAYS = []
 NAMES = dict()
 
+# Doesn't do anything to exclude displays that are no longer running.
+# They just error out when we try to run the program on them.
+
 SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name != "Teacher" AND name NOT LIKE "%DCPS%"');
 
-command = ' '.join(sys.argv[1:])
+if sys.argv[1].startswith('--exclude='):
+    excluded_student = sys.argv[1].replace('--exclude=', '')
+    command = ' '.join(sys.argv[2:])
+else:
+    excluded_student = None
+    command = ' '.join(sys.argv[1:])
 
 processes = []
 
 for row in SQL_results:
     display = 'osito:' + str(row[0])
     name = row[1].replace(' ','')
+
+    if name != excluded_student:
     
-    process_args = ['sudo', 'su', name, '-c', 'DISPLAY=' + display + ' ' + command]
-    processes.append(subprocess.Popen(process_args))
+        process_args = ['sudo', 'su', name, '-c', 'DISPLAY=' + display + ' ' + command]
+        processes.append(subprocess.Popen(process_args))
 
 def signal_handler(sig, frame):
     print('You pressed Ctrl+C!')
