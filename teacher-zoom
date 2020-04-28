@@ -1,7 +1,20 @@
-#! /bin/sh
+#! /usr/bin/python3
 
-STUDENT_DISPLAY=` echo $1 | sed 's/^.*\(osito:[0-9]*\).*/\1/' `
+import sys
+import re
+import subprocess
 
-echo $STUDENT_DISPLAY
+match = re.search(r'osito:[0-9]*', sys.argv[1])
 
-exec ssvncviewer -title "Zoomed Student Desktop" -geometry 1476x830 -scale 1476x830 -escape Alt_L -passwd /home/baccala/.vnc/passwd $STUDENT_DISPLAY
+if match:
+
+   STUDENT_DISPLAY = match.group(0)
+
+   # XXX Teacher desktop geometry is hard-wired here!
+
+   proc = subprocess.Popen(['ssvncviewer', '-title', 'Zoomed Student Desktop',
+                            '-geometry', '1476x830', '-scale', '1476x830',
+                            '-escape', 'Alt_L', '-passwd', '/home/baccala/.vnc/passwd',
+                            STUDENT_DISPLAY])
+
+   proc.wait()
