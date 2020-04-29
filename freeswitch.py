@@ -48,12 +48,12 @@ def freeswitch_cmd(cmd):
 def freeswitch_conference_cmd(*cmd):
     freeswitch_cmd('conference ' + conference[0]['conference_name'] + ' ' + ' '.join(map(str,cmd)))
 
-def freeswitch_set_broadcast():
+def unmute_all():
     for id in freeswitch_ids.values():
         freeswitch_conference_cmd('undeaf', id)
         freeswitch_conference_cmd('unmute', id)
 
-def freeswitch_set_silence():
+def mute_all():
     for id in freeswitch_ids.values():
         freeswitch_conference_cmd('deaf', id)
         freeswitch_conference_cmd('mute', id)

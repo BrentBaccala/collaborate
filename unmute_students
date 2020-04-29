@@ -5,5 +5,8 @@
 import sys
 import freeswitch
 
-for student in sys.argv[1:]:       
-    freeswitch.unmute_student(student)
+if sys.argv[1] == '-a':
+    freeswitch.unmute_all()
+else:
+    for student in sys.argv[1:]:
+        freeswitch.unmute_student(student)
