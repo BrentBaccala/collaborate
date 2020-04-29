@@ -1,0 +1,9 @@
+#!/usr/bin/python3
+#
+# Mutes (and deafs) a list of students (the names should be squashed, i.e, no spaces)
+
+import sys
+import freeswitch
+
+for student in sys.argv[1:]:       
+    freeswitch.mute_student(student)
