@@ -14,6 +14,7 @@ def get_freeswitch_ids():
     #
     # We ONLY save student ids, because we don't want to mute/unmute teachers at all
     #
+    # We also flatten names by removing spaces
 
     global conference
 
@@ -29,7 +30,7 @@ def get_freeswitch_ids():
     if len(conference) > 0:
         for member in conference[0]['members']:
             try:
-                member_name = member['caller_id_name'].split('-bbbID-')[1]
+                member_name = member['caller_id_name'].split('-bbbID-')[1].replace(' ', '')
                 id = member['id']
                 if 'DCPS' not in member_name:
                     freeswitch_ids[member_name] = id
@@ -37,8 +38,10 @@ def get_freeswitch_ids():
                 pass
 
 get_freeswitch_ids()
+print(freeswitch_ids)
 
 def freeswitch_cmd(cmd):
+    print(cmd)
     freeswitch_process = subprocess.Popen([FS_CLI, '-x', cmd])
     freeswitch_process.wait()
 
