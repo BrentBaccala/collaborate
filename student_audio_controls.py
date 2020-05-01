@@ -4,6 +4,9 @@ import tkinter as tk
 
 window = tk.Tk()
 
+screen_width = window.winfo_screenwidth()
+screen_height = window.winfo_screenheight()
+
 mute_logo = tk.PhotoImage(file="/home/baccala/src/osito/mute_filled_BigBlueButton.ppm")
 deaf_logo = tk.PhotoImage(file="/home/baccala/src/osito/listen_filled_BigBlueButton.ppm")
 
@@ -27,5 +30,7 @@ deaf_button = tk.Label(
 
 mute_button.pack(side="left")
 deaf_button.pack(side="right")
+
+window.geometry("+" + str(int(screen_width/2 - 150)) + "-0")
 
 window.mainloop()
