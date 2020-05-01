@@ -38,7 +38,22 @@ def get_freeswitch_ids():
                 pass
 
 get_freeswitch_ids()
+
+mute_status = {}
+deaf_status = {}
+try:
+    for member in conference[0]['members']:
+        try:
+            mute_status[member['id']] = not member['flags']['can_speak']
+            deaf_status[member['id']] = not member['flags']['can_hear']
+        except:
+            pass
+except:
+    pass
+
 print(freeswitch_ids)
+print('Mute:', mute_status)
+print('Deaf:', deaf_status)
 
 def freeswitch_cmd(cmd):
     print(cmd)
