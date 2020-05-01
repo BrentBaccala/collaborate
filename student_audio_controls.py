@@ -62,7 +62,11 @@ def set_correct_icon_status():
 mute_button.pack(side="left")
 deaf_button.pack(side="right")
 
-window.geometry("+" + str(int(screen_width/2 - 150)) + "-0")
+# Center audio control widget at the bottom of the screen
+# window.geometry("+" + str(int(screen_width/2 - 150)) + "-0")
+
+# Put audio control widget at the bottom right of the screen
+window.geometry("-0-0")
 
 set_correct_icon_status()
 
