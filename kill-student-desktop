@@ -1,0 +1,32 @@
+#!/usr/bin/python3
+#
+# Lookup a student desktop in the SQL database and kill it with vncserver -kill
+#
+# Bash command to allow TAB-completion of username argument:
+#
+# complete -u kill-student-desktop
+
+import sys
+import subprocess
+import sqlite3
+
+VNCDB = "/home/baccala/vnc.db"
+
+conn = sqlite3.connect(VNCDB)
+
+c = conn.cursor()
+
+DISPLAYS = []
+NAMES = dict()
+
+SQL_results = c.execute('SELECT display,name FROM Desktops')
+
+for row in SQL_results:
+    # catch exception since 'name' might be None
+    try:
+        if row[1].replace(' ', '') == sys.argv[1]:
+            print(row)
+            killproc = subprocess.Popen(['sudo', 'su', sys.argv[1], '-c', 'vncserver -kill :' + str(row[0])])
+            killproc.wait()
+    except:
+        pass
