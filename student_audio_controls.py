@@ -53,6 +53,7 @@ hand_button = tk.Label(
 )
 
 def set_correct_icon_status():
+    freeswitch.get_status()
     try:
         if freeswitch.mute_status[freeswitch.freeswitch_ids[username]]:
             mute_button.configure(bg='white')
@@ -69,6 +70,7 @@ def set_correct_icon_status():
             deaf_button.configure(image=deaf_blue_logo)
     except:
         pass
+    window.after(250, set_correct_icon_status)
 
 hand_raised = False
 

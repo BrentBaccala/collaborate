@@ -6,8 +6,10 @@ FS_CLI = "/opt/freeswitch/bin/fs_cli"
 
 freeswitch_ids = {}
 conference = None
+mute_status = {}
+deaf_status = {}
 
-def get_freeswitch_ids():
+def get_status():
 
     #
     # Fetch freeswitch conference data and map names to freeswitch id numbers
@@ -26,6 +28,8 @@ def get_freeswitch_ids():
         conference  = []
 
     freeswitch_ids.clear()
+    mute_status.clear()
+    deaf_status.clear()
 
     if len(conference) > 0:
         for member in conference[0]['members']:
@@ -34,22 +38,12 @@ def get_freeswitch_ids():
                 id = member['id']
                 if 'DCPS' not in member_name:
                     freeswitch_ids[member_name] = id
+                mute_status[member['id']] = not member['flags']['can_speak']
+                deaf_status[member['id']] = not member['flags']['can_hear']
             except:
                 pass
 
-get_freeswitch_ids()
-
-mute_status = {}
-deaf_status = {}
-try:
-    for member in conference[0]['members']:
-        try:
-            mute_status[member['id']] = not member['flags']['can_speak']
-            deaf_status[member['id']] = not member['flags']['can_hear']
-        except:
-            pass
-except:
-    pass
+get_status()
 
 print(freeswitch_ids)
 print('Mute:', mute_status)
