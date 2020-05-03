@@ -74,7 +74,7 @@ def set_correct_icon_status():
 
 hand_raised = False
 
-def handle_click(event):
+def toggle_hand(event):
     global hand_raised
     hand_raised = ~ hand_raised
     if hand_raised:
@@ -84,7 +84,37 @@ def handle_click(event):
         hand_button.configure(bg='white')
         hand_button.configure(image=hand_white_logo)
 
-hand_button.bind("<Button-1>", handle_click)
+def toggle_mute(event):
+    freeswitch.get_status()
+    try:
+        if freeswitch.mute_status[freeswitch.freeswitch_ids[username]]:
+            freeswitch.unmute_student(username)
+            mute_button['bg'] = 'blue'
+            mute_button['image'] = mute_blue_logo
+        else:
+            freeswitch.mute_student(username)
+            mute_button['bg'] = 'white'
+            mute_button['bg'] = mute_white_logo
+    except:
+        pass
+
+def toggle_deaf(event):
+    freeswitch.get_status()
+    try:
+        if freeswitch.deaf_status[freeswitch.freeswitch_ids[username]]:
+            freeswitch.undeaf_student(username)
+            deaf_button['bg'] = 'blue'
+            deaf_button['image'] = deaf_blue_logo
+        else:
+            freeswitch.deaf_student(username)
+            deaf_button['bg'] = 'white'
+            deaf_button['bg'] = deaf_white_logo
+    except:
+        pass
+
+hand_button.bind("<Button-1>", toggle_hand)
+mute_button.bind("<Button-1>", toggle_mute)
+deaf_button.bind("<Button-1>", toggle_deaf)
 
 mute_button.pack(side="left")
 deaf_button.pack(side="left")
