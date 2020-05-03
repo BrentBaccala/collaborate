@@ -24,8 +24,8 @@ cd $HOME
 # A white board
 xournal /home/baccala/math_problems.xoj &
 
-# The "raise your hand" button in the upper right hand corner
-/home/baccala/src/osito/raise_hand.py &
+# Student audio control button
+/home/baccala/src/osito/student_audio_controls.py &
 
 # Some click-through problems to do in the lower right hand corner
 # /home/baccala/math_problems.py &
