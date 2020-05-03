@@ -76,6 +76,18 @@ def freeswitch_set_private(student_name):
             freeswitch_conference_cmd('deaf', id)
             freeswitch_conference_cmd('mute', id)
 
+def is_mute(student_name, default=None):
+    try:
+        return freeswitch.mute_status[freeswitch.freeswitch_ids[student_name]]
+    except:
+        return default
+
+def is_deaf(student_name, default=None):
+    try:
+        return freeswitch.deaf_status[freeswitch.freeswitch_ids[student_name]]
+    except:
+        return default
+
 def unmute_student(student_name):
     if student_name in freeswitch_ids:
         freeswitch_conference_cmd('unmute', freeswitch_ids[student_name])
