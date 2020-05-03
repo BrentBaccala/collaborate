@@ -15,7 +15,7 @@ if match:
 
    print(STUDENT, STUDENT_DISPLAY)
 
-   freeswitch.unmute_student(STUDENT)
+   freeswitch.undeaf_student(STUDENT)
 
    # XXX Teacher desktop geometry is hard-wired here!
 
@@ -28,4 +28,4 @@ if match:
    proc = subprocess.Popen(args)
    proc.wait()
 
-   freeswitch.mute_student(STUDENT)
+   freeswitch.deaf_student(STUDENT)
