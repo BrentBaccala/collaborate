@@ -18,18 +18,22 @@ screen_height = window.winfo_screenheight()
 #
 # convert mute_filled_BigBlueButton.ppm -fill blue -opaque white mute_filled_BigBlueButton_blue.gif
 
-mute_white_logo = tk.PhotoImage(file="/home/baccala/src/osito/mute_filled_BigBlueButton.ppm")
-mute_blue_logo = tk.PhotoImage(file="/home/baccala/src/osito/mute_filled_BigBlueButton_blue.gif")
-deaf_white_logo = tk.PhotoImage(file="/home/baccala/src/osito/listen_filled_BigBlueButton.ppm")
-deaf_blue_logo = tk.PhotoImage(file="/home/baccala/src/osito/listen_filled_BigBlueButton_blue.gif")
-hand_white_logo = tk.PhotoImage(file="/home/baccala/src/osito/hand_BigBlueButton.png")
-hand_blue_logo = tk.PhotoImage(file="/home/baccala/src/osito/hand_BigBlueButton_blue.png")
+button_size = 60
+
+icon_dir = "/home/baccala/src/osito/icons50/"
+
+mute_white_logo = tk.PhotoImage(file=icon_dir + "mute_filled_BigBlueButton.ppm")
+mute_blue_logo = tk.PhotoImage(file=icon_dir + "mute_filled_BigBlueButton_blue.gif")
+deaf_white_logo = tk.PhotoImage(file=icon_dir + "listen_filled_BigBlueButton.ppm")
+deaf_blue_logo = tk.PhotoImage(file=icon_dir + "listen_filled_BigBlueButton_blue.gif")
+hand_white_logo = tk.PhotoImage(file=icon_dir + "hand_BigBlueButton.png")
+hand_blue_logo = tk.PhotoImage(file=icon_dir + "hand_BigBlueButton_blue.png")
 
 mute_button = tk.Label(
     text="MUTE",
     image=mute_white_logo,
-    width=150,
-    height=150,
+    width=button_size,
+    height=button_size,
     bg="white",
     fg="black",
 )
@@ -37,8 +41,8 @@ mute_button = tk.Label(
 deaf_button = tk.Label(
     text="DEAF",
     image=deaf_white_logo,
-    width=150,
-    height=150,
+    width=button_size,
+    height=button_size,
     bg="white",
     fg="black",
 )
@@ -46,8 +50,8 @@ deaf_button = tk.Label(
 hand_button = tk.Label(
     text="HAND",
     image=hand_white_logo,
-    width=150,
-    height=150,
+    width=button_size,
+    height=button_size,
     bg="white",
     fg="black",
 )
@@ -121,7 +125,7 @@ deaf_button.pack(side="left")
 hand_button.pack(side="left")
 
 # Center audio control widget at the bottom of the screen
-# window.geometry("+" + str(int(screen_width/2 - 150)) + "-0")
+# window.geometry("+" + str(int(screen_width/2 - button_size)) + "-0")
 
 # Put audio control widget at the bottom right of the screen
 # window.geometry("-0-0")
