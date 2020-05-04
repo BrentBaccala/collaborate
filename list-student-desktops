@@ -1,0 +1,3 @@
+#! /bin/sh
+
+ps -C Xtightvnc -o pid,user:20,command --cols 120
