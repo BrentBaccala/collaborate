@@ -1,4 +1,18 @@
 #! /usr/bin/python3
+#
+# Usage: teacher-zoom WINDOW-NAME
+#
+# Called from fvwm when a student desktop is clicked in a teacher desktop view,
+# this script is passed the window name of the miniaturized view-only student window
+# on the teacher desktop (which was created by the teacher-desktop script).
+#
+# We decode the window name (which is the default SSVNC window name) to figure
+# out the user name and desktop number in order to launch a full-screen,
+# fully interactive view of the student desktop, so that the teacher can
+# interact with it.
+#
+# We also check to see if the student was deafed, and if so undeaf him/her
+# on entry, then re-deaf the student after the full-screen view exits.
 
 import sys
 import re
@@ -15,7 +29,11 @@ if match:
 
    print(STUDENT, STUDENT_DISPLAY)
 
-   freeswitch.undeaf_student(STUDENT)
+   was_deafed = freeswitch.is_deaf(STUDENT, default=False)
+
+   # If the student was deafed, undeaf him, since we're probably about to talk to him/her
+   if was_deafed:
+      freeswitch.undeaf_student(STUDENT)
 
    # XXX Teacher desktop geometry is hard-wired here!
 
@@ -28,4 +46,6 @@ if match:
    proc = subprocess.Popen(args)
    proc.wait()
 
-   freeswitch.deaf_student(STUDENT)
+   # Re-deaf the student, but ONLY if he/she was deafed originally
+   if was_deafed:
+      freeswitch.deaf_student(STUDENT)
