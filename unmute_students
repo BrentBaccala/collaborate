@@ -5,7 +5,9 @@
 import sys
 import freeswitch
 
-if sys.argv[1] == '-a':
+if len(sys.argv) < 2:
+    print("Specify at least one student name, or -a for all")
+elif sys.argv[1] == '-a':
     freeswitch.unmute_all()
 else:
     for student in sys.argv[1:]:

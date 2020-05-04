@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Mutes (and deafs) a list of students (the names should be squashed, i.e, no spaces)
+# Unmutes (and undeafs) a list of students (the names should be squashed, i.e, no spaces)
 
 import sys
 import freeswitch
@@ -8,7 +8,7 @@ import freeswitch
 if len(sys.argv) < 2:
     print("Specify at least one student name, or -a for all")
 elif sys.argv[1] == '-a':
-    freeswitch.mute_all()
+    freeswitch.undeaf_all()
 else:
     for student in sys.argv[1:]:
-        freeswitch.mute_student(student)
+        freeswitch.undeaf_student(student)

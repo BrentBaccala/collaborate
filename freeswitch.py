@@ -57,16 +57,6 @@ def freeswitch_cmd(cmd):
 def freeswitch_conference_cmd(*cmd):
     freeswitch_cmd('conference ' + conference[0]['conference_name'] + ' ' + ' '.join(map(str,cmd)))
 
-def unmute_all():
-    for id in freeswitch_ids.values():
-        freeswitch_conference_cmd('undeaf', id)
-        freeswitch_conference_cmd('unmute', id)
-
-def mute_all():
-    for id in freeswitch_ids.values():
-        freeswitch_conference_cmd('deaf', id)
-        freeswitch_conference_cmd('mute', id)
-
 def freeswitch_set_private(student_name):
     for id in freeswitch_ids.values():
         if student_name in freeswitch_ids and freeswitch_ids[student_name] == id:
@@ -103,3 +93,19 @@ def undeaf_student(student_name):
 def deaf_student(student_name):
     if student_name in freeswitch_ids:
         freeswitch_conference_cmd('deaf', freeswitch_ids[student_name])
+
+def unmute_all():
+    for id in freeswitch_ids.values():
+        freeswitch_conference_cmd('unmute', id)
+
+def mute_all():
+    for id in freeswitch_ids.values():
+        freeswitch_conference_cmd('mute', id)
+
+def undeaf_all():
+    for id in freeswitch_ids.values():
+        freeswitch_conference_cmd('undeaf', id)
+
+def deaf_all():
+    for id in freeswitch_ids.values():
+        freeswitch_conference_cmd('deaf', id)
