@@ -68,12 +68,24 @@ def main_loop():
     # the entire display grid, kill all of our old processes,
     # triggering a rebuild of the entire display.
 
+    # Otherwise, kill the processes for displays that are no longer
+    # valid.  This is necessary to avoid a situation where we don't
+    # have enough display slots available for the VALID_DISPLAYS,
+    # which would trigger an exception a little later.
+
     if old_cols != cols:
         for procs in processes.values():
             for proc in procs:
                 proc.kill()
         processes.clear()
         locations.clear()
+    else:
+        DEAD_DISPLAYS = [disp for disp in processes.keys() if disp not in VALID_DISPLAYS]
+        for disp in DEAD_DISPLAYS:
+            for proc in processes[disp]:
+                proc.kill()
+            processes.pop(disp)
+            locations.pop(disp)
 
     if cols > 0:
 
