@@ -46,6 +46,7 @@ if match:
    proc = subprocess.Popen(args)
    proc.wait()
 
-   # Re-deaf the student, but ONLY if he/she was deafed originally
+   # Re-deaf and mute the student, but ONLY if he/she was deafed originally
    if was_deafed:
+      freeswitch.mute_student(STUDENT)
       freeswitch.deaf_student(STUDENT)
