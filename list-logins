@@ -1,11 +1,20 @@
 #!/usr/bin/python3
+#
+# Feed all or part of app log from Microsoft authentication app
+# to figure out who logged in and when.
+#
+# I've since realized that the Microsoft authentication app
+# makes log entries even when people are not logged in.
+#
+# Not sure why, but use list-logins-2 instead.
 
+import sys
 import json
 import json5
 
-f = open('/home/baccala/.pm2/logs/app-out.log')
-s = f.read()
-f.close()
+#f = open('/home/baccala/.pm2/logs/app-out.log')
+s = sys.stdin.read()
+#f.close()
 
 lines = s.split('\n')
 
