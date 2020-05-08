@@ -6,7 +6,18 @@ if [ $3 != "true" ]; then
 
     # Student version
 
-    USER=`echo $5 | sed 's/ //g'`       # squash spaces
+    # I've had enough problems with scaling the student desktop geometry that
+    # I now fix it at 1000x600
+
+    #XDIM=$1
+    #YDIM=$2
+    XDIM=1000
+    YDIM=600
+    TEACHER_FLAG=$3
+    XDISPLAY=$4
+    USERNAME=$5
+
+    USER=`echo $USERNAME | sed 's/ //g'`       # squash spaces
 
     if grep -q ^${USER}: /etc/passwd; then
         echo found
@@ -15,11 +26,13 @@ if [ $3 != "true" ]; then
 	sudo adduser --gecos ${USER} --disabled-login --force-badname ${USER}
     fi
 
+    ARGS="$XDIM $YDIM $TEACHER_FLAG $XDISPLAY $USER"
+
     # start monitoring Xvnc log file (which hasn't been created yet) to track number of connections
     # and record the number in a SQL database
-    /home/baccala/src/osito/monitor-vnc-log /home/${USER}/.vnc/osito\:${4}.log &
+    /home/baccala/src/osito/monitor-vnc-log /home/${USER}/.vnc/osito\:${XDISPLAY}.log &
 
-    sudo su ${USER} -c "STARTUP=\"/home/baccala/src/osito/student-desktop $1 $2 $3 $4 $5\" vncserver -geometry ${1}x${2} :${4}"
+    sudo su ${USER} -c "STARTUP=\"/home/baccala/src/osito/student-desktop $ARGS\" vncserver -geometry ${XDIM}x${YDIM} :${XDISPLAY}"
 
 else
 
