@@ -8,40 +8,36 @@ import os
 import json
 import math
 import time
+import psutil
+import re
+import signal
+
+SCREENX = int(sys.argv[1])
+SCREENY = int(sys.argv[2])
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 XKEY = "/home/baccala/src/osito/xkey"
 SIMPLE_TEXT = "/home/baccala/src/osito/simple_text.py"
 FVWM_CONFIG = "/home/baccala/src/osito/teacher-fvwm-config"
-VNCDB = "/home/baccala/vnc.db"
-
-import sqlite3
-conn = sqlite3.connect(VNCDB)
-
-c = conn.cursor()
 
 VALID_DISPLAYS = []
 NAMES = dict()
 
 def get_VALID_DISPLAYS_and_NAMES():
 
-    # Due to the design of this query, we only get student names, not teachers
-
-    #SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name NOT LIKE "%DCPS%"');
-    SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name != "Teacher" AND name NOT LIKE "%DCPS%"');
     VALID_DISPLAYS.clear()
     NAMES.clear()
-    DISPLAYS = []
 
-    for row in SQL_results:
-        display = 'osito:' + str(row[0])
-        DISPLAYS.append(display)
-        NAMES[display] = row[1]
+    # The regex is constructed so that only user names in CamelCase match (i.e, the students)
 
-    for display in DISPLAYS:
-        SQL_results = list(c.execute('SELECT count FROM Connections WHERE display = ?', [display]))
-        if len(SQL_results) > 0 and SQL_results[0][0] > 0:
-            VALID_DISPLAYS.append(display)
+    for proc in psutil.process_iter(['cmdline']):
+        cmdline = proc.info['cmdline']
+        if len(cmdline) > 0 and 'Xtightvnc' in cmdline[0]:
+            m = re.search(r'/home/([A-Z][A-Za-z]*)/\.vnc', ' '.join(cmdline))
+            if m:
+                print(cmdline[1], m.group(1))
+                VALID_DISPLAYS.append(cmdline[1])
+                NAMES[cmdline[1]] = m.group(1)
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
@@ -89,9 +85,6 @@ def main_loop():
 
     if cols > 0:
 
-        SCREENX = int(sys.argv[1])
-        SCREENY = int(sys.argv[2])
-
         SCALEX = int(SCREENX/cols - .01*SCREENX)
         SCALEY = int(SCREENY/cols - .01*SCREENY)
 
@@ -117,10 +110,10 @@ def main_loop():
 
 
 
-args = ["fvwm", "-f", FVWM_CONFIG]
+args = ["fvwm", "-f", FVWM_CONFIG, "-r"]
 subprocess.Popen(args)
 
-while True:
+while False:
     dbstat = os.stat(VNCDB)
     main_loop()
     while True:
@@ -129,3 +122,21 @@ while True:
         if current_dbstat.st_mtime != dbstat.st_mtime:
             break
         time.sleep(.1)
+
+#get_VALID_DISPLAYS_and_NAMES()
+subprocess.Popen(["xsetroot", "-solid", "black"])
+main_loop()
+
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    for procs in processes.values():
+        for proc in procs:
+            proc.kill()
+    subprocess.Popen(["xsetroot", "-solid", "grey"])
+    subprocess.Popen(["fvwm", "-r"])
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+print('Press Ctrl+C to terminate')
+signal.pause()
