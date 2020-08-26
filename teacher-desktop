@@ -20,22 +20,28 @@ conn = sqlite3.connect(VNCDB)
 
 c = conn.cursor()
 
-DISPLAYS = []
+VALID_DISPLAYS = []
 NAMES = dict()
 
-def get_DISPLAYS_and_NAMES_from_SQL():
+def get_VALID_DISPLAYS_and_NAMES():
 
     # Due to the design of this query, we only get student names, not teachers
 
     #SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name NOT LIKE "%DCPS%"');
     SQL_results = c.execute('SELECT display,name FROM Desktops WHERE name != "Teacher" AND name NOT LIKE "%DCPS%"');
-    DISPLAYS.clear()
+    VALID_DISPLAYS.clear()
     NAMES.clear()
+    DISPLAYS = []
 
     for row in SQL_results:
         display = 'osito:' + str(row[0])
         DISPLAYS.append(display)
         NAMES[display] = row[1]
+
+    for display in DISPLAYS:
+        SQL_results = list(c.execute('SELECT count FROM Connections WHERE display = ?', [display]))
+        if len(SQL_results) > 0 and SQL_results[0][0] > 0:
+            VALID_DISPLAYS.append(display)
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
@@ -51,13 +57,7 @@ def main_loop():
     global processes
     global locations
 
-    get_DISPLAYS_and_NAMES_from_SQL()
-
-    VALID_DISPLAYS = []
-    for display in DISPLAYS:
-        SQL_results = list(c.execute('SELECT count FROM Connections WHERE display = ?', [display]))
-        if len(SQL_results) > 0 and SQL_results[0][0] > 0:
-            VALID_DISPLAYS.append(display)
+    get_VALID_DISPLAYS_and_NAMES()
 
     old_cols = math.ceil(math.sqrt(len(locations)))
     cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
