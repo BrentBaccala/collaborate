@@ -22,7 +22,8 @@ cd $HOME
 #firefox -no-remote -P $4 -new-window http://www.geogebra.org/cas &
 
 # A white board
-xournal /home/baccala/math_problems.xoj &
+#xournal /home/baccala/math_problems.xoj &
+xournal $HOME/math_problems.xoj &
 
 # Student audio control button
 /home/baccala/src/osito/student_audio_controls.py &
