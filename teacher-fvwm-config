@@ -26,7 +26,9 @@ Mouse 2 FST A -
 # we launch a "zoomed" view of that desktop that is fully interactive.
 # We need to remove the mouse binding to allow the zoomed view to
 # work right.  When the teacher exits the zoomed view, we replace
-# the mouse binding.
+# the mouse binding.  We also iconify (which means vanish, because
+# icons are turned off) all of the miniaturized viewers and their
+# labels for the duration of the zoom.
 
 # I call StartFunction here because some of these things didn't get
 # put in the right layers, probably because they were mapped after
@@ -35,6 +37,7 @@ Mouse 2 FST A -
 DestroyFunc ZoomDesktop
 AddToFunc ZoomDesktop
  + I StartFunction
+ + I All ("vncviewer|Tk") Iconify on
  + I Exec exec /home/baccala/src/osito/teacher-zoom "$[w.name]"
  + I Wait "Zoomed Student Desktop"
  + I All ("Zoomed Student Desktop") Layer 0 3
@@ -44,12 +47,14 @@ Mouse ("*osito:*") 1 A A   ZoomDesktop
 
 # Whenever a window is destroyed, check to see if there are any zoomed
 # desktops left (there should only be one at any time anyway).  If not,
-# replace the ZoomDesktop mouse binding.
+# replace the ZoomDesktop mouse binding and de-iconify the miniaturized
+# student desktops and their labels.
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
  + I Echo "DestroyWindowEvent"
  + I None ("Zoomed Student Desktop") Mouse ("*osito:*") 1 A A ZoomDesktop
+ + I None ("Zoomed Student Desktop") All ("vncviewer|Tk") Iconify off
 
 *FvwmEvent: destroy_window DestroyWindowEvent
 
