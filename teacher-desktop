@@ -103,15 +103,16 @@ def main_loop():
                 geoy = int(row * SCREENY/cols + .005*SCREENY)
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
                         '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
-                processes[display].append(subprocess.Popen(args))
+                processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
                 args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[display], str(int(geox + SCREENX/cols/2)), str(geoy)]
                 processes[display].append(subprocess.Popen(args2))
 
 
 
+#args = ["/home/baccala/src/fvwm-2.6.5.ds/fvwm/fvwm", "-f", FVWM_CONFIG, "-r"]
 args = ["fvwm", "-f", FVWM_CONFIG, "-r"]
-subprocess.Popen(args)
+fvwm = subprocess.Popen(args)
 
 while False:
     dbstat = os.stat(VNCDB)
@@ -127,16 +128,21 @@ while False:
 subprocess.Popen(["xsetroot", "-solid", "black"])
 main_loop()
 
-def signal_handler(sig, frame):
-    print('You pressed Ctrl+C!')
+def restore_original_state():
     for procs in processes.values():
         for proc in procs:
             proc.kill()
     subprocess.Popen(["xsetroot", "-solid", "grey"])
     subprocess.Popen(["fvwm", "-r"])
+
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    restore_original_state()
     sys.exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 print('Press Ctrl+C to terminate')
-signal.pause()
+fvwm.wait()
+restore_original_state()
+# signal.pause()
