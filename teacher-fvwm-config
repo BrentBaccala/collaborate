@@ -1,8 +1,9 @@
 Style * !Title, !Borders, !Handles
-Style * InitialMapCommand Echo hi
 Style * SloppyFocus
 Style * NoIcon
 Style Tk StaysOnTop
+
+DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
 DestroyFunc StartFunction
 AddToFunc StartFunction
@@ -10,7 +11,6 @@ AddToFunc StartFunction
  + I All ("Tk") Iconify off
  + I All ("Tk") Layer 0 2
  + I All (!"vncviewer|Tk") Iconify on
- + I All  Echo $[w.name] $[w.class] $[w.layer] ($[w.width]x$[w.height]+$[w.x]+$[w.y])
 
 # remove all standard FVWM mouse and key mappings
 
@@ -21,6 +21,15 @@ Mouse 1 R A   -
 Mouse 1 T   A -
 Mouse 1 FS  A -
 Mouse 2 FST A -
+
+# We exit teacher mode by terminating FVWM.  The teacher-desktop
+# script detects this, shuts down all the windows created in
+# teacher mode, and starts a new FVWM with a standard config.
+
+AddToMenu TeacherMenu      "Teacher Mode"     Title
++                          "Exit Teacher Mode"         Quit
+
+Mouse 3 A       A       Menu TeacherMenu Nop
 
 # MAJOR FEATURE: when the teacher clicks on a miniaturized student desktop,
 # we launch a "zoomed" view of that desktop that is fully interactive.
@@ -52,7 +61,6 @@ Mouse ("*osito:*") 1 A A   ZoomDesktop
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
- + I Echo "DestroyWindowEvent"
  + I None ("Zoomed Student Desktop") Mouse ("*osito:*") 1 A A ZoomDesktop
  + I None ("Zoomed Student Desktop") All ("vncviewer|Tk") Iconify off
 
