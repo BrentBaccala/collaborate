@@ -1,13 +1,23 @@
 
 import subprocess
 import json
+from lxml import etree
 
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
+
+XML_CONF = "/opt/freeswitch/conf/autoload_configs/event_socket.conf.xml"
 
 freeswitch_ids = {}
 conference = None
 mute_status = {}
 deaf_status = {}
+
+# get freeswitch authentication
+
+with open(XML_CONF) as file:
+    xml = etree.fromstring(file.read())
+    freeswitch_pw = xml.xpath(".//param[@name='password']/@value")[0]
+
 
 def get_status():
 
@@ -20,7 +30,7 @@ def get_status():
 
     global conference
 
-    freeswitch_process = subprocess.Popen([FS_CLI, '-x', 'conference json_list'], stdout=subprocess.PIPE)
+    freeswitch_process = subprocess.Popen([FS_CLI, '-p', freeswitch_pw, '-x', 'conference json_list'], stdout=subprocess.PIPE)
     (stdoutdata, stderrdata) = freeswitch_process.communicate()
     try:
         conference = json.loads(stdoutdata.decode())
@@ -51,7 +61,7 @@ print('Deaf:', deaf_status)
 
 def freeswitch_cmd(cmd):
     print(cmd)
-    freeswitch_process = subprocess.Popen([FS_CLI, '-x', cmd])
+    freeswitch_process = subprocess.Popen([FS_CLI, '-p', freeswitch_pw, '-x', cmd])
     freeswitch_process.wait()
 
 def freeswitch_conference_cmd(*cmd):
