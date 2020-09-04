@@ -1,0 +1,73 @@
+Style * !Title, !Borders, !Handles
+Style * SloppyFocus
+Style * NoIcon
+Style Tk StaysOnTop
+
+DefaultFont "xft:Sans:Bold:size=20:antialias=True"
+
+DestroyFunc StartFunction
+AddToFunc StartFunction
+ + I All ("vncviewer") Layer 0 1
+ + I All ("Tk") Iconify off
+ + I All ("Tk") Layer 0 2
+ + I All (!"vncviewer|Tk") Iconify on
+
+# remove all standard FVWM mouse and key mappings
+
+Key F1 R A -
+Key Tab A M -
+Key Escape A MC -
+Mouse 1 R A   -
+Mouse 1 T   A -
+Mouse 1 FS  A -
+Mouse 2 FST A -
+
+# We exit teacher mode by terminating FVWM.  The teacher-desktop
+# script detects this, shuts down all the windows created in
+# teacher mode, and starts a new FVWM with a standard config.
+
+AddToMenu TeacherMenu      "Teacher Mode"     Title
++                          "Exit Teacher Mode"         Quit
+
+Mouse 3 A       A       Menu TeacherMenu Nop
+
+# MAJOR FEATURE: when the teacher clicks on a miniaturized student desktop,
+# we launch a "zoomed" view of that desktop that is fully interactive.
+# We need to remove the mouse binding to allow the zoomed view to
+# work right.  When the teacher exits the zoomed view, we replace
+# the mouse binding.  We also iconify (which means vanish, because
+# icons are turned off) all of the miniaturized viewers and their
+# labels for the duration of the zoom.
+
+# I call StartFunction here because some of these things didn't get
+# put in the right layers, probably because they were mapped after
+# fvwm started
+
+DestroyFunc ZoomDesktop
+AddToFunc ZoomDesktop
+ + I StartFunction
+ + I All ("vncviewer|Tk") Iconify on
+ + I Exec exec /home/baccala/src/osito/teacher-zoom "$[w.name]"
+ + I Wait "Zoomed Student Desktop"
+ + I All ("Zoomed Student Desktop") Layer 0 3
+ + I Mouse ("*osito:*") 1 A A   -
+
+Mouse ("*osito:*") 1 A A   ZoomDesktop
+
+# Whenever a window is destroyed, check to see if there are any zoomed
+# desktops left (there should only be one at any time anyway).  If not,
+# replace the ZoomDesktop mouse binding and de-iconify the miniaturized
+# student desktops and their labels.
+
+DestroyFunc DestroyWindowEvent
+AddToFunc DestroyWindowEvent
+ + I None ("Zoomed Student Desktop") Mouse ("*osito:*") 1 A A ZoomDesktop
+ + I None ("Zoomed Student Desktop") All ("vncviewer|Tk") Iconify off
+
+*FvwmEvent: destroy_window DestroyWindowEvent
+
+Module FvwmEvent
+
+# edge scrolling doesn't work well at all on our VNC-based desktops
+
+EdgeScroll 0 0

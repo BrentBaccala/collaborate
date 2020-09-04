@@ -42,12 +42,30 @@ classroom based on Big Blue Button and VNC remote desktops.
 
 1. In the clone's bigbluebutton-html5 directory, run `npm start`
 
-   You should now have a working Big Blue Button installation with a new menu option to "share remote desktop"
+   You should now have a working Big Blue Button installation with a new menu option to "share remote desktop".
 
-1. `apt install fvwm` (the window manager)
+   To keep `npm start` running, I either run it in a `screen` session, or install `pm2` and run it from there (how?).
 
-1. `apt install tightvncserver` and start a VNC remote desktop with `vncserver`
+   `pm2` can be made persistent pretty easily (run `pm2 startup` for instructions)
 
-1. `apt install websockify` and start websockify to relay WebSock connections to the VNC server
+1. Now for this scripts in this repository
 
-1. from a Big Blue Button session, "share remote desktop" and use the URL "wss://HOST:PORT/"
+   Start with `sudo apt install fvwm tightvncserver websockify` to install the dependencies
+
+1. Copy (or symlink) the `teacher-fvwm-config` script to the teacher account's `.fvwm/config` file
+
+1. Start the teacher's VNC desktop with `vncserver`
+
+   The first time it will prompt you to set a password.  A view-only password is not really recommended,
+   since we almost always want to interact with our desktops from Big Blue Button.
+
+1. `apt install websockify` and start websockify to relay WebSock connections to the VNC server, something like this:
+
+   `websockify --ssl-only --cert $HOME/ssl/fullchain.pem --key $HOME/ssl/privkey.pem 6101 localhost:5901`
+
+   Notice that special arrangements have been made (I copied the SSL keys and certs into my home directory)
+   to enable encrypted connections.
+
+1. From a Big Blue Button session, "share remote desktop" and use the URL "wss://HOST:PORT/?password=PASSWORD"
+
+   At this point, the teacher desktop should be working.

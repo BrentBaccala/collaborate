@@ -18,7 +18,7 @@ SCREENY = int(sys.argv[2])
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 XKEY = "/home/baccala/src/osito/xkey"
 SIMPLE_TEXT = "/home/baccala/src/osito/simple_text.py"
-FVWM_CONFIG = "/home/baccala/src/osito/teacher-fvwm-config"
+FVWM_CONFIG = "/home/baccala/src/osito/teacher-fvwm-config-2"
 
 VALID_DISPLAYS = []
 NAMES = dict()
