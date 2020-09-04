@@ -35,6 +35,8 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    This downloads and installs the various node.js dependencies.
 
+1. We also need `meteor npm install --save bowser` at the moment
+
 1. Install Meteor: `curl https://install.meteor.com/ | sh`
 
 1. Select Meteor 1.8: `meteor update --allow-superuser --release 1.8`
@@ -44,6 +46,8 @@ classroom based on Big Blue Button and VNC remote desktops.
    ``WSURL=`yq r /usr/share/meteor/bundle/programs/server/assets/app/config/settings.yml public.kurento.wsUrl` ``
 
    `sed -i.bak "s|\bHOST\b|$WSURL|" private/config/settings.yml`
+
+1. Install Meteor dependencies: `meteor npm install`
 
 1. Shut down the standard bbb-html5 service
 
@@ -59,24 +63,29 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    `pm2` can be made persistent pretty easily (run `pm2 startup` for instructions)
 
-1. Now for this scripts in this repository
+1. Now clone this repository
 
-   Start with `sudo apt install fvwm tightvncserver websockify` to install the dependencies
+1. Install dependencies: `sudo apt install fvwm tightvncserver websockify`
 
 1. Copy (or symlink) the `teacher-fvwm-config` script to the teacher account's `.fvwm/config` file
 
-1. Start the teacher's VNC desktop with `vncserver`
+1. Start the teacher's VNC desktop with `vncserver` with something like:
+
+   `vncserver -geometry 1024x768 :1`
 
    The first time it will prompt you to set a password.  A view-only password is not really recommended,
    since we almost always want to interact with our desktops from Big Blue Button.
 
-1. `apt install websockify` and start websockify to relay WebSock connections to the VNC server, something like this:
+1. Start websockify to relay WebSock connections to the VNC server, something like this:
 
-   `websockify --ssl-only --cert $HOME/ssl/fullchain.pem --key $HOME/ssl/privkey.pem 6101 localhost:5901`
+   `websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem 6101 localhost:5901`
 
-   Notice that special arrangements have been made (I copied the SSL keys and certs into my home directory)
+   Notice that special arrangements have been made (I copied the SSL keys and certs from
+   `/etc/letsencrypt/archive` into my home directory)
    to enable encrypted connections.
 
 1. From a Big Blue Button session, "share remote desktop" and use the URL "wss://HOST:PORT/?password=PASSWORD"
+
+   If you're following the example, PORT is 6101.
 
    At this point, the teacher desktop should be working.
