@@ -5,9 +5,9 @@ classroom based on Big Blue Button and VNC remote desktops.
 
 1. Install Big Blue Button
 
-My most reliable configuration uses the bbb-install script on an Amazon EC2 instance.
+   My most reliable configuration uses the bbb-install script on an Amazon EC2 instance.
 
-SSL configuration is required
+   SSL configuration is required
 
 1. Configure authentication into Big Blue Button
 
