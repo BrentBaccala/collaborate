@@ -41,7 +41,7 @@ classroom based on Big Blue Button and VNC remote desktops.
 
 1. Update the Kurento URL in the settings file:
 
-   ``WSURL=`yq r /usr/share/meteor/bundle/programs/server/assets/app/config/settings.yml public.kurento.wsUrl```
+   ``WSURL=`yq r /usr/share/meteor/bundle/programs/server/assets/app/config/settings.yml public.kurento.wsUrl` ``
 
    `sed -i.bak "s|\bHOST\b|$WSURL|" private/config/settings.yml`
 
