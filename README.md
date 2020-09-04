@@ -7,7 +7,8 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    My most reliable configuration uses the bbb-install script from the bigbluebutton/bbb-install
    repository on an Amazon EC2 instance running Ubuntu 16.  Start an c5.2xlarge instance
-   based on ami-05e16100b6f337dda (standard Ubuntu 16), arrange for a DNS name to point
+   based on ami-05e16100b6f337dda (standard Ubuntu 16), at least 16 GB disk space (12 GB is required
+   for bare-bones installation), a fairly open security group, arrange for a DNS name to point
    to the instance (I control freesoft.org and use Google dynamic DNS; the ddclient
    program runs on my instance to register the IP address with Google), then download
    and run bbb-install, something like this:
@@ -18,21 +19,31 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    `sudo ./bbb-install.sh -v xenial-22 -s collaborate.freesoft.org -d`
 
-   SSL configuration is required
+   SSL configuration is required for proper operation of Big Blue Button.
 
 1. Configure authentication into Big Blue Button
 
    There are many ways to do this.  Installing Greenlight by adding the -g switch to
    the bbb-install.sh call is probably the simplest.  Check the Greenlight documentation
-   for more information about what to do next (like adding users).
+   for more information about what to do next (like adding users).  The default
+   Greenlight configuration allows anybody to sign up as a user, but moderators
+   need to be added from the command line.
 
-1. Clone the BrentBaccala/bigbluebutton repository
+1. Clone the [BrentBaccala/bigbluebutton](https://github.com/BrentBaccala/bigbluebutton) repository (not this one)
 
-1. In the repository clone's bigbluebutton-html5 directory, run `npm install`
+1. In the repository clone's bigbluebutton-html5 directory, run `npm install npm-force-resolutions`, then `npm install`
 
    This downloads and installs the various node.js dependencies.
 
-   You'll also need to get the `noVNC-node` repository from my github - currently points to a local source directory.
+1. Install Meteor: `curl https://install.meteor.com/ | sh`
+
+1. Select Meteor 1.8: `meteor update --allow-superuser --release 1.8`
+
+1. Update the Kurento URL in the settings file:
+
+   `WSURL=`yq r /usr/share/meteor/bundle/programs/server/assets/app/config/settings.yml public.kurento.wsUrl``
+
+   `sed -i.bak "s|\bHOST\b|$WSURL|" private/config/settings.yml`
 
 1. Shut down the standard bbb-html5 service
 
