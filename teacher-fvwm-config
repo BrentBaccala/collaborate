@@ -32,7 +32,7 @@ AddToMenu RootMenu      "Root Menu"     Title
 +			"Firefox"		Exec exec firefox
 +			"Whiteboard"		Exec exec xournal
 +                       ""              Nop
-+                       "   Teacher Mode"         Exec exec /home/baccala/src/osito/teacher-desktop $[vp.width] $[vp.height]
++                       "   Teacher Mode"         Exec python3 -m vnc_collaborate teacher_desktop $[vp.width] $[vp.height]
 +                       ""              Nop
 # +                       "Utilities"     Popup Utilities
 # +                       ""              Nop

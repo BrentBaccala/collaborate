@@ -1,6 +1,5 @@
-#!/usr/bin/python3
 #
-# Usage: teacher-desktop MAX-DIMENSION MIN-DIMENSION IS-TEACHER-FLAG X-DESKTOP-NUMBER USER-NAME
+# Usage: teacher-desktop(MAX-DIMENSION, MIN-DIMENSION)
 
 import subprocess
 import sys
@@ -11,9 +10,6 @@ import time
 import psutil
 import re
 import signal
-
-SCREENX = int(sys.argv[1])
-SCREENY = int(sys.argv[2])
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 XKEY = "/home/baccala/src/osito/xkey"
@@ -110,24 +106,6 @@ def main_loop():
 
 
 
-#args = ["/home/baccala/src/fvwm-2.6.5.ds/fvwm/fvwm", "-f", FVWM_CONFIG, "-r"]
-args = ["fvwm", "-f", FVWM_CONFIG, "-r"]
-fvwm = subprocess.Popen(args)
-
-while False:
-    dbstat = os.stat(VNCDB)
-    main_loop()
-    while True:
-        current_dbstat = os.stat(VNCDB)
-        #print(current_dbstat.st_mtime)
-        if current_dbstat.st_mtime != dbstat.st_mtime:
-            break
-        time.sleep(.1)
-
-#get_VALID_DISPLAYS_and_NAMES()
-subprocess.Popen(["xsetroot", "-solid", "black"])
-main_loop()
-
 def restore_original_state():
     for procs in processes.values():
         for proc in procs:
@@ -140,9 +118,25 @@ def signal_handler(sig, frame):
     restore_original_state()
     sys.exit(0)
 
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
-print('Press Ctrl+C to terminate')
-fvwm.wait()
-restore_original_state()
-# signal.pause()
+def teacher_desktop(screenx, screeny):
+
+    global SCREENX, SCREENY
+
+    SCREENX = int(screenx)
+    SCREENY = int(screeny)
+
+    #args = ["/home/baccala/src/fvwm-2.6.5.ds/fvwm/fvwm", "-f", FVWM_CONFIG, "-r"]
+    args = ["fvwm", "-f", FVWM_CONFIG, "-r"]
+    fvwm = subprocess.Popen(args)
+
+    #get_VALID_DISPLAYS_and_NAMES()
+    subprocess.Popen(["xsetroot", "-solid", "black"])
+    main_loop()
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    print('Press Ctrl+C to terminate')
+    fvwm.wait()
+    restore_original_state()
+    # signal.pause()
+
