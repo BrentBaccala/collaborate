@@ -47,7 +47,7 @@ DestroyFunc ZoomDesktop
 AddToFunc ZoomDesktop
  + I StartFunction
  + I All ("vncviewer|Tk") Iconify on
- + I Exec exec /home/baccala/src/osito/teacher-zoom "$[w.name]"
+ + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]"
  + I Wait "Zoomed Student Desktop"
  + I All ("Zoomed Student Desktop") Layer 0 3
  + I Mouse ("*osito:*") 1 A A   -

@@ -3,7 +3,7 @@
 # Unmutes (and undeafs) a list of students (the names should be squashed, i.e, no spaces)
 
 import sys
-import freeswitch
+from vnc_collaborate import freeswitch
 
 if len(sys.argv) < 2:
     print("Specify at least one student name, or -a for all")

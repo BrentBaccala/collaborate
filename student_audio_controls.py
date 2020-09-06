@@ -5,7 +5,7 @@ import os
 
 import tkinter as tk
 
-import freeswitch
+from vnc_collaborate import freeswitch
 
 username = os.environ['USER']
 

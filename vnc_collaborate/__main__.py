@@ -2,6 +2,8 @@
 import sys
 from vnc_collaborate import *
 
+# print('vnc_collaborate:', sys.argv)
+
 try:
     import importlib.resources as pkg_resources
 except ImportError:
@@ -10,7 +12,9 @@ except ImportError:
     import importlib_resources as pkg_resources
 
 if sys.argv[1] == 'teacher_desktop':
-    teacher_desktop(sys.argv[2], sys.argv[3])
+    teacher_desktop(*sys.argv[2:])
+elif sys.argv[1] == 'teacher_zoom':
+    teacher_zoom(*sys.argv[2:])
 elif sys.argv[1] == 'print':
     if sys.argv[2] =='teacher_mode_fvwm_config':
         print(pkg_resources.read_text(__package__, 'teacher-mode-fvwm-config'))
