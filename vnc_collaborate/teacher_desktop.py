@@ -2,6 +2,8 @@
 # Usage: teacher-desktop(MAX-DIMENSION, MIN-DIMENSION)
 
 import subprocess
+import multiprocessing
+
 import sys
 import os
 import json
@@ -11,9 +13,9 @@ import psutil
 import re
 import signal
 
+from .simple_text import simple_text
+
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
-XKEY = "/home/baccala/src/osito/xkey"
-SIMPLE_TEXT = "/home/baccala/src/osito/simple_text.py"
 
 VALID_DISPLAYS = []
 NAMES = dict()
@@ -43,6 +45,18 @@ processes = dict()
 
 locations = dict()
 
+def kill_processes(list_of_procs):
+    r"""
+    Kills a list of processes that were created with either
+    subprocess.Popen or multiprocessing.Process
+    """
+
+    for proc in list_of_procs:
+        if isinstance(proc, subprocess.Popen):
+            proc.kill()
+        elif isinstance(proc, multiprocessing.Process):
+            proc.terminate()
+
 def main_loop():
 
     global processes
@@ -66,15 +80,13 @@ def main_loop():
 
     if old_cols != cols:
         for procs in processes.values():
-            for proc in procs:
-                proc.kill()
+            kill_processes(procs)
         processes.clear()
         locations.clear()
     else:
         DEAD_DISPLAYS = [disp for disp in processes.keys() if disp not in VALID_DISPLAYS]
         for disp in DEAD_DISPLAYS:
-            for proc in processes[disp]:
-                proc.kill()
+            kill_processes(processes[disp])
             processes.pop(disp)
             locations.pop(disp)
 
@@ -100,16 +112,14 @@ def main_loop():
                         '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
-                args2 = [SIMPLE_TEXT, str(i+1) + ". " + NAMES[display], str(int(geox + SCREENX/cols/2)), str(geoy)]
-                processes[display].append(subprocess.Popen(args2))
+                processes[display].append(simple_text(str(i+1) + ". " + NAMES[display], geox + SCREENX/cols/2, geoy))
 
 
 
 def restore_original_state():
     for procs in processes.values():
-        for proc in procs:
-            proc.kill()
-    subprocess.Popen(["xsetroot", "-solid", "grey"])
+        kill_processes(procs)
+    subprocess.Popen(["xsetroot", "-solid", "grey"]).wait()
     subprocess.Popen(["fvwm", "-r"])
 
 def signal_handler(sig, frame):
