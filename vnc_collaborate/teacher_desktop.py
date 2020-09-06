@@ -14,7 +14,6 @@ import signal
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 XKEY = "/home/baccala/src/osito/xkey"
 SIMPLE_TEXT = "/home/baccala/src/osito/simple_text.py"
-FVWM_CONFIG = "/home/baccala/src/osito/teacher-fvwm-config-2"
 
 VALID_DISPLAYS = []
 NAMES = dict()
@@ -125,12 +124,15 @@ def teacher_desktop(screenx, screeny):
     SCREENX = int(screenx)
     SCREENY = int(screeny)
 
-    #args = ["/home/baccala/src/fvwm-2.6.5.ds/fvwm/fvwm", "-f", FVWM_CONFIG, "-r"]
-    args = ["fvwm", "-f", FVWM_CONFIG, "-r"]
+    # When switching to teacher mode, we completely replace the FVWM window manager with a new
+    # instance using a completely different config, then switch back to the original config
+    # (using yet another new FVWM instance) when we're not.  Not ideal, but it works.
+
+    args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
     fvwm = subprocess.Popen(args)
 
     #get_VALID_DISPLAYS_and_NAMES()
-    subprocess.Popen(["xsetroot", "-solid", "black"])
+    subprocess.Popen(["xsetroot", "-solid", "black"]).wait()
     main_loop()
 
     signal.signal(signal.SIGINT, signal_handler)
