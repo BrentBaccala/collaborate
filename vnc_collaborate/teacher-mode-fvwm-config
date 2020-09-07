@@ -41,7 +41,9 @@ Mouse 3 A       A       Menu TeacherMenu Nop
 # work right.  When the teacher exits the zoomed view, we replace
 # the mouse binding.  We also iconify (which means vanish, because
 # icons are turned off) all of the miniaturized viewers and their
-# labels for the duration of the zoom.
+# labels for the duration of the zoom.  We also disable the
+# right-click menu while in the zoomed desktop; it should only
+# work from the overview mode.
 
 # I call StartFunction here because some of these things didn't get
 # put in the right layers, probably because they were mapped after
@@ -51,6 +53,7 @@ DestroyFunc ZoomDesktop
 AddToFunc ZoomDesktop
  + I StartFunction
  + I All ("vncviewer|Tk") Iconify on
+ + I Mouse 3 A  A  -
  + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]"
  + I Wait "Zoomed Student Desktop"
  + I All ("Zoomed Student Desktop") Layer 0 3
@@ -60,12 +63,13 @@ Mouse ("*osito:*") 1 A A   ZoomDesktop
 
 # Whenever a window is destroyed, check to see if there are any zoomed
 # desktops left (there should only be one at any time anyway).  If not,
-# replace the ZoomDesktop mouse binding and de-iconify the miniaturized
-# student desktops and their labels.
+# replace the ZoomDesktop mouse binding and the TeacherMenu mouse binding,
+# and de-iconify the miniaturized student desktops and their labels.
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
  + I None ("Zoomed Student Desktop") Mouse ("*osito:*") 1 A A ZoomDesktop
+ + I None ("Zoomed Student Desktop") Mouse 3 A  A  Menu TeacherMenu Nop
  + I None ("Zoomed Student Desktop") All ("vncviewer|Tk") Iconify off
 
 *FvwmEvent: destroy_window DestroyWindowEvent
