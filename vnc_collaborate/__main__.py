@@ -16,8 +16,18 @@ if len(sys.argv) > 1:
         teacher_desktop(*sys.argv[2:])
     elif sys.argv[1] == 'teacher_zoom':
         teacher_zoom(*sys.argv[2:])
+    elif sys.argv[1] == 'undeaf_students':
+        undeaf_students(sys.argv[2:])
+    elif sys.argv[1] == 'deaf_students':
+        deaf_students(sys.argv[2:])
+    elif sys.argv[1] == 'unmute_students':
+        unmute_students(sys.argv[2:])
+    elif sys.argv[1] == 'mute_students':
+        mute_students(sys.argv[2:])
     elif sys.argv[1] == 'print':
         if sys.argv[2] =='teacher_mode_fvwm_config':
             print(pkg_resources.read_text(__package__, 'teacher-mode-fvwm-config'))
         elif sys.argv[2] =='teacher_fvwm_config':
             print(pkg_resources.read_text(__package__, 'teacher-fvwm-config'))
+    else:
+        print("Unknown operation:", sys.argv[1])

@@ -127,3 +127,21 @@ def deaf_all():
     get_status()
     for id in freeswitch_ids.values():
         freeswitch_conference_cmd('deaf', id)
+
+def cmdline_operation(one_student_func, all_students_func, students):
+    if len(students) == 0:
+        print("Specify at least one student name, or -a for all")
+    elif students[0] == '-a':
+        all_students_func()
+    else:
+        for student in students:
+            one_student_func(student)
+
+def undeaf_students(students):
+    cmdline_operation(undeaf_student, undeaf_all, students)
+def deaf_students(students):
+    cmdline_operation(deaf_student, deaf_all, students)
+def unmute_students(students):
+    cmdline_operation(unmute_student, unmute_all, students)
+def mute_students(students):
+    cmdline_operation(mute_student, mute_all, students)

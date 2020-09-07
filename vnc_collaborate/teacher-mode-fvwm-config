@@ -27,6 +27,10 @@ Mouse 2 FST A -
 # teacher mode, and starts a new FVWM with a standard config.
 
 AddToMenu TeacherMenu      "Teacher Mode"     Title
++                       ""              Nop
++                          "Undeaf All Students"      Exec python3 -m vnc_collaborate undeaf_students -a
++                          "Deaf All Students"        Exec python3 -m vnc_collaborate deaf_students -a
++                       ""              Nop
 +                          "Exit Teacher Mode"         Quit
 
 Mouse 3 A       A       Menu TeacherMenu Nop
