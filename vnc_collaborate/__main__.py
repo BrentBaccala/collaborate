@@ -16,6 +16,8 @@ if len(sys.argv) > 1:
         teacher_desktop(*sys.argv[2:])
     elif sys.argv[1] == 'teacher_zoom':
         teacher_zoom(*sys.argv[2:])
+    elif sys.argv[1] == 'student_audio_controls':
+        student_audio_controls(*sys.argv[2:])
     elif sys.argv[1] == 'undeaf_students':
         undeaf_students(sys.argv[2:])
     elif sys.argv[1] == 'deaf_students':
