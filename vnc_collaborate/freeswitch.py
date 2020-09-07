@@ -1,6 +1,7 @@
 
 import subprocess
 import json
+import re
 from lxml import etree
 
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
@@ -44,12 +45,17 @@ def get_status():
     if len(conference) > 0:
         for member in conference[0]['members']:
             try:
-                member_name = member['caller_id_name'].split('-bbbID-')[1].replace(' ', '')
-                id = member['id']
-                if 'DCPS' not in member_name:
-                    freeswitch_ids[member_name] = id
-                mute_status[member['id']] = not member['flags']['can_speak']
-                deaf_status[member['id']] = not member['flags']['can_hear']
+                # Now we parse the freeswitch name and extract the BBB userId and fullName from it,
+                # using a regular expression.  Brittle, I know.
+                m = re.match(r'(?P<userID>\w*)-bbbID(-LISTENONLY)?-(?P<fullName>.*)', member['caller_id_name'])
+                if m:
+                    userID = m.group('userID')
+                    fullName = m.group('fullName')
+                    fullNameCamelCase = fullName.replace(' ', '')
+                    id = member['id']
+                    freeswitch_ids[fullNameCamelCase] = id
+                    mute_status[member['id']] = not member['flags']['can_speak']
+                    deaf_status[member['id']] = not member['flags']['can_hear']
             except:
                 pass
 
