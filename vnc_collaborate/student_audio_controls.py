@@ -81,8 +81,16 @@ def student_audio_controls(*options):
             else:
                 deaf_button.configure(bg='blue')
                 deaf_button.configure(image=deaf_blue_logo)
-        except:
-            pass
+        except KeyError:
+            # The exception will most likely trigger if the username doesn't
+            # appear in the freeswitch_ids, most likely because the user
+            # audio isn't connected at all.  So we should probably paint
+            # both of the mute and deaf controls as disabled.
+            mute_button.configure(bg='white')
+            mute_button.configure(image=mute_white_logo)
+            deaf_button.configure(bg='white')
+            deaf_button.configure(image=deaf_white_logo)
+
         window.after(250, set_correct_icon_status)
 
     global hand_raised
