@@ -7,7 +7,7 @@ import os
 import tkinter as tk
 
 from vnc_collaborate import freeswitch
-from vnc_collaborate import icons50
+from vnc_collaborate import icons50 as icons
 
 try:
     import importlib.resources as pkg_resources
@@ -31,12 +31,12 @@ def student_audio_controls(*options):
 
     button_size = 60
 
-    mute_white_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons50, "mute_filled_BigBlueButton.ppm"))
-    mute_blue_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons50, "mute_filled_BigBlueButton_blue.gif"))
-    deaf_white_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons50, "listen_filled_BigBlueButton.ppm"))
-    deaf_blue_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons50, "listen_filled_BigBlueButton_blue.gif"))
-    hand_white_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons50,  "hand_BigBlueButton.png"))
-    hand_blue_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons50, "hand_BigBlueButton_blue.png"))
+    mute_white_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons, "mute_filled.ppm"))
+    mute_blue_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons, "mute_filled_blue.gif"))
+    deaf_white_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons, "listen_filled.ppm"))
+    deaf_blue_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons, "listen_filled_blue.gif"))
+    hand_white_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons,  "hand.png"))
+    hand_blue_logo = tk.PhotoImage(data=pkg_resources.read_binary(icons, "hand_blue.png"))
 
     mute_button = tk.Label(
         text="MUTE",
