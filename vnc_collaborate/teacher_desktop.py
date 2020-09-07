@@ -13,7 +13,10 @@ import psutil
 import re
 import signal
 
+from lxml import etree
+
 from .simple_text import simple_text
+from .bigbluebutton import getMeetingInfo
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 
@@ -22,19 +25,29 @@ NAMES = dict()
 
 def get_VALID_DISPLAYS_and_NAMES():
 
+    # We look at the system process table for Xtightvnc processes
+    # and match them to the "fullName"s of VIEWERS in the 'osito'
+    # meeting.  The fullNames get squashed (spaced removed) to
+    # convert them to UNIX usernames.
+
     VALID_DISPLAYS.clear()
     NAMES.clear()
 
-    # The regex is constructed so that only user names in CamelCase match (i.e, the students)
+    meetingInfo = getMeetingInfo('osito')
 
-    for proc in psutil.process_iter(['cmdline']):
-        cmdline = proc.info['cmdline']
-        if len(cmdline) > 0 and 'Xtightvnc' in cmdline[0]:
-            m = re.search(r'/home/([A-Z][A-Za-z]*)/\.vnc', ' '.join(cmdline))
-            if m:
-                print(cmdline[1], m.group(1))
-                VALID_DISPLAYS.append(cmdline[1])
-                NAMES[cmdline[1]] = m.group(1)
+    running_commands = list(psutil.process_iter(['cmdline']))
+
+    for e in meetingInfo.xpath(".//role[text()='VIEWER']/../fullName"):
+        fullName = e.text
+        fullNameCamelCase = fullName.replace(' ', '')
+
+        for proc in running_commands:
+            cmdline = proc.info['cmdline']
+            if len(cmdline) > 0 and 'Xtightvnc' in cmdline[0]:
+                m = re.search('/home/{}/\.vnc'.format(fullNameCamelCase), ' '.join(cmdline))
+                if m:
+                    VALID_DISPLAYS.append(cmdline[1])
+                    NAMES[cmdline[1]] = fullNameCamelCase
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
@@ -66,8 +79,6 @@ def main_loop():
 
     old_cols = math.ceil(math.sqrt(len(locations)))
     cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
-
-    print('cols:',old_cols,cols)
 
     # If the number of clients changed enough to require a resize of
     # the entire display grid, kill all of our old processes,
@@ -141,14 +152,20 @@ def teacher_desktop(screenx, screeny):
     args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
     fvwm = subprocess.Popen(args)
 
-    #get_VALID_DISPLAYS_and_NAMES()
     subprocess.Popen(["xsetroot", "-solid", "black"]).wait()
     main_loop()
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    print('Press Ctrl+C to terminate')
-    fvwm.wait()
-    restore_original_state()
-    # signal.pause()
 
+    # Big Blue Button currently (version 2.2.22) lacks a mechanism in its REST API
+    # to get notifications when users come and go.  So we poll every second...
+
+    while True:
+        try:
+            fvwm.wait(timeout=1)
+            break
+        except subprocess.TimeoutExpired:
+            main_loop()
+
+    restore_original_state()

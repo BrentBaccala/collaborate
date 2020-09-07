@@ -6,6 +6,7 @@
 import sys
 import tkinter as tk
 import multiprocessing
+import signal
 
 def simple_text(text, x, y):
 
@@ -28,6 +29,18 @@ def simple_text(text, x, y):
         ylocation = int(y)
         window.geometry("+"+str(xlocation)+"+"+str(ylocation))
         window.title(text)
+
+        # Implementing this function with the multiprocessing module
+        # is problematic.  We inherit a lot of state from the parent
+        # process, in particular, its signal handlers, which were
+        # changed in teacher_desktop(), and I do depend on being able
+        # to close this window by sending it SIGTERM.  Maybe it would
+        # be best to spawn an entire new Python process to avoid these
+        # kinds of problems, i.e, use process.Popen rather than
+        # multiprocessing.Process.
+
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
         window.mainloop()
 

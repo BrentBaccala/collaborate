@@ -15,7 +15,10 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/BrentBaccala/collaborate",
     packages=setuptools.find_packages(),
-    install_requires=['importlib_resources; python_version < "3.7"'],
+    install_requires=[
+        'pyjavaproperties',
+        'importlib_resources; python_version < "3.7"'
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: Linux",
