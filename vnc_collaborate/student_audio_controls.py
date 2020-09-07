@@ -75,12 +75,12 @@ def student_audio_controls(*options):
                 mute_button.configure(bg='blue')
                 mute_button.configure(image=mute_blue_logo)
 
-                if freeswitch.deaf_status[freeswitch.freeswitch_ids[username]]:
-                    deaf_button.configure(bg='white')
-                    deaf_button.configure(image=deaf_white_logo)
-                else:
-                    deaf_button.configure(bg='blue')
-                    deaf_button.configure(image=deaf_blue_logo)
+            if freeswitch.deaf_status[freeswitch.freeswitch_ids[username]]:
+                deaf_button.configure(bg='white')
+                deaf_button.configure(image=deaf_white_logo)
+            else:
+                deaf_button.configure(bg='blue')
+                deaf_button.configure(image=deaf_blue_logo)
         except:
             pass
         window.after(250, set_correct_icon_status)
