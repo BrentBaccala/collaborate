@@ -63,11 +63,22 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    `pm2` can be made persistent pretty easily (run `pm2 startup` for instructions)
 
-1. Now clone this repository
+1. Now clone this repository, and from its directory...
 
 1. Install dependencies: `sudo apt install fvwm tightvncserver websockify`
 
-1. Copy (or symlink) the `teacher-fvwm-config` script to the teacher account's `.fvwm/config` file
+1. Build the `vnc_collaborate` module: `./setup.py build`
+
+1. Install the `vnc_collaborate` module: `pip3 install .`
+
+1. Check that it installed correctly: `python3 -m vnc_collaborate` should run with no output and no error
+
+1. Use the following one-line config for the teacher account's `.fvwm/config` file:
+
+   `PipeRead 'python3 -m vnc_collaborate print teacher_fvwm_config'`
+
+   The FVWM config is shipped with the Python package, and this pulls in the config
+   without having to hard-wire the location where the package is installed.
 
 1. Start the teacher's VNC desktop with `vncserver` with something like:
 
@@ -89,3 +100,6 @@ classroom based on Big Blue Button and VNC remote desktops.
    If you're following the example, PORT is 6101.
 
    At this point, the teacher desktop should be working.
+
+   Probably want to install and run `gnome-settings-daemon` and `gnome-tweak-tool`
+   (run both inside the desktop) to set your fonts.
