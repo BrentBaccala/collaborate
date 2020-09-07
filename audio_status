@@ -3,3 +3,5 @@
 
 import sys
 from vnc_collaborate import freeswitch
+
+freeswitch.print_status()

@@ -18,3 +18,5 @@ elif sys.argv[1] == 'teacher_zoom':
 elif sys.argv[1] == 'print':
     if sys.argv[2] =='teacher_mode_fvwm_config':
         print(pkg_resources.read_text(__package__, 'teacher-mode-fvwm-config'))
+    elif sys.argv[2] =='teacher_fvwm_config':
+        print(pkg_resources.read_text(__package__, 'teacher-fvwm-config'))

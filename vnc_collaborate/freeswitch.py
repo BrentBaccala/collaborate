@@ -53,11 +53,11 @@ def get_status():
             except:
                 pass
 
-get_status()
-
-print(freeswitch_ids)
-print('Mute:', mute_status)
-print('Deaf:', deaf_status)
+def print_status():
+    get_status()
+    print(freeswitch_ids)
+    print('Mute:', mute_status)
+    print('Deaf:', deaf_status)
 
 def freeswitch_cmd(cmd):
     print(cmd)
@@ -89,33 +89,41 @@ def is_deaf(student_name, default=None):
         return default
 
 def unmute_student(student_name):
+    get_status()
     if student_name in freeswitch_ids:
         freeswitch_conference_cmd('unmute', freeswitch_ids[student_name])
 
 def mute_student(student_name):
+    get_status()
     if student_name in freeswitch_ids:
         freeswitch_conference_cmd('mute', freeswitch_ids[student_name])
 
 def undeaf_student(student_name):
+    get_status()
     if student_name in freeswitch_ids:
         freeswitch_conference_cmd('undeaf', freeswitch_ids[student_name])
 
 def deaf_student(student_name):
+    get_status()
     if student_name in freeswitch_ids:
         freeswitch_conference_cmd('deaf', freeswitch_ids[student_name])
 
 def unmute_all():
+    get_status()
     for id in freeswitch_ids.values():
         freeswitch_conference_cmd('unmute', id)
 
 def mute_all():
+    get_status()
     for id in freeswitch_ids.values():
         freeswitch_conference_cmd('mute', id)
 
 def undeaf_all():
+    get_status()
     for id in freeswitch_ids.values():
         freeswitch_conference_cmd('undeaf', id)
 
 def deaf_all():
+    get_status()
     for id in freeswitch_ids.values():
         freeswitch_conference_cmd('deaf', id)
