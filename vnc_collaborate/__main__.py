@@ -26,6 +26,8 @@ if len(sys.argv) > 1:
         unmute_students(sys.argv[2:])
     elif sys.argv[1] == 'mute_students':
         mute_students(sys.argv[2:])
+    elif sys.argv[1] == 'websockify':
+        websockify()
     elif sys.argv[1] == 'print':
         if sys.argv[2] =='teacher_mode_fvwm_config':
             print(pkg_resources.read_text(__package__, 'teacher-mode-fvwm-config'))
