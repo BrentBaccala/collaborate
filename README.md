@@ -65,13 +65,20 @@ classroom based on Big Blue Button and VNC remote desktops.
 
 1. Now clone this repository, and from its directory...
 
-1. Install dependencies: `sudo apt install fvwm tightvncserver websockify`
-
 1. Build the `vnc_collaborate` module: `./setup.py build`
 
-1. Install the `vnc_collaborate` module: `pip3 install .`
+1. Install the `vnc_collaborate` module: `sudo -H pip3 install .`
 
-1. Check that it installed correctly: `python3 -m vnc_collaborate` should run with no output and no error
+   It's installed globally so that both the student and teacher accounts have access to it.
+
+1. You also need to install the `websockify` module, but it's not installed automatically because
+   it has a dependency problem on Ubuntu 16.  Run this to install it:
+
+   `sudo -H pip3 install --no-deps websockify`
+
+1. Check that `vnc_collaborate` installed correctly: `python3 -m vnc_collaborate` should run with no output and no error
+
+1. Install dependencies: `sudo apt install fvwm tightvncserver`
 
 1. Use the following one-line config for the teacher account's `.fvwm/config` file:
 
@@ -84,18 +91,25 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    `vncserver -geometry 1024x768 :1`
 
-   The first time it will prompt you to set a password.  A view-only password is not really recommended,
+   The first time it will prompt you to set a password (do so).  It will also ask if you want to set a view-only password,
+   which is not really recommended,
    since we almost always want to interact with our desktops from Big Blue Button.
 
 1. Start websockify to relay WebSock connections to the VNC server, something like this:
 
-   `websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem 6101 localhost:5901`
+   `python3 -m vnc_collaborate websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem 6101 localhost:5901`
 
    Notice that special arrangements have been made (I copied the SSL keys and certs from
    `/etc/letsencrypt/archive` into my home directory)
    to enable encrypted connections.
 
-1. From a Big Blue Button session, "share remote desktop" and use the URL "wss://HOST:PORT/?password=PASSWORD"
+   Also note that we're using a special websockify built-in to the `vnc_collaborate` module.
+   This custom websockify will relay VNC connections to different VNC servers based on a UNIX user name
+   that can be (optionally) provided in the URL (see below).
+
+   I often run this command in a `screen` session without the `-D` option if I want to monitor its operation.
+
+1. From a Big Blue Button session, "share remote desktop" and use the URL `wss://HOST:PORT/?password=PASSWORD`
 
    If you're following the example, PORT is 6101.
 
@@ -103,3 +117,23 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    Probably want to install and run `gnome-settings-daemon` and `gnome-tweak-tool`
    (run both inside the desktop) to set your fonts.
+
+1. To use student desktops, create UNIX user accounts whose names are "squashed" versions of the Big Blue Button
+   names; i.e., BBB user "Charlie Clown" will map to UNIX user "CharlieClown".
+
+1. Start vnc servers for the various students, something like:
+
+   `sudo su CharlieClown vncserver -geometry 1024x768`
+
+   They all have to have the same password, currently.
+
+1. From Big Blue Button, "share remote desktop" with a URL like `wss://HOST:PORT/{fullName}?password=PASSWORD`
+
+   The Big Blue Button clients will replace `{fullName}` with the BBB user name, and the customized
+   websockify will relay the connections to the correct user.
+
+   The host and port specified as the last option to the `websockify` command now become a default VNC session
+   that users will connect to if the username lookup fails.
+
+1. N.B: There is currently no mechanism to auto-start VNC servers from these scripts.  If they're not
+   running, the user will fall back on the default VNC session.
