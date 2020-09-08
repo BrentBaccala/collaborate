@@ -1,6 +1,7 @@
 
 import sys
 from vnc_collaborate import *
+from vnc_collaborate import fvwm_configs
 
 # print('vnc_collaborate:', sys.argv)
 
@@ -30,8 +31,12 @@ if len(sys.argv) > 1:
         websockify()
     elif sys.argv[1] == 'print':
         if sys.argv[2] =='teacher_mode_fvwm_config':
-            print(pkg_resources.read_text(__package__, 'teacher-mode-fvwm-config'))
+            print(pkg_resources.read_text(fvwm_configs, 'teacher-mode'))
         elif sys.argv[2] =='teacher_fvwm_config':
-            print(pkg_resources.read_text(__package__, 'teacher-fvwm-config'))
+            print(pkg_resources.read_text(fvwm_configs, 'teacher'))
+        elif sys.argv[2] =='student_sandbox_fvwm_config':
+            print(pkg_resources.read_text(fvwm_configs, 'student-sandbox'))
+        else:
+            print("Unknown resource:", sys.argv[2])
     else:
         print("Unknown operation:", sys.argv[1])

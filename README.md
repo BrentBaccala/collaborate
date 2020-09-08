@@ -125,7 +125,9 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    `sudo su CharlieClown vncserver -geometry 1024x768`
 
-   They all have to have the same password, currently.
+   They all have to have the same password, currently.  I usually achieve this by putting a copy of my
+   `.vnc/passwd` file in `/etc/skel/.vnc/passwd` (permissions must be 600 or 400 or vncserver won't take it).
+   Then new users created with `adduser` will get a copy of this file in their newly created home directories.
 
 1. From Big Blue Button, "share remote desktop" with a URL like `wss://HOST:PORT/{fullName}?password=PASSWORD`
 
@@ -137,3 +139,21 @@ classroom based on Big Blue Button and VNC remote desktops.
 
 1. N.B: There is currently no mechanism to auto-start VNC servers from these scripts.  If they're not
    running, the user will fall back on the default VNC session.
+
+1. To facilitate full screen use, the students can run an audio control widget in their student desktops:
+
+   `python3 -m vnc_collaborate student_audio_controls &`
+
+   The widget contains mute and deaf controls for that single student, as well as a "hand" icon that does
+   not interface with Big Blue Button at all, but is visible from the teacher overview when it is clicked.
+
+1. The student desktops also need a window manager of some kind.  FVWM is not required, since it doesn't
+   have to support any special features like "teacher mode".  If FVWM is used, a minimalist FVWM config
+   is provided that offers very few options to the student.  The following command can be placed
+   in the student's `.fvwm/config` file, or in `/etc/skel/.fvwm/config`:
+
+   `PipeRead 'python3 -m vnc_collaborate print student_sandbox_fvwm_config'`
+
+   If FVWM is used with a different config, I recommend at least setting `EdgeScroll 0 0`, since edge
+   scrolling (panning to a new desktop when the mouse hits the edge of the display) doesn't work
+   very well on VNC desktops.

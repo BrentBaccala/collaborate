@@ -15,7 +15,10 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/BrentBaccala/collaborate",
     packages=setuptools.find_packages(),
-    package_data={"": ["*.ppm", "*.gif", "*.png"]},
+    package_data={
+        "": ["*.ppm", "*.gif", "*.png"],
+        "vnc_collaborate.fvwm_configs": ["*"]
+    },
     install_requires=[
         'pyjavaproperties',
         'importlib_resources; python_version < "3.7"'
