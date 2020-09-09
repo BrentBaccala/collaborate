@@ -76,9 +76,13 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    `sudo -H pip3 install --no-deps websockify`
 
+1. You need to install one or the other of `psycopg2` or `psycopg2-binary`; same syntax, i.e:
+
+   `sudo -H pip3 install psycopg2-binary`
+
 1. Check that `vnc_collaborate` installed correctly: `python3 -m vnc_collaborate` should run with no output and no error
 
-1. Install dependencies: `sudo apt install fvwm tightvncserver`
+1. Install packages needed to run VNC desktops: `sudo apt install fvwm tightvncserver`
 
 1. Use the following one-line config for the teacher account's `.fvwm/config` file:
 
@@ -97,7 +101,9 @@ classroom based on Big Blue Button and VNC remote desktops.
 
 1. Start websockify to relay WebSock connections to the VNC server, something like this:
 
-   `python3 -m vnc_collaborate websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem 6101 localhost:5901`
+   `python3 -m vnc_collaborate websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem 6101 localhost:5901 --postgresdb greenlight_production --postgrespw KEY`
+
+   I often run this command in a `screen` session without the `-D` option if I want to monitor its operation.
 
    Notice that special arrangements have been made (I copied the SSL keys and certs from
    `/etc/letsencrypt/archive` into my home directory)
@@ -107,7 +113,12 @@ classroom based on Big Blue Button and VNC remote desktops.
    This custom websockify will relay VNC connections to different VNC servers based on a UNIX user name
    that can be (optionally) provided in the URL (see below).
 
-   I often run this command in a `screen` session without the `-D` option if I want to monitor its operation.
+   The postgres parameters are necessary to specify a Postgres database whose `VNCusers` table
+   will be used to map from Big Blue Button full names to UNIX usernames.  I'm using the
+   greenlight database because it's convenient.  You can use whatever Postgres database
+   you'd like; create the table (or view) using the following SQL command:
+
+   `CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser))`
 
 1. From a Big Blue Button session, "share remote desktop" and use the URL `wss://HOST:PORT/?password=PASSWORD`
 
@@ -118,8 +129,24 @@ classroom based on Big Blue Button and VNC remote desktops.
    Probably want to install and run `gnome-settings-daemon` and `gnome-tweak-tool`
    (run both inside the desktop) to set your fonts.
 
-1. To use student desktops, create UNIX user accounts whose names are "squashed" versions of the Big Blue Button
-   names; i.e., BBB user "Charlie Clown" will map to UNIX user "CharlieClown".
+1. To use student desktops, create UNIX user accounts for the students.
+
+1. Use a tool like `psql` or `pgadmin3` to add entries into the `VNCusers` table
+   mapping the Big Blue Button names to the UNIX usernames.
+
+   If they're setup right, run a query and you should see something like this:
+
+   ```
+$ psql -h localhost -U postgres -d greenlight_production -c "select * from vncusers"
+         vncuser        |   unixuser   
+ -----------------------+--------------
+  Baccala, Brent (DCPS) | baccala
+  Charlie Clown         | CharlieClown
+  Jimmy Brown           | JimmyBrown
+  Freddy Frown          | FreddyFrown
+  Nancy Noun            | NancyNoun
+ (5 rows)
+```
 
 1. Start vnc servers for the various students, something like:
 
@@ -132,7 +159,7 @@ classroom based on Big Blue Button and VNC remote desktops.
 1. From Big Blue Button, "share remote desktop" with a URL like `wss://HOST:PORT/{fullName}?password=PASSWORD`
 
    The Big Blue Button clients will replace `{fullName}` with the BBB user name, and the customized
-   websockify will relay the connections to the correct user.
+   websockify will use the database to map to UNIX user names and relay the connections to the correct user.
 
    The host and port specified as the last option to the `websockify` command now become a default VNC session
    that users will connect to if the username lookup fails.

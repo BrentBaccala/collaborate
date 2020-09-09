@@ -1,10 +1,11 @@
 # A customized version of websockify that uses the websockify library,
 # but replaces one method call to allow VNC Websocket connections
 # to be relayed to different destinations based on the path
-# specified in the URL, which should be a username on the system.
+# specified in the URL, which should be the BBB fullName.
 #
-# We squash spaces to allow "Charlie Clown" to map to the UNIX user
-# "CharlieClown".
+# We map the BBB fullName (or whatever path was specified) to UNIX
+# users using a Postgres database whose authentication password
+# is specified on the command line.
 #
 # We search the .vnc/*.pid files and the system process table to find
 # VNC a server that matches the username, otherwise we fall back to
@@ -17,6 +18,9 @@
 import sys
 import psutil
 import glob
+import urllib
+
+import psycopg2
 
 # Warning are explicitly disabled here, otherwise we'll get a
 #   "no 'numpy' module, HyBi protocol will be slower"
@@ -32,27 +36,47 @@ from websockify.websocketproxy import ProxyRequestHandler
 
 old_new_websocket_client = ProxyRequestHandler.new_websocket_client
 
+conn = None
+
+# CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser))
+
 def new_websocket_client(self):
     try:
-        userID = self.path.split('/')[1].split('?')[0]
-    except:
+        userID = urllib.parse.unquote(self.path.split('/')[1].split('?')[0])
+    except IndexError:
         userID = ''
-        pass
 
-    displays = []
-    for fn in glob.glob('/home/{}/.vnc/*.pid'.format(userID.replace(' ', '').replace('%20',''))):
-        with open(fn) as f:
-            pid = int(f.read())
+    if conn:
+        with conn.cursor() as cur:
             try:
-                p = psutil.Process(pid)
-                if 'vnc' in p.cmdline()[0]:
-                    displays.append(fn.split('/')[-1].strip('.pid'))
-            except psutil.NoSuchProcess:
-                pass
-    if len(displays) > 0:
-        (target_host, target_display) = displays[0].split(':')
-        self.server.target_host = target_host
-        self.server.target_port = 5900 + int(target_display)
+                cur.execute("SELECT UNIXuser FROM VNCusers WHERE VNCuser = %s", (userID,))
+                row = cur.fetchone()
+                if row:
+                    UNIXuser = row[0]
+            except psycopg2.DatabaseError as err:
+                print(err)
+                cur.execute('ROLLBACK')
+
+    if UNIXuser:
+        displays = []
+        for fn in glob.glob('/home/{}/.vnc/*.pid'.format(UNIXuser)):
+            with open(fn) as f:
+                pid = int(f.read())
+                try:
+                    p = psutil.Process(pid)
+                    if 'vnc' in p.cmdline()[0]:
+                        displays.append(fn.split('/')[-1].strip('.pid'))
+                except psutil.NoSuchProcess:
+                    pass
+
+        # `displays` will now contain the X11 display names of all running
+        # VNC displays for this user.  Yes, there can be more than one.
+        # We pick the first one arbitrarily.
+
+        if len(displays) > 0:
+            (target_host, target_display) = displays[0].split(':')
+            self.server.target_host = target_host
+            self.server.target_port = 5900 + int(target_display)
 
     # pass through to the "parent" class's version of this method
     old_new_websocket_client(self)
@@ -62,6 +86,33 @@ ProxyRequestHandler.new_websocket_client = new_websocket_client
 def websockify():
     if sys.argv[0] != 'websockify':
         sys.argv.pop(0)
+
+    postgresdb = None
+    postgresuser = 'postgres'
+    postgreshost = 'localhost'
+    postgrespw = None
+
+    if '--postgresdb' in sys.argv:
+        i = sys.argv.index('--postgresdb')
+        sys.argv.pop(i)
+        postgresdb = sys.argv.pop(i)
+
+    if '--postgresuser' in sys.argv:
+        i = sys.argv.index('--postgresuser')
+        sys.argv.pop(i)
+        postgresuser = sys.argv.pop(i)
+
+    if '--postgrespw' in sys.argv:
+        i = sys.argv.index('--postgrespw')
+        sys.argv.pop(i)
+        postgrespw = sys.argv.pop(i)
+
+    if postgresdb:
+        try:
+            global conn
+            conn = psycopg2.connect(database=postgresdb, host=postgreshost, user=postgresuser, password=postgrespw)
+        except psycopg2.DatabaseError as err:
+            print(err)
 
     # This will call WebSocketProxy; its default RequestHandlerClass
     # is ProxyRequestHandler, but we can't override
