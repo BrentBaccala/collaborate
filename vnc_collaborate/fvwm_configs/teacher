@@ -33,6 +33,7 @@ AddToMenu RootMenu      "Root Menu"     Title
 +			"Whiteboard"		Exec exec xournal
 +                       ""              Nop
 +                       "   Teacher Mode"         Exec exec python3 -m vnc_collaborate teacher_desktop $[vp.width] $[vp.height]
++                          "Undeaf All Students"      Exec python3 -m vnc_collaborate undeaf_students -a
 +                       ""              Nop
 # +                       "Utilities"     Popup Utilities
 # +                       ""              Nop
