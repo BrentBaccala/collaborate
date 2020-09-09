@@ -20,20 +20,28 @@ import subprocess
 import vnc_collaborate.freeswitch as freeswitch
 
 def teacher_zoom(window):
-   match = re.search(r'([^ ]*)\\\'s X desktop \((osito:[0-9]*)', window)
 
-   if match:
+   # See FVWM man page on $[w.name] - the window name is encased in single quotes
+   # and embedded single quotes are escaped with a backspace.  The window name
+   # created in the teacher_desktop.py script has the fields separated by semicolons.
+   # So, this expression undoes the FVWM quoting and splits apart our arguments.
 
-      STUDENT = match.group(1)
-      STUDENT_DISPLAY = match.group(2)
+   args = window.replace("\\'", "'")[1:-1].split(';')
 
-      print(STUDENT, STUDENT_DISPLAY)
+   if len(args) == 3 and args[0] == 'TeacherViewVNC':
 
-      was_deafed = freeswitch.is_deaf(STUDENT, default=False)
+      STUDENT_ID = args[1]
+      STUDENT_DISPLAY = args[2]
+
+      print(STUDENT_ID, STUDENT_DISPLAY)
+
+      freeswitch.print_status()
+
+      was_deafed = freeswitch.is_deaf(STUDENT_ID, default=False)
 
       # If the student was deafed, undeaf him, since we're probably about to talk to him/her
       if was_deafed:
-         freeswitch.undeaf_student(STUDENT)
+         freeswitch.undeaf_student(STUDENT_ID)
 
       # XXX Teacher desktop geometry is hard-wired here!
 
@@ -48,5 +56,5 @@ def teacher_zoom(window):
 
       # Re-deaf and mute the student, but ONLY if he/she was deafed originally
       if was_deafed:
-         freeswitch.mute_student(STUDENT)
-         freeswitch.deaf_student(STUDENT)
+         #freeswitch.mute_student(STUDENT_ID)
+         freeswitch.deaf_student(STUDENT_ID)

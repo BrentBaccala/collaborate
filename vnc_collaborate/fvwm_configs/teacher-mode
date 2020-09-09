@@ -57,9 +57,9 @@ AddToFunc ZoomDesktop
  + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]"
  + I Wait "Zoomed Student Desktop"
  + I All ("Zoomed Student Desktop") Layer 0 3
- + I Mouse ("*osito:*") 1 A A   -
+ + I Mouse ("TeacherViewVNC;*") 1 A A   -
 
-Mouse ("*osito:*") 1 A A   ZoomDesktop
+Mouse ("TeacherViewVNC;*") 1 A A   ZoomDesktop
 
 # Whenever a window is destroyed, check to see if there are any zoomed
 # desktops left (there should only be one at any time anyway).  If not,
@@ -68,7 +68,7 @@ Mouse ("*osito:*") 1 A A   ZoomDesktop
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
- + I None ("Zoomed Student Desktop") Mouse ("*osito:*") 1 A A ZoomDesktop
+ + I None ("Zoomed Student Desktop") Mouse ("TeacherViewVNC;*") 1 A A ZoomDesktop
  + I None ("Zoomed Student Desktop") Mouse 3 A  A  Menu TeacherMenu Nop
  + I None ("Zoomed Student Desktop") All ("vncviewer|Tk") Iconify off
 

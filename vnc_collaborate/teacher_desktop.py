@@ -24,6 +24,7 @@ VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewe
 
 VALID_DISPLAYS = []
 NAMES = dict()
+IDS = dict()
 
 conn = None
 
@@ -50,18 +51,21 @@ def get_VALID_DISPLAYS_and_NAMES():
 
     VALID_DISPLAYS.clear()
     NAMES.clear()
+    IDS.clear()
 
     meetingInfo = getMeetingInfo('osito')
 
     running_commands = list(psutil.process_iter(['cmdline']))
 
-    for e in meetingInfo.xpath(".//role[text()='VIEWER']/../fullName"):
+    for e in meetingInfo.xpath(".//role[text()='VIEWER']/.."):
 
         UNIXuser = None
+        fullName = e.find('fullName').text
+        userID = e.find('userID').text
 
         with conn.cursor() as cur:
             try:
-                cur.execute("SELECT UNIXuser FROM VNCusers WHERE VNCuser = %s", (e.text,))
+                cur.execute("SELECT UNIXuser FROM VNCusers WHERE VNCuser = %s", (fullName,))
                 row = cur.fetchone()
                 if row:
                     UNIXuser = row[0]
@@ -76,7 +80,8 @@ def get_VALID_DISPLAYS_and_NAMES():
                     m = re.search('/home/{}/\.vnc'.format(UNIXuser), ' '.join(cmdline))
                     if m:
                         VALID_DISPLAYS.append(cmdline[1])
-                        NAMES[cmdline[1]] = e.text
+                        NAMES[cmdline[1]] = fullName
+                        IDS[cmdline[1]] = userID
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
@@ -148,8 +153,15 @@ def main_loop():
                 col = i%cols
                 geox = int(col * SCREENX/cols + .005*SCREENX)
                 geoy = int(row * SCREENY/cols + .005*SCREENY)
+                # Use the BBB userID and the X display as the title of the window.
+                # I'd rather it be the window's "name", but ssvncviewer seems to ignore that option.
+                # The title won't be displayed with our default FVWM config for teacher mode.
+                # This is how we identify these windows to the FVWM config, and also
+                # how we pass the identity of the user to the teacher_zoom script.
+                title = ";".join(["TeacherViewVNC", IDS[display], display])
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
-                        '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
+                        '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd',
+                        '-title', title, display]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
                 processes[display].append(simple_text(NAMES[display], geox + SCREENX/cols/2, geoy))
