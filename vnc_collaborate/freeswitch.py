@@ -84,14 +84,14 @@ def freeswitch_set_private(student_name):
 
 def is_mute(student_name, default=None):
     try:
-        return freeswitch.mute_status[freeswitch.freeswitch_ids[student_name]]
-    except:
+        return mute_status[freeswitch_ids[student_name]]
+    except KeyError:
         return default
 
 def is_deaf(student_name, default=None):
     try:
-        return freeswitch.deaf_status[freeswitch.freeswitch_ids[student_name]]
-    except:
+        return deaf_status[freeswitch_ids[student_name]]
+    except KeyError:
         return default
 
 def unmute_student(student_name):
