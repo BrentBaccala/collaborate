@@ -4,6 +4,8 @@ import json
 import re
 from lxml import etree
 
+from .bigbluebutton import getMeetingInfo
+
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
 
 XML_CONF = "/opt/freeswitch/conf/autoload_configs/event_socket.conf.xml"
@@ -22,41 +24,44 @@ with open(XML_CONF) as file:
 
 def get_status():
 
-    #
     # Fetch freeswitch conference data and map names to freeswitch id numbers
-    #
-    # We ONLY save student ids, because we don't want to mute/unmute teachers at all
-    #
-    # We also flatten names by removing spaces
 
     global conference
+
+    meetingInfo = getMeetingInfo('osito')
+    viewerIDs = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../userID")]
 
     freeswitch_process = subprocess.Popen([FS_CLI, '-p', freeswitch_pw, '-x', 'conference json_list'], stdout=subprocess.PIPE)
     (stdoutdata, stderrdata) = freeswitch_process.communicate()
     try:
         conference = json.loads(stdoutdata.decode())
-    except:
+    except json.JSONDecodeError:
         conference  = []
 
     freeswitch_ids.clear()
     mute_status.clear()
     deaf_status.clear()
 
+    # XXX there's a bad assumption here that the first freeswitch conference is the one we want
+
     if len(conference) > 0:
         for member in conference[0]['members']:
             try:
                 # Now we parse the freeswitch name and extract the BBB userId and fullName from it,
                 # using a regular expression.  Brittle, I know.
-                m = re.match(r'(?P<userID>\w*)-bbbID(-LISTENONLY)?-(?P<fullName>.*)', member['caller_id_name'])
+                m = re.match(r'(?P<userID>\w*)_[0-9]*-bbbID(-LISTENONLY)?-(?P<fullName>.*)', member['caller_id_name'])
                 if m:
                     userID = m.group('userID')
                     fullName = m.group('fullName')
-                    fullNameCamelCase = fullName.replace(' ', '')
                     id = member['id']
-                    freeswitch_ids[fullNameCamelCase] = id
-                    mute_status[member['id']] = not member['flags']['can_speak']
-                    deaf_status[member['id']] = not member['flags']['can_hear']
-            except:
+                    # Only save viewer IDs, because we don't want to deaf/undeaf moderators at all
+                    if userID in viewerIDs:
+                        # allow lookup by either full name or userID
+                        freeswitch_ids[fullName] = id
+                        freeswitch_ids[userID] = id
+                        mute_status[id] = not member['flags']['can_speak']
+                        deaf_status[id] = not member['flags']['can_hear']
+            except KeyError:
                 pass
 
 def print_status():
