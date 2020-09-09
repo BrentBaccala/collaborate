@@ -136,15 +136,17 @@ classroom based on Big Blue Button and VNC remote desktops.
 
    If they're setup right, run a query and you should see something like this:
 
-    $ psql -h localhost -U postgres -d greenlight_production -c "select * from vncusers"
-             vncuser        |   unixuser   
-     -----------------------+--------------
-      Baccala, Brent (DCPS) | baccala
-      Charlie Clown         | CharlieClown
-      Jimmy Brown           | JimmyBrown
-      Freddy Frown          | FreddyFrown
-      Nancy Noun            | NancyNoun
-     (5 rows)
+   ```
+   $ psql -h localhost -U postgres -d greenlight_production -c "select * from vncusers"
+            vncuser        |   unixuser   
+    -----------------------+--------------
+     Baccala, Brent (DCPS) | baccala
+     Charlie Clown         | CharlieClown
+     Jimmy Brown           | JimmyBrown
+     Freddy Frown          | FreddyFrown
+     Nancy Noun            | NancyNoun
+    (5 rows)
+   ```
 
 1. Start vnc servers for the various students, something like:
 
