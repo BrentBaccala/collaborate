@@ -101,7 +101,7 @@ classroom based on Big Blue Button and VNC remote desktops.
 
 1. Start websockify to relay WebSock connections to the VNC server, something like this:
 
-   `python3 -m vnc_collaborate websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem 6101 localhost:5901 --postgresdb greenlight_production --postgrespw KEY`
+   `python3 -m vnc_collaborate websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem --postgresdb greenlight_production 6101 localhost:5901`
 
    I often run this command in a `screen` session without the `-D` option if I want to monitor its operation.
 
@@ -113,18 +113,22 @@ classroom based on Big Blue Button and VNC remote desktops.
    This custom websockify will relay VNC connections to different VNC servers based on a UNIX user name
    that can be (optionally) provided in the URL (see below).
 
-   The postgres parameters are necessary to specify a Postgres database whose `VNCusers` table
+   The postgres parameter is necessary to specify a Postgres database whose `VNCusers` table
    will be used to map from Big Blue Button full names to UNIX usernames.  I'm using the
-   greenlight database because it's convenient.  You can use whatever Postgres database
+   greenlight database because it's convenient.  The greenlight database is set for "trust"
+   authentication, so no password is needed when connecting from `localhost`.
+   You can use whatever Postgres database
    you'd like; create the table (or view) using the following SQL command:
 
    `CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser))`
 
-1. From a Big Blue Button session, "share remote desktop" and use the URL `wss://HOST:PORT/?password=PASSWORD`
+1. At this point, the teacher desktop should be working.  You don't need to do anything in SQL yet,
+   since without the SQL table all connections will fall through to the default host and port (`localhost:5901` in
+   this example).
+
+   From a Big Blue Button session, "share remote desktop" and use the URL `wss://HOST:PORT/?password=PASSWORD`
 
    If you're following the example, PORT is 6101.
-
-   At this point, the teacher desktop should be working.
 
    Probably want to install and run `gnome-settings-daemon` and `gnome-tweak-tool`
    (run both inside the desktop) to set your fonts.
