@@ -13,6 +13,8 @@ import psutil
 import re
 import signal
 
+import psycopg2
+
 from lxml import etree
 
 from .simple_text import simple_text
@@ -23,12 +25,28 @@ VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewe
 VALID_DISPLAYS = []
 NAMES = dict()
 
+conn = None
+
+# No password needed to connect to localhost when Postgres is configured for "trust" authentication.
+
+postgreshost = 'localhost'
+postgresdb = 'greenlight_production'
+postgresuser = 'postgres'
+postgrespw = None
+
+def open_database():
+    global conn
+    conn = psycopg2.connect(database=postgresdb, host=postgreshost, user=postgresuser, password=postgrespw)
+
 def get_VALID_DISPLAYS_and_NAMES():
 
     # We look at the system process table for Xtightvnc processes
     # and match them to the "fullName"s of VIEWERS in the 'osito'
-    # meeting.  The fullNames get squashed (spaced removed) to
-    # convert them to UNIX usernames.
+    # meeting.  The fullNames get converted to UNIX usernames
+    # using the VNCusers table in the Postgres database.
+
+    if not conn:
+        open_database()
 
     VALID_DISPLAYS.clear()
     NAMES.clear()
@@ -38,16 +56,27 @@ def get_VALID_DISPLAYS_and_NAMES():
     running_commands = list(psutil.process_iter(['cmdline']))
 
     for e in meetingInfo.xpath(".//role[text()='VIEWER']/../fullName"):
-        fullName = e.text
-        fullNameCamelCase = fullName.replace(' ', '')
 
-        for proc in running_commands:
-            cmdline = proc.info['cmdline']
-            if len(cmdline) > 0 and 'Xtightvnc' in cmdline[0]:
-                m = re.search('/home/{}/\.vnc'.format(fullNameCamelCase), ' '.join(cmdline))
-                if m:
-                    VALID_DISPLAYS.append(cmdline[1])
-                    NAMES[cmdline[1]] = fullNameCamelCase
+        UNIXuser = None
+
+        with conn.cursor() as cur:
+            try:
+                cur.execute("SELECT UNIXuser FROM VNCusers WHERE VNCuser = %s", (e.text,))
+                row = cur.fetchone()
+                if row:
+                    UNIXuser = row[0]
+            except psycopg2.DatabaseError as err:
+                print(err)
+                cur.execute('ROLLBACK')
+
+        if UNIXuser:
+            for proc in running_commands:
+                cmdline = proc.info['cmdline']
+                if len(cmdline) > 0 and 'Xtightvnc' in cmdline[0]:
+                    m = re.search('/home/{}/\.vnc'.format(UNIXuser), ' '.join(cmdline))
+                    if m:
+                        VALID_DISPLAYS.append(cmdline[1])
+                        NAMES[cmdline[1]] = e.text
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
