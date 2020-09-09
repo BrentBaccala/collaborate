@@ -152,7 +152,7 @@ def main_loop():
                         '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd', display]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
-                processes[display].append(simple_text(str(i+1) + ". " + NAMES[display], geox + SCREENX/cols/2, geoy))
+                processes[display].append(simple_text(NAMES[display], geox + SCREENX/cols/2, geoy))
 
 
 
