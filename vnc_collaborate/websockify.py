@@ -46,6 +46,8 @@ def new_websocket_client(self):
     except IndexError:
         userID = ''
 
+    UNIXuser = None
+
     if conn:
         with conn.cursor() as cur:
             try:
