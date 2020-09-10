@@ -20,7 +20,7 @@ import psutil
 import glob
 import urllib
 
-import psycopg2
+from . import bigbluebutton
 
 # Warning are explicitly disabled here, otherwise we'll get a
 #   "no 'numpy' module, HyBi protocol will be slower"
@@ -36,28 +36,13 @@ from websockify.websocketproxy import ProxyRequestHandler
 
 old_new_websocket_client = ProxyRequestHandler.new_websocket_client
 
-conn = None
-
-# CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser))
-
 def new_websocket_client(self):
     try:
         userID = urllib.parse.unquote(self.path.split('/')[1].split('?')[0])
     except IndexError:
         userID = ''
 
-    UNIXuser = None
-
-    if conn:
-        with conn.cursor() as cur:
-            try:
-                cur.execute("SELECT UNIXuser FROM VNCusers WHERE VNCuser = %s", (userID,))
-                row = cur.fetchone()
-                if row:
-                    UNIXuser = row[0]
-            except psycopg2.DatabaseError as err:
-                print(err)
-                cur.execute('ROLLBACK')
+    UNIXuser = bigbluebutton.fullName_to_UNIX_username(userID)
 
     if UNIXuser:
         displays = []

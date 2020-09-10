@@ -4,7 +4,7 @@ import json
 import re
 from lxml import etree
 
-from .bigbluebutton import getMeetingInfo
+from . import bigbluebutton
 
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
 
@@ -28,7 +28,7 @@ def get_status():
 
     global conference
 
-    meetingInfo = getMeetingInfo('osito')
+    meetingInfo = bigbluebutton.getMeetingInfo(bigbluebutton.find_current_meeting())
     viewerIDs = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../userID")]
 
     freeswitch_process = subprocess.Popen([FS_CLI, '-p', freeswitch_pw, '-x', 'conference json_list'], stdout=subprocess.PIPE)

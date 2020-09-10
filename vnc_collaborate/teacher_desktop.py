@@ -5,7 +5,6 @@ import subprocess
 import multiprocessing
 
 import sys
-import os
 import json
 import math
 import time
@@ -13,12 +12,10 @@ import psutil
 import re
 import signal
 
-import psycopg2
-
 from lxml import etree
 
 from .simple_text import simple_text
-from .bigbluebutton import getMeetingInfo
+from . import bigbluebutton
 
 VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
 
@@ -26,52 +23,29 @@ VALID_DISPLAYS = []
 NAMES = dict()
 IDS = dict()
 
-conn = None
-
-# No password needed to connect to localhost when Postgres is configured for "trust" authentication.
-
-postgreshost = 'localhost'
-postgresdb = 'greenlight_production'
-postgresuser = 'postgres'
-postgrespw = None
-
-def open_database():
-    global conn
-    conn = psycopg2.connect(database=postgresdb, host=postgreshost, user=postgresuser, password=postgrespw)
+myMeetingID = None
 
 def get_VALID_DISPLAYS_and_NAMES():
 
-    # We look at the system process table for Xtightvnc processes
-    # and match them to the "fullName"s of VIEWERS in the 'osito'
-    # meeting.  The fullNames get converted to UNIX usernames
-    # using the VNCusers table in the Postgres database.
-
-    if not conn:
-        open_database()
+    # We look at the system process table for Xtightvnc processes and
+    # match them to the "fullName"s of VIEWERS in the myMeetingID
+    # meeting.  The fullNames get converted to UNIX usernames using
+    # the VNCusers table in the Postgres database.
 
     VALID_DISPLAYS.clear()
     NAMES.clear()
     IDS.clear()
 
-    meetingInfo = getMeetingInfo('osito')
+    meetingInfo = bigbluebutton.getMeetingInfo(myMeetingID)
 
     running_commands = list(psutil.process_iter(['cmdline']))
 
     for e in meetingInfo.xpath(".//role[text()='VIEWER']/.."):
 
-        UNIXuser = None
         fullName = e.find('fullName').text
         userID = e.find('userID').text
 
-        with conn.cursor() as cur:
-            try:
-                cur.execute("SELECT UNIXuser FROM VNCusers WHERE VNCuser = %s", (fullName,))
-                row = cur.fetchone()
-                if row:
-                    UNIXuser = row[0]
-            except psycopg2.DatabaseError as err:
-                print(err)
-                cur.execute('ROLLBACK')
+        UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
 
         if UNIXuser:
             for proc in running_commands:
@@ -185,6 +159,9 @@ def teacher_desktop(screenx, screeny):
 
     SCREENX = int(screenx)
     SCREENY = int(screeny)
+
+    global myMeetingID
+    myMeetingID = bigbluebutton.find_current_meeting()
 
     # When switching to teacher mode, we completely replace the FVWM window manager with a new
     # instance using a completely different config, then switch back to the original config
