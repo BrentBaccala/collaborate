@@ -94,6 +94,13 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 1. Install packages needed to run VNC desktops: `sudo apt install fvwm tightvncserver`
 
+   Only the window manager (FVWM) and the VNC server are strictly *required*, but some other packages are useful:
+
+   1. A terminal; `sudo apt install gnome-terminal`
+   1. A web browser; `sudo apt install firefox`
+   1. A whiteboard; `sudo apt install xournal`
+   1. anything else you'd like to run on your desktops
+
 1. Use the following one-line config for the teacher account's `.fvwm/config` file:
 
    `PipeRead 'python3 -m vnc_collaborate print teacher_fvwm_config'`
@@ -135,8 +142,11 @@ Here's a screenshot of "teacher mode" with four students connected:
    (run both inside the desktop) to set your fonts.
 
 1. To use student desktops, you'll need to configure a Postgres table.
-   The user 'vnc' with password 'vnc' is currently hard-wired into the scripts for Postgres authentication,
-   so you need to create this role using `psql` or `pgadmin3`:
+   The user 'vnc' with password 'vnc' and database 'greenlight_production'
+   is currently hard-wired into the scripts for Postgres authentication,
+   so it's best to install Greenlight
+   and create this role using a tool like `psql` or `pgadmin3`
+   (authenticate using the credentials in the Greenlight `.env` file):
 
    `CREATE ROLE vnc LOGIN PASSWORD 'vnc';`
 
@@ -150,7 +160,7 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 1. Create UNIX user accounts for the students.
 
-1. Use a tool like `psql` or `pgadmin3` to add entries into the `VNCusers` table
+1. Use `psql` or `pgadmin3` to add entries into the `VNCusers` table
    mapping the Big Blue Button names to the UNIX usernames.
 
    If they're setup right, run a query and you should see something like this:
@@ -193,12 +203,21 @@ Here's a screenshot of "teacher mode" with four students connected:
    The widget contains mute and deaf controls for that single student, as well as a "hand" icon that does
    not interface with Big Blue Button at all, but is visible from the teacher overview when it is clicked.
 
-1. The student desktops also need a window manager of some kind.  FVWM is not required, since it doesn't
-   have to support any special features like "teacher mode".  If FVWM is used, a minimalist FVWM config
-   is provided that offers very few options to the student.  The following command can be placed
-   in the student's `.fvwm/config` file, or in `/etc/skel/.fvwm/config`:
+   This widget is available as a menu option in the standard student FVWM config (see below).
 
-   `PipeRead 'python3 -m vnc_collaborate print student_sandbox_fvwm_config'`
+1. The student desktops also need a window manager of some kind.  FVWM is not required, since it doesn't
+   have to support any special features like "teacher mode".  If FVWM is used, two student
+   FVWM configs are provided:
+
+   1. A standard FVWM config.  The following command can be placed
+      in the student's `.fvwm/config` file, or in `/etc/skel/.fvwm/config`:
+
+      `PipeRead 'python3 -m vnc_collaborate print student_fvwm_config'`
+
+   1. A minimalist FVWM config that offers very few options to the student.  The following command can be placed
+      in the student's `.fvwm/config` file, or in `/etc/skel/.fvwm/config`:
+
+      `PipeRead 'python3 -m vnc_collaborate print student_sandbox_fvwm_config'`
 
    If FVWM is used with a different config, I recommend at least setting `EdgeScroll 0 0`, since edge
    scrolling (panning to a new desktop when the mouse hits the edge of the display) doesn't work
