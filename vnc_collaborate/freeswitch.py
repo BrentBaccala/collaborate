@@ -56,9 +56,12 @@ def get_status():
                     id = member['id']
                     # Only save viewer IDs, because we don't want to deaf/undeaf moderators at all
                     if userID in viewerIDs:
-                        # allow lookup by either full name or userID
+                        # allow lookup by full name, userID, or UNIX username
                         freeswitch_ids[fullName] = id
                         freeswitch_ids[userID] = id
+                        UNIXname = bigbluebutton.fullName_to_UNIX_username(fullName)
+                        if UNIXname:
+                            freeswitch_ids[UNIXname] = id
                         mute_status[id] = not member['flags']['can_speak']
                         deaf_status[id] = not member['flags']['can_hear']
             except KeyError:
