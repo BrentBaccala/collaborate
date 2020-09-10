@@ -138,8 +138,15 @@ Here's a screenshot of "teacher mode" with four students connected:
 
    If you're following the example, PORT is 6101.
 
-   Probably want to install and run `gnome-settings-daemon` and `gnome-tweak-tool`
-   (run both inside the desktop) to set your fonts.
+1. Inside the teacher (and the student) desktops, you probably want to run `gnome-settings-daemon` in background,
+   to permit control over the display fonts.
+
+   You might need to install the program: `sudo apt install gnome-settings-daemon`.
+
+   I then like to run `gsettings set org.gnome.desktop.interface font-name 'Monospace 16'` to set the fonts
+   on the menus.  The title bar fonts are set in the FVWM config file.
+
+   You can also install and run `gnome-tweak-tool`, which is a GUI interface to these settings.
 
 1. To use student desktops, you'll need to configure a Postgres table.
    The user 'vnc' with password 'vnc' and database 'greenlight_production'
