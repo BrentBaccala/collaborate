@@ -74,33 +74,6 @@ def websockify():
     if sys.argv[0] != 'websockify':
         sys.argv.pop(0)
 
-    postgresdb = None
-    postgresuser = 'postgres'
-    postgreshost = 'localhost'
-    postgrespw = None
-
-    if '--postgresdb' in sys.argv:
-        i = sys.argv.index('--postgresdb')
-        sys.argv.pop(i)
-        postgresdb = sys.argv.pop(i)
-
-    if '--postgresuser' in sys.argv:
-        i = sys.argv.index('--postgresuser')
-        sys.argv.pop(i)
-        postgresuser = sys.argv.pop(i)
-
-    if '--postgrespw' in sys.argv:
-        i = sys.argv.index('--postgrespw')
-        sys.argv.pop(i)
-        postgrespw = sys.argv.pop(i)
-
-    if postgresdb:
-        try:
-            global conn
-            conn = psycopg2.connect(database=postgresdb, host=postgreshost, user=postgresuser, password=postgrespw)
-        except psycopg2.DatabaseError as err:
-            print(err)
-
     # This will call WebSocketProxy; its default RequestHandlerClass
     # is ProxyRequestHandler, but we can't override
     # RequestHandlerClass at this point, so we settle for changing the

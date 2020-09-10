@@ -101,7 +101,7 @@ classroom based on Big Blue Button and VNC remote desktops.
 
 1. Start websockify to relay WebSock connections to the VNC server, something like this:
 
-   `python3 -m vnc_collaborate websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem --postgresdb greenlight_production 6101 localhost:5901`
+   `python3 -m vnc_collaborate websockify -D --ssl-only --cert $HOME/ssl/fullchain1.pem --key $HOME/ssl/privkey1.pem 6101 localhost:5901`
 
    I often run this command in a `screen` session without the `-D` option if I want to monitor its operation.
 
@@ -112,15 +112,6 @@ classroom based on Big Blue Button and VNC remote desktops.
    Also note that we're using a special websockify built-in to the `vnc_collaborate` module.
    This custom websockify will relay VNC connections to different VNC servers based on a UNIX user name
    that can be (optionally) provided in the URL (see below).
-
-   The postgres parameter is necessary to specify a Postgres database whose `VNCusers` table
-   will be used to map from Big Blue Button full names to UNIX usernames.  I'm using the
-   greenlight database because it's convenient.  The greenlight database is set for "trust"
-   authentication, so no password is needed when connecting from `localhost`.
-   You can use whatever Postgres database
-   you'd like; create the table (or view) using the following SQL command:
-
-   `CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser))`
 
 1. At this point, the teacher desktop should be working.  You don't need to do anything in SQL yet,
    since without the SQL table all connections will fall through to the default host and port (`localhost:5901` in
@@ -133,7 +124,21 @@ classroom based on Big Blue Button and VNC remote desktops.
    Probably want to install and run `gnome-settings-daemon` and `gnome-tweak-tool`
    (run both inside the desktop) to set your fonts.
 
-1. To use student desktops, create UNIX user accounts for the students.
+1. To use student desktops, you'll need to configure a Postgres table.
+   The user 'vnc' with password 'vnc' is currently hard-wired into the scripts for Postgres authentication,
+   so you need to create this role using `psql` or `pgadmin3`:
+
+   `CREATE ROLE vnc LOGIN PASSWORD 'vnc';`
+
+   Create the table (or view) using the following SQL command:
+
+   `CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser))`
+
+   The only permission 'vnc' needs is to read this table:
+
+   `GRANT SELECT ON VNCusers to vnc;`
+
+1. Create UNIX user accounts for the students.
 
 1. Use a tool like `psql` or `pgadmin3` to add entries into the `VNCusers` table
    mapping the Big Blue Button names to the UNIX usernames.
@@ -168,7 +173,7 @@ classroom based on Big Blue Button and VNC remote desktops.
    The host and port specified as the last option to the `websockify` command now become a default VNC session
    that users will connect to if the username lookup fails.
 
-1. N.B: There is currently no mechanism to auto-start VNC servers from these scripts.  If they're not
+1. There is currently no mechanism to auto-start VNC servers from these scripts.  If they're not
    running, the user will fall back on the default VNC session.
 
 1. To facilitate full screen use, the students can run an audio control widget in their student desktops:

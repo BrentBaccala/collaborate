@@ -15,14 +15,18 @@ PROP_FILE = "/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties"
 
 # We store mappings between BBB fullNames and UNIX usernames in a SQL table:
 #
-# CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser))
+# CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser));
+#
+# CREATE ROLE vnc LOGIN PASSWORD 'vnc';
+#
+# GRANT SELECT ON VNCusers to vnc;
 #
 # No password needed to connect to localhost when Postgres is configured for "trust" authentication.
 
 postgreshost = 'localhost'
 postgresdb = 'greenlight_production'
-postgresuser = 'postgres'
-postgrespw = None
+postgresuser = 'vnc'
+postgrespw = 'vnc'
 
 config = None
 
@@ -38,7 +42,10 @@ conn = None
 def open_database():
     global conn
     if not conn:
-        conn = psycopg2.connect(database=postgresdb, host=postgreshost, user=postgresuser, password=postgrespw)
+        try:
+            conn = psycopg2.connect(database=postgresdb, host=postgreshost, user=postgresuser, password=postgrespw)
+        except psycopg2.DatabaseError as err:
+            print(err)
 
 def APIcall(call_name, query_dict):
     load_config()
@@ -68,15 +75,16 @@ def find_current_meeting():
     username = os.environ['USER']
     myFullName = None
     open_database()
-    with conn.cursor() as cur:
-        try:
-            cur.execute("SELECT VNCuser FROM VNCusers WHERE UNIXuser = %s", (username,))
-            row = cur.fetchone()
-            if row:
-                myFullName = row[0]
-        except psycopg2.DatabaseError as err:
-            print(err)
-            cur.execute('ROLLBACK')
+    if conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("SELECT VNCuser FROM VNCusers WHERE UNIXuser = %s", (username,))
+                row = cur.fetchone()
+                if row:
+                    myFullName = row[0]
+            except psycopg2.DatabaseError as err:
+                print(err)
+                cur.execute('ROLLBACK')
 
     if myFullName:
         meetings = getMeetings()
@@ -94,13 +102,14 @@ def find_current_meeting():
 
 def fullName_to_UNIX_username(fullName):
     open_database()
-    with conn.cursor() as cur:
-        try:
-            cur.execute("SELECT UNIXuser FROM VNCusers WHERE VNCuser = %s", (fullName,))
-            row = cur.fetchone()
-            if row:
-                return row[0]
-        except psycopg2.DatabaseError as err:
-            print(err)
-            cur.execute('ROLLBACK')
+    if conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("SELECT UNIXuser FROM VNCusers WHERE VNCuser = %s", (fullName,))
+                row = cur.fetchone()
+                if row:
+                    return row[0]
+            except psycopg2.DatabaseError as err:
+                print(err)
+                cur.execute('ROLLBACK')
     return None
