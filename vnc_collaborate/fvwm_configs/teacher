@@ -41,6 +41,7 @@ AddToMenu RootMenu      "Root Menu"     Title
 +                       ""              Nop
 +                       "Refresh Screen"   Refresh
 +                       "Recapture Screen" Recapture
++                       "Restart FVWM"     Restart
 
 
 
