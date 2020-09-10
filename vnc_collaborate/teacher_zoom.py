@@ -19,7 +19,7 @@ import subprocess
 
 import vnc_collaborate.freeswitch as freeswitch
 
-def teacher_zoom(window):
+def teacher_zoom(window, desktop_width, desktop_height):
 
    # See FVWM man page on $[w.name] - the window name is encased in single quotes
    # and embedded single quotes are escaped with a backspace.  The window name
@@ -43,10 +43,10 @@ def teacher_zoom(window):
       if was_deafed:
          freeswitch.undeaf_student(STUDENT_ID)
 
-      # XXX Teacher desktop geometry is hard-wired here!
+      geometry = desktop_width + 'x' + desktop_height
 
       args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
-              '-geometry', '1476x830', '-scale', '1476x830',
+              '-geometry', geometry, '-scale', geometry,
               '-escape', 'Alt_L', '-passwd', '/home/baccala/.vnc/passwd',
               STUDENT_DISPLAY]
       print(args)
