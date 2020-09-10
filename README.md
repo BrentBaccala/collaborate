@@ -1,5 +1,15 @@
 This is a collection of scripts and programs to facilitate a virtual
-classroom based on Big Blue Button and VNC remote desktops.
+classroom based on Big Blue Button and VNC remote desktops.  The
+scripts are based on an extension to Big Blue Button that allow
+sharing VNC remote desktops.  Once this extension is installed, the
+scripts enable a "teacher mode" that allows a teacher to observe all
+student desktops running in a Big Blue Button session and interact
+with them individually.  When a student's desktop is selected, the
+session audio is connected to that student only.
+
+Here's a screenshot of "teacher mode" with four students connected:
+
+![screenshot of a running demo](demo.jpg)
 
 **How to use these scripts**
 
