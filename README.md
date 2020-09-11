@@ -1,4 +1,4 @@
-This is a collection of scripts and programs to facilitate a virtual
+This is a pip-installable Python module to facilitate a virtual
 classroom based on [Big Blue Button](https://bigbluebutton.org/) and
 VNC remote desktops.
 
@@ -22,7 +22,7 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 ![screenshot of a running demo](demo.jpg)
 
-**How to use these scripts**
+**How to use this package**
 
 1. Install Big Blue Button
 
@@ -34,21 +34,27 @@ Here's a screenshot of "teacher mode" with four students connected:
    program runs on my instance to register the IP address with Google), then download
    and run bbb-install, something like this:
 
-   `sudo ./bbb-install.sh -v xenial-22 -s collaborate.freesoft.org -e cosine@freesoft.org`
+   `sudo ./bbb-install.sh -v xenial-22 -s collaborate.freesoft.org -g -e cosine@freesoft.org`
 
    or this, if you've already got SSL keys and certificates:
 
-   `sudo ./bbb-install.sh -v xenial-22 -s collaborate.freesoft.org -d`
+   `sudo ./bbb-install.sh -v xenial-22 -s collaborate.freesoft.org -g -d`
 
    SSL configuration is required for proper operation of Big Blue Button.
 
 1. Configure authentication into Big Blue Button
 
-   There are many ways to do this.  Installing Greenlight by adding the -g switch to
-   the bbb-install.sh call is probably the simplest.  Check the Greenlight documentation
-   for more information about what to do next (like adding users).  The default
-   Greenlight configuration allows anybody to sign up as a user, but moderators
+   There are many ways to do this.  Installing Greenlight (the `-g`
+   switch on the bbb-install.sh call above) is probably the simplest.
+   Check the Greenlight documentation for more information about what
+   to do next (like adding users).  The default Greenlight
+   configuration allows anybody to sign up as a user, but moderators
    need to be added from the command line.
+
+   Installing Greenlight also installs a Postgres server (both in
+   docker containers), which is handy because we need Postgres to
+   manage our user lookup table.  In fact, the database name
+   `greenlight_production` is (currently) hard-wired in the package.
 
 1. Clone the [BrentBaccala/bigbluebutton](https://github.com/BrentBaccala/bigbluebutton) repository (not this one)
 
@@ -162,7 +168,7 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 1. To use student desktops, you'll need to configure a Postgres table.
    The user 'vnc' with password 'vnc' and database 'greenlight_production'
-   is currently hard-wired into the scripts for Postgres authentication,
+   is currently hard-wired into the package for Postgres authentication,
    so it's best to install Greenlight
    and create this role using a tool like `psql` or `pgadmin3`
    (authenticate using the credentials in the Greenlight `.env` file):
@@ -216,8 +222,9 @@ Here's a screenshot of "teacher mode" with four students connected:
    The host and port specified as the last option to the `websockify` command now become a default VNC session
    that users will connect to if the username lookup fails.
 
-1. There is currently no mechanism to auto-start VNC servers from these scripts.  If they're not
-   running, the user will fall back on the default VNC session.
+1. There is currently no mechanism to auto-start VNC servers from this package.  If they're not
+   running, the user will fall back on the default VNC session.  Auto-starting VNC servers would
+   require something akin to root privilege for the websockify component.
 
 1. To facilitate full screen use, the students can run an audio control widget in their student desktops:
 

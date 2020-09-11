@@ -17,11 +17,12 @@ PROP_FILE = "/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties"
 #
 # CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser));
 #
+# We access the database using some hard-wired parameters.  Create the
+# 'vnc' user with something like this:
+#
 # CREATE ROLE vnc LOGIN PASSWORD 'vnc';
 #
 # GRANT SELECT ON VNCusers to vnc;
-#
-# No password needed to connect to localhost when Postgres is configured for "trust" authentication.
 
 postgreshost = 'localhost'
 postgresdb = 'greenlight_production'
@@ -48,6 +49,12 @@ def open_database():
             print(err)
 
 def APIcall(call_name, query_dict):
+    r"""
+    Make a Big Blue Button REST API call.  The first argument is the name
+    of the API call; the second argument is a dictionary of parameters.
+
+    Expect an etree XML object in return.
+    """
     load_config()
     securitySalt = config['securitySalt']
     bbbUrl = config['bigbluebutton.web.serverURL'] + '/bigbluebutton/api/'
@@ -65,11 +72,13 @@ def getMeetingInfo(meetingID):
     return APIcall("getMeetingInfo", locals())
 
 def find_current_meeting():
-    # Lookup the current UNIX user in the VNCusers SQL table to pull
-    # out the matching VNCuser (the BBB fullName).  Then look through
-    # all the meetings on the BBB server to find the (first) one
-    # where this user is a participant.
-    #
+    r"""
+    Lookup the current UNIX user in the VNCusers SQL table to pull
+    out the matching VNCuser (the BBB fullName).  Then look through
+    all the meetings on the BBB server to find the (first) one
+    where this user is a participant and return its meetingID.
+    """
+
     # XXX what should we do if the user is a participant in multiple meetings?
 
     username = os.environ['USER']
@@ -101,6 +110,10 @@ def find_current_meeting():
     return None
 
 def fullName_to_UNIX_username(fullName):
+    r"""
+    Use a SQL table lookup to convert a Big Blue Button fullName
+    into a UNIX username.
+    """
     open_database()
     if conn:
         with conn.cursor() as cur:

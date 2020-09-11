@@ -5,7 +5,6 @@ import subprocess
 import multiprocessing
 
 import sys
-import json
 import math
 import time
 import psutil
@@ -33,11 +32,14 @@ myMeetingID = None
 HOME = os.environ['HOME']
 
 def get_VALID_DISPLAYS_and_NAMES():
-
-    # We look at the system process table for Xtightvnc processes and
-    # match them to the "fullName"s of VIEWERS in the myMeetingID
-    # meeting.  The fullNames get converted to UNIX usernames using
-    # the VNCusers table in the Postgres database.
+    r"""
+    Look at the system process table for Xtightvnc processes and match
+    them to the "fullName"s of VIEWERS in the myMeetingID meeting.
+    The fullNames get converted to UNIX usernames using the VNCusers
+    table in the Postgres database.  Use this information to update
+    VALID_DISPLAYS (a list of X11 display names), NAMES and IDS
+    (dictionaries mapping X11 display names to fullNames and userIDs).
+    """
 
     VALID_DISPLAYS.clear()
     NAMES.clear()
@@ -69,7 +71,7 @@ def get_VALID_DISPLAYS_and_NAMES():
 
 processes = dict()
 
-# 'locations' maps display names to their location in the on-screen grid.
+# 'locations' maps display names to their location (an integer) in the on-screen grid.
 
 locations = dict()
 
@@ -134,11 +136,9 @@ def main_loop():
                 col = i%cols
                 geox = int(col * SCREENX/cols + .005*SCREENX)
                 geoy = int(row * SCREENY/cols + .005*SCREENY)
-                # Use the BBB userID and the X display as the title of the window.
-                # I'd rather it be the window's "name", but ssvncviewer seems to ignore that option.
+                # Use the title of the window to identify these windows to the FVWM config,
+                # and to pass information (their userID and display name) to teacher_zoom.
                 # The title won't be displayed with our default FVWM config for teacher mode.
-                # This is how we identify these windows to the FVWM config, and also
-                # how we pass the identity of the user to the teacher_zoom script.
                 title = ";".join(["TeacherViewVNC", IDS[display], display])
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
                         '-escape', 'never',
@@ -157,7 +157,6 @@ def restore_original_state():
     subprocess.Popen(["fvwm", "-r"])
 
 def signal_handler(sig, frame):
-    print('You pressed Ctrl+C!')
     restore_original_state()
     sys.exit(0)
 
@@ -185,7 +184,8 @@ def teacher_desktop(screenx, screeny):
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Big Blue Button currently (version 2.2.22) lacks a mechanism in its REST API
-    # to get notifications when users come and go.  So we poll every second...
+    # to get notifications when users come and go.  So we poll every second to
+    # update the display until FVWM exits.
 
     while True:
         try:

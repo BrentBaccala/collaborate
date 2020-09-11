@@ -1,15 +1,17 @@
-#
-# Usage: simple_text("Text string", X-COORDINATE, Y-COORDINATE)
-#
-# "Text string" is displayed with its upper middle point at (X-COORDINATE, Y-COORDINATE)
 
-import sys
 import tkinter as tk
 import multiprocessing
 import signal
 
 def simple_text(text, x, y):
+    r"""
+    simple_text(text, x, y)
 
+    Fork a subprocess to display a text string with its upper middle
+    point at (x,y), using the tk toolkit.
+
+    Returns a multiprocessing.Process object that manages the subprocess.
+    """
     def app():
 
         window = tk.Tk()
@@ -30,7 +32,7 @@ def simple_text(text, x, y):
         window.geometry("+"+str(xlocation)+"+"+str(ylocation))
         window.title(text)
 
-        # Implementing this function with the multiprocessing module
+        # Implementing this function with the multiprocessing package
         # is problematic.  We inherit a lot of state from the parent
         # process, in particular, its signal handlers, which were
         # changed in teacher_desktop(), and I do depend on being able

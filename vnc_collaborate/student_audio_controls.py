@@ -1,6 +1,3 @@
-#
-# Display a window in the top-right corner of the display with student
-# audio controls: mute, deaf, and a hand (click to raise).
 
 import os
 
@@ -17,6 +14,13 @@ except ImportError:
     import importlib_resources as pkg_resources
 
 def student_audio_controls(*options):
+    r"""
+    Displays a Tk window in the top-right corner of the display with
+    student audio controls: mute, deaf, and a hand (click to raise).
+
+    The function never returns.  Instead, it manages the window and
+    polls the freeswitch API every quarter second to keep it updated.
+    """
 
     username = os.environ['USER']
 
