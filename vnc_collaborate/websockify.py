@@ -45,25 +45,14 @@ def new_websocket_client(self):
     UNIXuser = bigbluebutton.fullName_to_UNIX_username(userID)
 
     if UNIXuser:
-        displays = []
-        for fn in glob.glob('/home/{}/.vnc/*.pid'.format(UNIXuser)):
-            with open(fn) as f:
-                pid = int(f.read())
-                try:
-                    p = psutil.Process(pid)
-                    if 'vnc' in p.cmdline()[0]:
-                        displays.append(fn.split('/')[-1].strip('.pid'))
-                except psutil.NoSuchProcess:
-                    pass
+        rfbport = None
+        for p in psutil.process_iter(['username', 'name', 'cmdline']):
+            if p.info['username'] == UNIXuser and 'vnc' in p.info['name'] and '-rfbport' in p.info['cmdline']:
+                rfbport = p.info['cmdline'][p.info['cmdline'].index('-rfbport') + 1]
 
-        # `displays` will now contain the X11 display names of all running
-        # VNC displays for this user.  Yes, there can be more than one.
-        # We pick the first one arbitrarily.
-
-        if len(displays) > 0:
-            (target_host, target_display) = displays[0].split(':')
-            self.server.target_host = target_host
-            self.server.target_port = 5900 + int(target_display)
+        if rfbport:
+            self.server.target_host = 'localhost'
+            self.server.target_port = int(rfbport)
 
     # pass through to the "parent" class's version of this method
     old_new_websocket_client(self)
