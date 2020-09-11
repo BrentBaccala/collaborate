@@ -20,6 +20,7 @@ setuptools.setup(
         "vnc_collaborate.fvwm_configs": ["*"]
     },
     install_requires=[
+        'psutil',
         'pyjavaproperties',
         'importlib_resources; python_version < "3.7"'
     ],
