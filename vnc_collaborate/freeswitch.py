@@ -11,7 +11,7 @@ FS_CLI = "/opt/freeswitch/bin/fs_cli"
 XML_CONF = "/opt/freeswitch/conf/autoload_configs/event_socket.conf.xml"
 
 freeswitch_ids = {}
-conference = None
+voiceBridge = None
 mute_status = {}
 deaf_status = {}
 
@@ -26,46 +26,44 @@ def get_status():
 
     # Fetch freeswitch conference data and map names to freeswitch id numbers
 
-    global conference
+    global voiceBridge
 
     meetingInfo = bigbluebutton.getMeetingInfo(bigbluebutton.find_current_meeting())
+    voiceBridge = meetingInfo.find("voiceBridge").text
     viewerIDs = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../userID")]
 
     freeswitch_process = subprocess.Popen([FS_CLI, '-p', freeswitch_pw, '-x', 'conference json_list'], stdout=subprocess.PIPE)
     (stdoutdata, stderrdata) = freeswitch_process.communicate()
     try:
-        conference = json.loads(stdoutdata.decode())
+        conferences = json.loads(stdoutdata.decode())
     except json.JSONDecodeError:
-        conference  = []
+        conferences  = []
 
     freeswitch_ids.clear()
     mute_status.clear()
     deaf_status.clear()
 
-    # XXX there's a bad assumption here that the first freeswitch conference is the one we want
-
-    if len(conference) > 0:
-        for member in conference[0]['members']:
-            try:
+    for conf in conferences:
+        if conf['conference_name'] == voiceBridge:
+            for member in conf['members']:
                 # Now we parse the freeswitch name and extract the BBB userId and fullName from it,
                 # using a regular expression.  Brittle, I know.
-                m = re.match(r'(?P<userID>\w*)_[0-9]*-bbbID(-LISTENONLY)?-(?P<fullName>.*)', member['caller_id_name'])
-                if m:
-                    userID = m.group('userID')
-                    fullName = m.group('fullName')
-                    id = member['id']
-                    # Only save viewer IDs, because we don't want to deaf/undeaf moderators at all
-                    if userID in viewerIDs:
-                        # allow lookup by full name, userID, or UNIX username
-                        freeswitch_ids[fullName] = id
-                        freeswitch_ids[userID] = id
-                        UNIXname = bigbluebutton.fullName_to_UNIX_username(fullName)
-                        if UNIXname:
-                            freeswitch_ids[UNIXname] = id
-                        mute_status[id] = not member['flags']['can_speak']
-                        deaf_status[id] = not member['flags']['can_hear']
-            except KeyError:
-                pass
+                if 'caller_id_name' in member:
+                    m = re.match(r'(?P<userID>\w*)_[0-9]*-bbbID(-LISTENONLY)?-(?P<fullName>.*)', member['caller_id_name'])
+                    if m:
+                        userID = m.group('userID')
+                        fullName = m.group('fullName')
+                        id = member['id']
+                        # Only save viewer IDs, because we don't want to deaf/undeaf moderators at all
+                        if userID in viewerIDs:
+                            # allow lookup by full name, userID, or UNIX username
+                            freeswitch_ids[fullName] = id
+                            freeswitch_ids[userID] = id
+                            UNIXname = bigbluebutton.fullName_to_UNIX_username(fullName)
+                            if UNIXname:
+                                freeswitch_ids[UNIXname] = id
+                            mute_status[id] = not member['flags']['can_speak']
+                            deaf_status[id] = not member['flags']['can_hear']
 
 def print_status():
     get_status()
@@ -79,7 +77,7 @@ def freeswitch_cmd(cmd):
     freeswitch_process.wait()
 
 def freeswitch_conference_cmd(*cmd):
-    freeswitch_cmd('conference ' + conference[0]['conference_name'] + ' ' + ' '.join(map(str,cmd)))
+    freeswitch_cmd('conference ' + voiceBridge + ' ' + ' '.join(map(str,cmd)))
 
 def freeswitch_set_private(student_name):
     for id in freeswitch_ids.values():
