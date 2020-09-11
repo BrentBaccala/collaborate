@@ -44,6 +44,7 @@ def get_status():
     meetingInfo = bigbluebutton.getMeetingInfo(bigbluebutton.find_current_meeting())
     voiceBridge = meetingInfo.find("voiceBridge").text
     viewerIDs = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../userID")]
+    viewerFullNames = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../fullName")]
 
     freeswitch_process = subprocess.Popen([FS_CLI, '-p', freeswitch_pw, '-x', 'conference json_list'], stdout=subprocess.PIPE)
     (stdoutdata, stderrdata) = freeswitch_process.communicate()
@@ -68,7 +69,7 @@ def get_status():
                         fullName = m.group('fullName')
                         id = member['id']
                         # Only save viewer IDs, because we don't want to deaf/undeaf moderators at all
-                        if userID in viewerIDs:
+                        if userID in viewerIDs or fullName in viewerFullNames:
                             # allow lookup by full name, userID, or UNIX username
                             freeswitch_ids[fullName] = id
                             freeswitch_ids[userID] = id
