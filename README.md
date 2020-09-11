@@ -92,9 +92,10 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 1. Check that `vnc_collaborate` installed correctly: `python3 -m vnc_collaborate` should run with no output and no error
 
-1. Install packages needed to run VNC desktops: `sudo apt install fvwm tightvncserver`
+1. Install packages needed to run VNC desktops: `sudo apt install fvwm tightvncserver ssvnc`
 
-   Only the window manager (FVWM) and the VNC server are strictly *required*, but some other packages are useful:
+   Only the window manager (FVWM), the VNC server, and the VNC viewer (ssvnc) are strictly *required*,
+   but some other packages are useful:
 
    1. A terminal; `sudo apt install gnome-terminal`
    1. A web browser; `sudo apt install firefox`
@@ -164,6 +165,10 @@ Here's a screenshot of "teacher mode" with four students connected:
    The only permission 'vnc' needs is to read this table:
 
    `GRANT SELECT ON VNCusers to vnc;`
+
+   The grant isn't too broad, since it only allows read-only access to this one table,
+   and the default Greenlight configuration (the port mapping in its docker-compose.yml file)
+   only allows connections from localhost.
 
 1. Create UNIX user accounts for the students.
 

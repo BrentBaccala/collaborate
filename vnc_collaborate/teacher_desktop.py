@@ -17,7 +17,11 @@ from lxml import etree
 from .simple_text import simple_text
 from . import bigbluebutton
 
-VIEWONLY_VIEWER = "/home/baccala/src/ssvnc-1.0.29/vnc_unixsrc/vncviewer/vncviewer"
+# ssvncviewer is preferred over other VNC viewers due to its ability to scale the remote
+# desktop to fit in the window geometry, an essential feature for our miniaturized
+# desktop views.
+
+VIEWONLY_VIEWER = "ssvncviewer"
 
 VALID_DISPLAYS = []
 NAMES = dict()
@@ -134,6 +138,7 @@ def main_loop():
                 # how we pass the identity of the user to the teacher_zoom script.
                 title = ";".join(["TeacherViewVNC", IDS[display], display])
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
+                        '-escape', 'never',
                         '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd',
                         '-title', title, display]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))

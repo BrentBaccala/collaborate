@@ -7,10 +7,10 @@ DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
 DestroyFunc StartFunction
 AddToFunc StartFunction
- + I All ("vncviewer") Layer 0 1
+ + I All ("*vncviewer") Layer 0 1
  + I All ("Tk") Iconify off
  + I All ("Tk") Layer 0 2
- + I All (!"vncviewer|Tk") Iconify on
+ + I All (!"*vncviewer|Tk") Iconify on
 
 # remove all standard FVWM mouse and key mappings
 
@@ -52,7 +52,7 @@ Mouse 3 A       A       Menu TeacherMenu Nop
 DestroyFunc ZoomDesktop
 AddToFunc ZoomDesktop
  + I StartFunction
- + I All ("vncviewer|Tk") Iconify on
+ + I All ("*vncviewer|Tk") Iconify on
  + I Mouse 3 A  A  -
  + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]" $[vp.width] $[vp.height]
  + I Wait "Zoomed Student Desktop"
@@ -70,7 +70,7 @@ DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
  + I None ("Zoomed Student Desktop") Mouse ("TeacherViewVNC;*") 1 A A ZoomDesktop
  + I None ("Zoomed Student Desktop") Mouse 3 A  A  Menu TeacherMenu Nop
- + I None ("Zoomed Student Desktop") All ("vncviewer|Tk") Iconify off
+ + I None ("Zoomed Student Desktop") All ("*vncviewer|Tk") Iconify off
 
 *FvwmEvent: destroy_window DestroyWindowEvent
 
