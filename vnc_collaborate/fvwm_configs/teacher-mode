@@ -31,6 +31,7 @@ AddToMenu TeacherMenu      "Teacher Mode"     Title
 +                          "Undeaf All Students"      Exec python3 -m vnc_collaborate undeaf_students -a
 +                          "Deaf All Students"        Exec python3 -m vnc_collaborate deaf_students -a
 +                       ""              Nop
++                       "Refresh Screen"   Refresh
 +                          "Exit Teacher Mode"         Quit
 
 Mouse 3 A       A       Menu TeacherMenu Nop
