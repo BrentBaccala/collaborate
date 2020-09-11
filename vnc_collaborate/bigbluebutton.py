@@ -97,15 +97,10 @@ def find_current_meeting():
 
     if myFullName:
         meetings = getMeetings()
-        for e in meetings.xpath(".//running[text()='true']/../meetingID"):
-            meetingID = e.text
-            meetingInfo = getMeetingInfo(meetingID)
-            # I could query for just the fullName's that match myFullName,
-            # but then I'd have to escape myFullName, and it just
-            # seems like too much trouble at the moment.
-            for ee in meetingInfo.xpath(".//fullName"):
-                if ee.text == myFullName:
-                    return meetingID
+        meetingID = meetings.xpath("string(.//fullName[text()=$fn]/../../../running[text()='true']/../meetingID)",
+                                   fn = myFullName)
+        if meetingID != '':
+            return meetingID
 
     return None
 
