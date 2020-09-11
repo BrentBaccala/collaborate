@@ -29,6 +29,7 @@ Mouse 3 TSIF    A       RaiseLower
 ######################## Menus ###################
 AddToMenu RootMenu      "Root Menu"     Title
 +                       "Terminal"         Exec exec gnome-terminal
++			"Files"			Exec exec nautilus
 +			"Firefox"		Exec exec firefox
 +			"Whiteboard"		Exec exec xournal
 +			"Student Audio Controls" Exec python3 -m vnc_collaborate student_audio_controls

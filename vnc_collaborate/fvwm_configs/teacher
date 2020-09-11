@@ -29,6 +29,7 @@ Mouse 3 TSIF    A       RaiseLower
 ######################## Menus ###################
 AddToMenu RootMenu      "Root Menu"     Title
 +                       "Terminal"         Exec exec gnome-terminal
++			"Files"			Exec exec nautilus
 +			"Firefox"		Exec exec firefox
 +			"Whiteboard"		Exec exec xournal
 +			"pgAdmin3"		Exec exec pgadmin3
