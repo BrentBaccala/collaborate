@@ -16,8 +16,11 @@
 import sys
 import re
 import subprocess
+import os
 
 import vnc_collaborate.freeswitch as freeswitch
+
+HOME = os.environ['HOME']
 
 def teacher_zoom(window, desktop_width, desktop_height):
 
@@ -47,7 +50,7 @@ def teacher_zoom(window, desktop_width, desktop_height):
 
       args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
               '-geometry', geometry, '-scale', geometry,
-              '-escape', 'Alt_L', '-passwd', '/home/baccala/.vnc/passwd',
+              '-escape', 'Alt_L', '-passwd', HOME + '/.vnc/passwd',
               STUDENT_DISPLAY]
       print(args)
 

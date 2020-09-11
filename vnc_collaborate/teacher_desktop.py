@@ -11,6 +11,7 @@ import time
 import psutil
 import re
 import signal
+import os
 
 from lxml import etree
 
@@ -28,6 +29,8 @@ NAMES = dict()
 IDS = dict()
 
 myMeetingID = None
+
+HOME = os.environ['HOME']
 
 def get_VALID_DISPLAYS_and_NAMES():
 
@@ -139,7 +142,7 @@ def main_loop():
                 title = ";".join(["TeacherViewVNC", IDS[display], display])
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
                         '-escape', 'never',
-                        '-scale', SCALE, '-passwd', '/home/baccala/.vnc/passwd',
+                        '-scale', SCALE, '-passwd', HOME + '/.vnc/passwd',
                         '-title', title, display]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
