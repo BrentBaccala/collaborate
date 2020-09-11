@@ -86,13 +86,23 @@ Here's a screenshot of "teacher mode" with four students connected:
 
    You should now have a working Big Blue Button installation with a new menu option to "share remote desktop".
 
-   To keep `npm start` running, I either run it in a `screen` session, or install `pm2` and run it from there (how?).
+   To keep `npm start` running, I either run it in a `screen` session, or install `pm2` and run it like this:
+
+   `pm2 start npm -- start`
 
    `pm2` can be made persistent pretty easily (run `pm2 startup` for instructions)
 
 1. Now clone this repository, and from its directory...
 
 1. Build the `vnc_collaborate` module: `./setup.py build`
+
+   You might be missing some packages to make this work:
+
+   ```
+   sudo apt install python3-pip
+   pip3 install setuptools
+   ./setup.py build
+   ```
 
 1. Install the `vnc_collaborate` module: `sudo -H pip3 install .`
 
