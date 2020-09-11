@@ -117,6 +117,10 @@ Here's a screenshot of "teacher mode" with four students connected:
 
    `sudo -H pip3 install psycopg2-binary`
 
+1. You need to install an apt package to get the X11 Tk library:
+
+   `sudo apt install python3-tk`
+
 1. Check that `vnc_collaborate` installed correctly: `python3 -m vnc_collaborate` should run with no output and no error
 
 1. Install packages needed to run VNC desktops: `sudo apt install fvwm tightvncserver ssvnc`
@@ -129,6 +133,16 @@ Here's a screenshot of "teacher mode" with four students connected:
    1. A whiteboard; `sudo apt install xournal`
    1. anything else you'd like to run on your desktops
 
+1. Create a UNIX account for the teacher using something like:
+
+   `sudo adduser --force-badname BrentBaccala`
+
+   There's no naming convention that has to be followed here, the account doesn't have to be given a password
+   (you'll be prompted for a VNC password in a moment), and I needed `--force-badname` only because the
+   name I choose didn't pass Ubuntu's standard account name regular expression test.
+
+   If just hit return six times when prompted for a password, it will create the account with no password.
+
 1. Use the following one-line config for the teacher account's `.fvwm/config` file:
 
    `PipeRead 'python3 -m vnc_collaborate print teacher_fvwm_config'`
@@ -136,9 +150,17 @@ Here's a screenshot of "teacher mode" with four students connected:
    The FVWM config is shipped with the Python package, and this pulls in the config
    without having to hard-wire the location where the package is installed.
 
+   At the moment, there isn't much privilege separation between a teacher account and a student account.
+   A teacher account is only a teacher account by virtue of using the teacher FVWM config.
+
+   Since we need to use the same VNC password for all desktops at the moment, it isn't that hard
+   for a student to access the teacher's desktop anyway.
+
 1. Start the teacher's VNC desktop with `vncserver` with something like:
 
-   `vncserver -geometry 1024x768 :1`
+   `vncserver` (if you're already su'ed to the teacher account)
+
+   `sudo su BrentBaccala -l -c vncserver` (if you're not)
 
    The first time it will prompt you to set a password (do so).  It will also ask if you want to set a view-only password,
    which is not really recommended,
@@ -152,7 +174,8 @@ Here's a screenshot of "teacher mode" with four students connected:
 
    Notice that special arrangements have been made (I copied the SSL keys and certs from
    `/etc/letsencrypt/archive` into my home directory)
-   to enable encrypted connections.
+   to enable encrypted connections.  Reading these SSL files is the only special permission
+   that `websockify` needs.
 
    Also note that we're using a special websockify built-in to the `vnc_collaborate` module.
    This custom websockify will relay VNC connections to different VNC servers based on a UNIX user name
@@ -166,13 +189,19 @@ Here's a screenshot of "teacher mode" with four students connected:
 
    If you're following the example, PORT is 6101.
 
+   If you get `handler exception: [Errno 13] Permission denied` from the `websockify`
+   (you'd have to run it without the `-D` option to see any messages from it at all),
+   double-check the permissions on your SSL files.
+
 1. Inside the teacher (and the student) desktops, you probably want to run `gnome-settings-daemon` in background,
    to permit control over the display fonts.
 
    You might need to install the program: `sudo apt install gnome-settings-daemon`.
 
    I then like to run `gsettings set org.gnome.desktop.interface font-name 'Monospace 16'` to set the fonts
-   on the menus.  The title bar fonts are set in the FVWM config file.
+   on the menus.  The title bar fonts are set in the FVWM config file.  The font used by `gnome-terminal`
+   can be set either from its preferences dialog or by running
+   `gsettings set org.gnome.desktop.interface monospace-font-name 'Monospace 16'.
 
    You can also install and run `gnome-tweak-tool`, which is a GUI interface to these settings.
 
@@ -187,7 +216,7 @@ Here's a screenshot of "teacher mode" with four students connected:
 
    Create the table (or view) using the following SQL command:
 
-   `CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser))`
+   `CREATE TABLE VNCusers(VNCuser text, UNIXuser text, PRIMARY KEY (VNCuser));`
 
    The only permission 'vnc' needs is to read this table:
 
@@ -197,7 +226,13 @@ Here's a screenshot of "teacher mode" with four students connected:
    and the default Greenlight configuration (the port mapping in its docker-compose.yml file)
    only allows connections from localhost.
 
-1. Create UNIX user accounts for the students.
+1. Prior to creating UNIX user accounts for the students, it is useful to put any files that
+   should be copied to all of the student home directories in `/etc/skel`.  I find it
+   particularly useful to put a copy of the `.vnc/passwd` file there (in `/etc/skel/.vnc/passwd`),
+   making sure to set the permissions of `/etc/skel/.vnc` to 700 and `/etc/skel/.vnc/passwd` to 600,
+   as well as `/etc/skel/.fvwm/config` (pick one of the two options outlined below).
+
+1. Create UNIX user accounts for the students.  No passwords need be set.
 
 1. Use `psql` or `pgadmin3` to add entries into the `VNCusers` table
    mapping the Big Blue Button names to the UNIX usernames.
@@ -218,15 +253,18 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 1. Start vnc servers for the various students, something like:
 
-   `sudo su CharlieClown vncserver -geometry 1024x768`
+   `sudo su CharlieClown -l -c vncserver`
 
-   They all have to have the same password, currently.  I usually achieve this by putting a copy of my
+   The `-l` switch is to start the desktop in the user's home directory, instead of wherever you
+   happen to run this command.
+
+   The servers all have to have the same password, currently.  I usually achieve this by putting a copy of my
    `.vnc/passwd` file in `/etc/skel/.vnc/passwd` (permissions must be 600 or 400 or vncserver won't take it).
    Then new users created with `adduser` will get a copy of this file in their newly created home directories.
 
-1. From Big Blue Button, "share remote desktop" with a URL like `wss://HOST:PORT/{fullName}?password=PASSWORD`
+1. From Big Blue Button, "share remote desktop" with a URL like `wss://HOST:PORT/{fullname}?password=PASSWORD`
 
-   The Big Blue Button clients will replace `{fullName}` with the BBB user name, and the customized
+   The Big Blue Button clients will replace `{fullname}` with the BBB user name, and the customized
    websockify will use the database to map to UNIX user names and relay the connections to the correct user.
 
    The host and port specified as the last option to the `websockify` command now become a default VNC session
@@ -235,6 +273,13 @@ Here's a screenshot of "teacher mode" with four students connected:
 1. There is currently no mechanism to auto-start VNC servers from this package.  If they're not
    running, the user will fall back on the default VNC session.  Auto-starting VNC servers would
    require something akin to root privilege for the websockify component.
+
+1. If the VNC servers receive too many connection attempts that fail authentication, they will start
+   rejecting any connection attempt until a timer expires, and the timer will never expire if continued
+   attempts are made to hack in the server.  I address this issue by blocking all attempts to connect
+   directly to the VNC port range except on the loopback interface:
+
+   `sudo iptables -A INPUT -p tcp -m tcp --dport 5900:5999 \! -i lo -j DROP`
 
 1. To facilitate full screen use, the students can run an audio control widget in their student desktops:
 
