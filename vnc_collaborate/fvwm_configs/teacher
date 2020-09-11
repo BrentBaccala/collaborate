@@ -31,6 +31,7 @@ AddToMenu RootMenu      "Root Menu"     Title
 +                       "Terminal"         Exec exec gnome-terminal
 +			"Firefox"		Exec exec firefox
 +			"Whiteboard"		Exec exec xournal
++			"pgAdmin3"		Exec exec pgadmin3
 +                       ""              Nop
 +                       "   Teacher Mode"         Exec exec python3 -m vnc_collaborate teacher_desktop $[vp.width] $[vp.height]
 +                          "Undeaf All Students"      Exec python3 -m vnc_collaborate undeaf_students -a
