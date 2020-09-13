@@ -158,9 +158,7 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 1. Start the teacher's VNC desktop with `vncserver` with something like:
 
-   `vncserver` (if you're already su'ed to the teacher account)
-
-   `sudo su BrentBaccala -l -c vncserver` (if you're not)
+   `sudo -u BrentBaccala -i vncserver`
 
    The first time it will prompt you to set a password (do so).  It will also ask if you want to set a view-only password,
    which is not really recommended,
@@ -253,10 +251,7 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 1. Start vnc servers for the various students, something like:
 
-   `sudo su CharlieClown -l -c vncserver`
-
-   The `-l` switch is to start the desktop in the user's home directory, instead of wherever you
-   happen to run this command.
+   `sudo -u CharlieClown -i vncserver`
 
    The servers all have to have the same password, currently.  I usually achieve this by putting a copy of my
    `.vnc/passwd` file in `/etc/skel/.vnc/passwd` (permissions must be 600 or 400 or vncserver won't take it).
