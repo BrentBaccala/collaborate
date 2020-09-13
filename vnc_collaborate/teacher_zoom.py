@@ -29,11 +29,13 @@ def teacher_zoom(window, desktop_width, desktop_height):
    # So, this expression undoes the FVWM quoting and splits apart our arguments.
 
    args = window.replace("\\'", "'")[1:-1].split(';')
+   print(args)
 
-   if len(args) == 3 and args[0] == 'TeacherViewVNC':
+   if len(args) == 4 and args[0] == 'TeacherViewVNC':
 
       STUDENT_ID = args[1]
       STUDENT_DISPLAY = args[2]
+      NATIVE_GEOMETRY = args[3]
 
       print(STUDENT_ID, STUDENT_DISPLAY)
 
@@ -45,10 +47,18 @@ def teacher_zoom(window, desktop_width, desktop_height):
       if was_deafed:
          freeswitch.undeaf_student(STUDENT_ID)
 
-      geometry = desktop_width + 'x' + desktop_height
+      (nativex, nativey) = map(int, NATIVE_GEOMETRY.split('x'))
+      scalex = int(desktop_width)/nativex
+      scaley = int(desktop_height)/nativey
+      scale = min(scalex, scaley)
+
+      offsetx = int((int(desktop_width) - scale*nativex)/2)
+      offsety = int((int(desktop_height) - scale*nativey)/2)
+
+      geometry = desktop_width + 'x' + desktop_height + '+' + str(offsetx) + '+' + str(offsety)
 
       args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
-              '-geometry', geometry, '-scale', geometry,
+              '-geometry', geometry, '-scale', str(scale),
               '-escape', 'Alt_L', '-passwd', HOME + '/.vnc/passwd',
               STUDENT_DISPLAY]
 

@@ -24,8 +24,13 @@ from . import bigbluebutton
 VIEWONLY_VIEWER = "ssvncviewer"
 
 VALID_DISPLAYS = []
+
+# These dictionaries map X11 display names to BBB full names,
+# BBB userIDs, and screen geometries.
+
 NAMES = dict()
 IDS = dict()
+GEOMETRY = dict()
 
 myMeetingID = None
 
@@ -65,6 +70,15 @@ def get_VALID_DISPLAYS_and_NAMES():
                         VALID_DISPLAYS.append(cmdline[1])
                         NAMES[cmdline[1]] = fullName
                         IDS[cmdline[1]] = userID
+                        # XXX we pull the screen geometry from the command line
+                        #
+                        # This won't work if either 1) we run on a different machine
+                        # (the whole looking at the process table idea wouldn't work),
+                        # or 2) the geometry is changed with xrandr
+                        if '-geometry' in cmdline:
+                            GEOMETRY[cmdline[1]] = cmdline[cmdline.index('-geometry') + 1]
+                        else:
+                            GEOMETRY[cmdline[1]] = '1024x768'
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
@@ -134,15 +148,21 @@ def main_loop():
                 processes[display] = []
                 row = int(i/cols)
                 col = i%cols
+                (nativex, nativey) = map(int, GEOMETRY[display].split('x'))
+                scalex = SCALEX/nativex
+                scaley = SCALEY/nativey
+                scale = min(scalex, scaley)
                 geox = int(col * SCREENX/cols + .005*SCREENX)
                 geoy = int(row * SCREENY/cols + .005*SCREENY)
+                offsetx = int((SCALEX - scale*nativex)/2)
+                offsety = int((SCALEY - scale*nativey)/2)
                 # Use the title of the window to identify these windows to the FVWM config,
                 # and to pass information (their userID and display name) to teacher_zoom.
                 # The title won't be displayed with our default FVWM config for teacher mode.
-                title = ";".join(["TeacherViewVNC", IDS[display], display])
-                args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox)+'+'+str(geoy),
+                title = ";".join(["TeacherViewVNC", IDS[display], display, GEOMETRY[display]])
+                args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox+offsetx)+'+'+str(geoy+offsety),
                         '-escape', 'never',
-                        '-scale', SCALE, '-passwd', HOME + '/.vnc/passwd',
+                        '-scale', str(scale), '-passwd', HOME + '/.vnc/passwd',
                         '-title', title, display]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
