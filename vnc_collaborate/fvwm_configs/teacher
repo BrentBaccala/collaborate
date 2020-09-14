@@ -28,10 +28,11 @@ Mouse 0 4       A       Iconify
 #   for other parts of the window/borders/icons:
 Mouse 1 F       A       Resize-or-Raise
 Mouse 1 TS      A       Move-or-Raise
+Mouse 3 TS      A       WindowList
 Mouse 1 I       A       Move-or-Iconify
 Mouse 2 I       A       Iconify
 Mouse 2 FST     A       Menu Window-Ops2 Nop
-Mouse 3 TSIF    A       RaiseLower
+#Mouse 3 TSIF    A       RaiseLower
 
 
 ######################## Menus ###################
