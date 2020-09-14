@@ -81,6 +81,7 @@ AddToMenu Window-Ops2   "&Move"         Move
 
 
 AddToFunc Move-or-Raise         I Raise
++				C Menu RootMenu Nop
 +                               M Move
 +                               D Lower
 
