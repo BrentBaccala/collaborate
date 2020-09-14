@@ -12,6 +12,8 @@ import re
 import signal
 import os
 
+import tkinter as tk
+
 from lxml import etree
 
 from .simple_text import simple_text
@@ -251,13 +253,33 @@ def project_to_students(screenx, screeny):
                 '-escape', 'never', '-display', display,
                 '-scale', str(scale), '-passwd', '/home/' + UNIXUSER[display] + '/.vnc/passwd',
                 '-title', title, teacher_display]
-        #subprocess.Popen(args, stderr=subprocess.DEVNULL)
-        subprocess.Popen(args)
+        subprocess.Popen(args, stderr=subprocess.DEVNULL)
 
-def end_projection():
-    r"""
-    End a projection to the student screens.
-    """
+    # Now put a window up on the teacher's screen to control the projection
+
+    window = tk.Tk()
+
+    button = tk.Label(
+        master=window,
+        text="End projection",
+        bg="cyan",
+        fg="black",
+    )
+
+    button.bind("<Button-1>", lambda self: window.destroy())
+
+    button.pack()
+
+    window.update()
+
+    window.geometry("-0+0")
+    window.title("Projection Controls")
+    window.wm_title("Projection Controls")
+
+    window.mainloop()
+
+    # When the window closes, end the projection
+
     # XXX horrible!  use sudo to kill the matching processes...
     args = ['sudo', 'pkill', '-f', 'OverlayVNC']
     subprocess.Popen(args).wait()

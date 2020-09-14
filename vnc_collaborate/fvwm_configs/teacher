@@ -1,5 +1,13 @@
 Style * NoIcon
 
+# If we're projecting our desktop to the students, the projection
+# control window should always be on top, with no decorations.
+#
+# XXX I'd like to match on "Projection Controls", but I can't figure
+# how to get that to work, so I use "Tk" instead
+
+Style Tk Layer 10, !Title, !Borders, !Handles
+
 DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
 # edge scrolling doesn't work well at all on our VNC-based desktops
@@ -37,7 +45,6 @@ AddToMenu RootMenu      "Root Menu"		Title
 +                       "Teacher Mode"		Exec exec python3 -m vnc_collaborate teacher_desktop $[vp.width] $[vp.height]
 +                       "Undeaf All Students"	Exec exec python3 -m vnc_collaborate undeaf_students -a
 +                       "Project To Students"	Exec exec python3 -m vnc_collaborate project_to_students $[vp.width] $[vp.height]
-+                       "End Projection"	Exec exec python3 -m vnc_collaborate end_projection
 +                       ""			Nop
 +                       "Fvwm Window Ops"	Popup Window-Ops
 +                       ""			Nop
