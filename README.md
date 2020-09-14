@@ -249,13 +249,23 @@ Here's a screenshot of "teacher mode" with four students connected:
     (5 rows)
    ```
 
-1. Start vnc servers for the various students, something like:
-
-   `sudo -u CharlieClown -i vncserver`
+1. Arrange to start VNC servers for the various students.
 
    The servers all have to have the same password, currently.  I usually achieve this by putting a copy of my
    `.vnc/passwd` file in `/etc/skel/.vnc/passwd` (permissions must be 600 or 400 or vncserver won't take it).
    Then new users created with `adduser` will get a copy of this file in their newly created home directories.
+
+   If the SQL table contains a mapping from a Big Blue Button user to a UNIX user, but no running VNC server
+   is found for that user, the `websockify` script will attempt to start one by running `sudo -u USER -i vncserver`.
+
+   If this feature is desired, then `websockify` must be run with permission to execute this `sudo` operation.
+   The simplest way to do this is to run `websockify` from an account (`ubuntu` on an AWS EC2 instance) that
+   can execute *any* operation as *any* user, but this may present too much of a security risk.  Instead,
+   `websockify` can be run from a user account with only permission to run `vncserver`, and only for student
+   accounts.  See the `sudoers` man page for documentation on how to set this up.
+
+   If this feature is not enabled (i.e, `websockify` is unable to execute the `sudo`), then the student VNC
+   servers must be started in some other way.
 
 1. From Big Blue Button, "share remote desktop" with a URL like `wss://HOST:PORT/{fullname}?password=PASSWORD`
 
@@ -264,10 +274,6 @@ Here's a screenshot of "teacher mode" with four students connected:
 
    The host and port specified as the last option to the `websockify` command now become a default VNC session
    that users will connect to if the username lookup fails.
-
-1. There is currently no mechanism to auto-start VNC servers from this package.  If they're not
-   running, the user will fall back on the default VNC session.  Auto-starting VNC servers would
-   require something akin to root privilege for the websockify component.
 
 1. If the VNC servers receive too many connection attempts that fail authentication, they will start
    rejecting any connection attempt until a timer expires, and the timer will never expire if continued

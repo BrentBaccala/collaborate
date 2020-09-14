@@ -19,6 +19,7 @@ import sys
 import psutil
 import glob
 import urllib
+import subprocess
 
 from . import bigbluebutton
 
@@ -31,6 +32,12 @@ import warnings
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from websockify import websocketproxy
+
+def find_running_VNCserver(UNIXuser):
+    for p in psutil.process_iter(['username', 'name', 'cmdline']):
+        if p.info['username'] == UNIXuser and 'vnc' in p.info['name'] and '-rfbport' in p.info['cmdline']:
+            return int(p.info['cmdline'][p.info['cmdline'].index('-rfbport') + 1])
+    return None
 
 from websockify.websocketproxy import ProxyRequestHandler
 
@@ -45,10 +52,11 @@ def new_websocket_client(self):
     UNIXuser = bigbluebutton.fullName_to_UNIX_username(userID)
 
     if UNIXuser:
-        rfbport = None
-        for p in psutil.process_iter(['username', 'name', 'cmdline']):
-            if p.info['username'] == UNIXuser and 'vnc' in p.info['name'] and '-rfbport' in p.info['cmdline']:
-                rfbport = p.info['cmdline'][p.info['cmdline'].index('-rfbport') + 1]
+        rfbport = find_running_VNCserver(UNIXuser)
+
+        if not rfbport:
+            subprocess.Popen(['sudo', '-u', UNIXuser, '-i', 'vncserver']).wait()
+            rfbport = find_running_VNCserver(UNIXuser)
 
         if rfbport:
             self.server.target_host = 'localhost'
