@@ -26,10 +26,11 @@ VIEWONLY_VIEWER = "ssvncviewer"
 VALID_DISPLAYS = []
 
 # These dictionaries map X11 display names to BBB full names,
-# BBB userIDs, and screen geometries.
+# BBB userIDs, UNIX usernames, and screen geometries.
 
 NAMES = dict()
 IDS = dict()
+UNIXUSER = dict()
 GEOMETRY = dict()
 
 myMeetingID = None
@@ -70,6 +71,7 @@ def get_VALID_DISPLAYS_and_NAMES():
                         VALID_DISPLAYS.append(cmdline[1])
                         NAMES[cmdline[1]] = fullName
                         IDS[cmdline[1]] = userID
+                        UNIXUSER[cmdline[1]] = UNIXuser
                         # XXX we pull the screen geometry from the command line
                         #
                         # This won't work if either 1) we run on a different machine
@@ -215,3 +217,47 @@ def teacher_desktop(screenx, screeny):
             main_loop()
 
     restore_original_state()
+
+def project_to_students(screenx, screeny):
+    r"""
+    Project the teacher's desktop to all student desktops
+    """
+
+    global myMeetingID
+    myMeetingID = bigbluebutton.find_current_meeting()
+
+    screenx = int(screenx)
+    screeny = int(screeny)
+
+    get_VALID_DISPLAYS_and_NAMES()
+
+    teacher_display = os.environ['DISPLAY']
+
+    for display in VALID_DISPLAYS:
+
+        # We're projecting the teacher's screen (screenx/screeny) to the student screen (nativex/nativey)
+        (studentx, studenty) = map(int, GEOMETRY[display].split('x'))
+        scalex = studentx/screenx
+        scaley = studenty/screeny
+        scale = min(scalex, scaley)
+        offsetx = int((studentx - scale*screenx)/2)
+        offsety = int((studenty - scale*screeny)/2)
+        title = "OverlayVNC"
+        # have to sudo to the student to get permission to put something up on their display
+        # since we're sudoed, need to read the student's .vnc passwd file, since we no longer
+        # have permission to read the teacher's
+        args = ['sudo', '-u', UNIXUSER[display], '-i', VIEWONLY_VIEWER,
+                '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
+                '-escape', 'never', '-display', display,
+                '-scale', str(scale), '-passwd', '/home/' + UNIXUSER[display] + '/.vnc/passwd',
+                '-title', title, teacher_display]
+        #subprocess.Popen(args, stderr=subprocess.DEVNULL)
+        subprocess.Popen(args)
+
+def end_projection():
+    r"""
+    End a projection to the student screens.
+    """
+    # XXX horrible!  use sudo to kill the matching processes...
+    args = ['sudo', 'pkill', '-f', 'OverlayVNC']
+    subprocess.Popen(args).wait()

@@ -6,6 +6,12 @@ DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
 EdgeScroll 0 0
 
+# The teacher can project onto the student desktops.
+# Projections appear on the very top (layer 10) and have no decorations at all,
+# so as to completely obscure the student's other windows until they end.
+
+Style OverlayVNC Layer 10, !Title, !Borders, !Handles
+
 # some simple default mouse bindings:
 #   for the root window:
 Mouse 1 R       A       Menu RootMenu Nop
