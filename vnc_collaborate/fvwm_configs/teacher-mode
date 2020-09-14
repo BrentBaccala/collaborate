@@ -10,7 +10,11 @@ AddToFunc StartFunction
  + I All ("*vncviewer") Layer 0 1
  + I All ("Tk") Iconify off
  + I All ("Tk") Layer 0 2
- + I All (!"*vncviewer|Tk") Iconify on
+ + I All (!"*vncviewer|Tk") MoveToDesk 1
+
+DestroyFunc ExitFunction
+AddToFunc ExitFunction
+ + I All (!"*vncviewer|Tk") MoveToDesk
 
 # remove all standard FVWM mouse and key mappings
 
