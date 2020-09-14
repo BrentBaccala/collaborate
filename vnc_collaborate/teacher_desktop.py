@@ -261,7 +261,7 @@ def project_to_students(screenx, screeny):
 
     button = tk.Label(
         master=window,
-        text="End projection",
+        text="End screenshare",
         bg="cyan",
         fg="black",
     )
