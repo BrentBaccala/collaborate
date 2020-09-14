@@ -26,13 +26,13 @@ Mouse 2 FST A -
 # script detects this, shuts down all the windows created in
 # teacher mode, and starts a new FVWM with a standard config.
 
-AddToMenu TeacherMenu      "Teacher Mode"     Title
-+                       ""              Nop
-+                          "Undeaf All Students"      Exec python3 -m vnc_collaborate undeaf_students -a
-+                          "Deaf All Students"        Exec python3 -m vnc_collaborate deaf_students -a
-+                       ""              Nop
-+                       "Refresh Screen"   Refresh
-+                          "Exit Teacher Mode"         Quit
+AddToMenu TeacherMenu	"Teacher Mode"			Title
++			""				Nop
++			"Undeaf All Students"		Exec exec python3 -m vnc_collaborate undeaf_students -a
++			"Deaf All Students"		Exec exec python3 -m vnc_collaborate deaf_students -a
++			""				Nop
++			"Refresh Screen"		Refresh
++			"Exit Teacher Mode"		Quit
 
 Mouse 3 A       A       Menu TeacherMenu Nop
 

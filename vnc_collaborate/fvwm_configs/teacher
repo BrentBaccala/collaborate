@@ -27,25 +27,23 @@ Mouse 3 TSIF    A       RaiseLower
 
 
 ######################## Menus ###################
-AddToMenu RootMenu      "Root Menu"     Title
-+                       "Terminal"         Exec exec gnome-terminal
+AddToMenu RootMenu      "Root Menu"		Title
++                       "Terminal"		Exec exec gnome-terminal
 +			"Files"			Exec exec nautilus
 +			"Firefox"		Exec exec firefox
 +			"Whiteboard"		Exec exec xournal
 +			"pgAdmin3"		Exec exec pgadmin3
-+                       ""              Nop
++                       ""			Nop
 +                       "Teacher Mode"		Exec exec python3 -m vnc_collaborate teacher_desktop $[vp.width] $[vp.height]
-+                       "Undeaf All Students"	Exec python3 -m vnc_collaborate undeaf_students -a
-+                       "Project To Students"	Exec python3 -m vnc_collaborate project_to_students $[vp.width] $[vp.height]
-+                       "End Projection"	Exec python3 -m vnc_collaborate end_projection
-+                       ""              Nop
-# +                       "Utilities"     Popup Utilities
-# +                       ""              Nop
-+                       "Fvwm Window Ops"         Popup Window-Ops
-+                       ""              Nop
-+                       "Refresh Screen"   Refresh
-+                       "Recapture Screen" Recapture
-+                       "Restart FVWM"     Restart
++                       "Undeaf All Students"	Exec exec python3 -m vnc_collaborate undeaf_students -a
++                       "Project To Students"	Exec exec python3 -m vnc_collaborate project_to_students $[vp.width] $[vp.height]
++                       "End Projection"	Exec exec python3 -m vnc_collaborate end_projection
++                       ""			Nop
++                       "Fvwm Window Ops"	Popup Window-Ops
++                       ""			Nop
++                       "Refresh Screen"	Refresh
++                       "Recapture Screen"	Recapture
++                       "Restart FVWM"		Restart
 
 
 
