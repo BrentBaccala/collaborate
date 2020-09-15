@@ -220,7 +220,7 @@ def teacher_desktop(screenx, screeny):
 
     restore_original_state()
 
-def project_to_students(screenx, screeny):
+def project_to_students(screenx, screeny, student_window_name = None):
     r"""
     Project the teacher's desktop to all student desktops
     """
@@ -228,32 +228,44 @@ def project_to_students(screenx, screeny):
     global myMeetingID
     myMeetingID = bigbluebutton.find_current_meeting()
 
-    screenx = int(screenx)
-    screeny = int(screeny)
-
     get_VALID_DISPLAYS_and_NAMES()
 
     teacher_display = os.environ['DISPLAY']
+    screenx = int(screenx)
+    screeny = int(screeny)
+    display_to_project = teacher_display
+
+    if student_window_name:
+        # see comment in teacher_zoom to understand this
+        args = student_window_name.replace("\\'", "'")[1:-1].split(';')
+        if len(args) >= 4 and args[0] == 'TeacherViewVNC':
+            STUDENT_ID = args[1]
+            STUDENT_DISPLAY = args[2]
+            NATIVE_GEOMETRY = args[3]
+            display_to_project = STUDENT_DISPLAY
+            (screenx, screeny) = map(int, NATIVE_GEOMETRY.split('x'))
+
 
     for display in VALID_DISPLAYS:
 
-        # We're projecting the teacher's screen (screenx/screeny) to the student screen (nativex/nativey)
-        (studentx, studenty) = map(int, GEOMETRY[display].split('x'))
-        scalex = studentx/screenx
-        scaley = studenty/screeny
-        scale = min(scalex, scaley)
-        offsetx = int((studentx - scale*screenx)/2)
-        offsety = int((studenty - scale*screeny)/2)
-        title = "OverlayVNC"
-        # have to sudo to the student to get permission to put something up on their display
-        # since we're sudoed, need to read the student's .vnc passwd file, since we no longer
-        # have permission to read the teacher's
-        args = ['sudo', '-u', UNIXUSER[display], '-i', VIEWONLY_VIEWER,
-                '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
-                '-escape', 'never', '-display', display,
-                '-scale', str(scale), '-passwd', '/home/' + UNIXUSER[display] + '/.vnc/passwd',
-                '-title', title, teacher_display]
-        subprocess.Popen(args, stderr=subprocess.DEVNULL)
+        if display != display_to_project:
+            # We're projecting display_to_project (screenx/screeny) to the student screen (display/nativex/nativey)
+            (studentx, studenty) = map(int, GEOMETRY[display].split('x'))
+            scalex = studentx/screenx
+            scaley = studenty/screeny
+            scale = min(scalex, scaley)
+            offsetx = int((studentx - scale*screenx)/2)
+            offsety = int((studenty - scale*screeny)/2)
+            title = "OverlayVNC"
+            # have to sudo to the student to get permission to put something up on their display
+            # since we're sudoed, need to read the student's .vnc passwd file, since we no longer
+            # have permission to read the teacher's
+            args = ['sudo', '-u', UNIXUSER[display], '-i', VIEWONLY_VIEWER,
+                    '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
+                    '-escape', 'never', '-display', display,
+                    '-scale', str(scale), '-passwd', '/home/' + UNIXUSER[display] + '/.vnc/passwd',
+                    '-title', title, display_to_project]
+            subprocess.Popen(args, stderr=subprocess.DEVNULL)
 
     # Now put a window up on the teacher's screen to control the projection
 
