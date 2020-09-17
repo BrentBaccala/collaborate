@@ -40,6 +40,11 @@ if len(sys.argv) > 1:
             print(pkg_resources.read_text(fvwm_configs, 'student'))
         elif sys.argv[2] =='student_sandbox_fvwm_config':
             print(pkg_resources.read_text(fvwm_configs, 'student-sandbox'))
+        elif sys.argv[2] == 'fvwm_config':
+            if bigbluebutton.I_am_moderator():
+                print(pkg_resources.read_text(fvwm_configs, 'teacher'))
+            else:
+                print(pkg_resources.read_text(fvwm_configs, 'student'))
         else:
             print("Unknown resource:", sys.argv[2])
     else:

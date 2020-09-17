@@ -104,6 +104,39 @@ def find_current_meeting():
 
     return None
 
+def I_am_moderator():
+    r"""
+    Lookup the current UNIX user in the VNCusers SQL table to pull
+    out the matching VNCuser (the BBB fullName).  Then look through
+    all the meetings on the BBB server to find the (first) one
+    where this user is a participant and return true if the
+    user is a moderator.
+    """
+
+    # XXX what should we do if the user is a participant in multiple meetings?
+
+    username = os.environ['USER']
+    myFullName = None
+    open_database()
+    if conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("SELECT VNCuser FROM VNCusers WHERE UNIXuser = %s", (username,))
+                row = cur.fetchone()
+                if row:
+                    myFullName = row[0]
+            except psycopg2.DatabaseError as err:
+                print(err)
+                cur.execute('ROLLBACK')
+
+    if myFullName:
+        meetings = getMeetings()
+        if meetings.xpath(".//fullName[text()=$fn]/../role[text()='MODERATOR']",
+                          fn = myFullName):
+            return True
+
+    return False
+
 def fullName_to_UNIX_username(fullName):
     r"""
     Use a SQL table lookup to convert a Big Blue Button fullName
