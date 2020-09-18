@@ -22,5 +22,5 @@ Here's a screenshot of "teacher mode" with four students connected:
 
 ![screenshot of a running demo](demo.jpg)
 
-For more information, see the [Wiki](wiki), in particular the
+For more information, see the [Wiki](./wiki), in particular the
 [installation instructions](wiki/Install).
