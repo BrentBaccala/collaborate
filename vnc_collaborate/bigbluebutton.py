@@ -38,6 +38,10 @@ def load_config():
         with open(PROP_FILE) as file:
             config.load(file)
 
+def securitySalt():
+    load_config()
+    return config['securitySalt']
+
 conn = None
 
 def open_database():

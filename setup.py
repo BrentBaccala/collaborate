@@ -22,6 +22,7 @@ setuptools.setup(
     install_requires=[
         'psutil',
         'pyjavaproperties',
+        'pyjwt',
         'importlib_resources; python_version < "3.7"'
     ],
     classifiers=[

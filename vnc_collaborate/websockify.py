@@ -20,6 +20,7 @@ import psutil
 import glob
 import urllib
 import subprocess
+import jwt
 
 from . import bigbluebutton
 
@@ -49,7 +50,14 @@ def new_websocket_client(self):
     except IndexError:
         userID = ''
 
-    UNIXuser = bigbluebutton.fullName_to_UNIX_username(userID)
+    try:
+        decoded = jwt.decode(userID, bigbluebutton.securitySalt())
+        fullName = decoded['sub']
+    except (jwt.PyJWTError, KeyError) as err:
+        print(err)
+        fullName = ''
+
+    UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
 
     if UNIXuser:
         rfbport = find_running_VNCserver(UNIXuser)
