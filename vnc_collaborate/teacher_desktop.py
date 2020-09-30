@@ -68,21 +68,22 @@ def get_VALID_DISPLAYS_and_NAMES():
             for proc in running_commands:
                 cmdline = proc.info['cmdline']
                 if len(cmdline) > 0 and 'Xtightvnc' in cmdline[0]:
-                    m = re.search('/home/{}/\.vnc'.format(UNIXuser), ' '.join(cmdline))
+                    m = re.search('/home/{}/'.format(UNIXuser), ' '.join(cmdline))
                     if m:
-                        VALID_DISPLAYS.append(cmdline[1])
-                        NAMES[cmdline[1]] = fullName
-                        IDS[cmdline[1]] = userID
-                        UNIXUSER[cmdline[1]] = UNIXuser
+                        display = cmdline[1]
+                        VALID_DISPLAYS.append(display)
+                        NAMES[display] = fullName
+                        IDS[display] = userID
+                        UNIXUSER[display] = UNIXuser
                         # XXX we pull the screen geometry from the command line
                         #
                         # This won't work if either 1) we run on a different machine
                         # (the whole looking at the process table idea wouldn't work),
                         # or 2) the geometry is changed with xrandr
                         if '-geometry' in cmdline:
-                            GEOMETRY[cmdline[1]] = cmdline[cmdline.index('-geometry') + 1]
+                            GEOMETRY[display] = cmdline[cmdline.index('-geometry') + 1]
                         else:
-                            GEOMETRY[cmdline[1]] = '1024x768'
+                            GEOMETRY[display] = '1024x768'
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
