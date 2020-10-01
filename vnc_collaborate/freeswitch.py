@@ -87,8 +87,7 @@ def print_status():
 
 def freeswitch_cmd(cmd):
     get_freeswitch_password()
-    freeswitch_process = subprocess.Popen([FS_CLI, '-p', freeswitch_pw, '-x', cmd])
-    freeswitch_process.wait()
+    subprocess.run([FS_CLI, '-p', freeswitch_pw, '-x', cmd])
 
 def freeswitch_conference_cmd(*cmd):
     freeswitch_cmd('conference ' + voiceBridge + ' ' + ' '.join(map(str,cmd)))

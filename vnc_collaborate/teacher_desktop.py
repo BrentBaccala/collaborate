@@ -183,7 +183,7 @@ def main_loop():
 def restore_original_state():
     for procs in processes.values():
         kill_processes(procs)
-    subprocess.Popen(["xsetroot", "-solid", "grey"]).wait()
+    subprocess.run(["xsetroot", "-solid", "grey"])
     subprocess.Popen(["fvwm", "-r"])
 
 def signal_handler(sig, frame):
@@ -207,7 +207,7 @@ def teacher_desktop(screenx, screeny):
     args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
     fvwm = subprocess.Popen(args)
 
-    subprocess.Popen(["xsetroot", "-solid", "black"]).wait()
+    subprocess.run(["xsetroot", "-solid", "black"])
     main_loop()
 
     signal.signal(signal.SIGINT, signal_handler)

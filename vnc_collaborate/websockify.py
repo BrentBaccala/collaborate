@@ -75,13 +75,13 @@ def new_websocket_client(self):
             # since we're providing the authentication using the JSON Web Tokens.
 
             tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
-            subprocess.Popen(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver).wait()
+            subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver)
 
             # Use our root sudo access to make the user's .Xauthority file readable by group 'teacher',
-            # which allows the teacher to project screenshares onto the student desktop.
+            # which allows the teacher to project screen shares onto the student desktop.
 
-            subprocess.Popen(['sudo', 'chgrp', 'teacher', '/home/{}/.Xauthority'.format(UNIXuser)]).wait()
-            subprocess.Popen(['sudo', 'chmod', 'g+r', '/home/{}/.Xauthority'.format(UNIXuser)]).wait()
+            subprocess.run(['sudo', 'chgrp', 'teacher', '/home/{}/.Xauthority'.format(UNIXuser)])
+            subprocess.run(['sudo', 'chmod', 'g+r', '/home/{}/.Xauthority'.format(UNIXuser)])
 
             # I also want to allow local VNC connections, mainly for overlaying VNC viewers within
             # the VNC desktops (this is how we do things like screen shares and letting the teacher
