@@ -31,11 +31,12 @@ def teacher_zoom(window, desktop_width, desktop_height):
    args = window.replace("\\'", "'")[1:-1].split(';')
    print(args)
 
-   if len(args) == 4 and args[0] == 'TeacherViewVNC':
+   if len(args) >= 5 and args[0] == 'TeacherViewVNC':
 
       STUDENT_ID = args[1]
       STUDENT_DISPLAY = args[2]
       NATIVE_GEOMETRY = args[3]
+      VNC_SOCKET = args[4]
 
       print(STUDENT_ID, STUDENT_DISPLAY)
 
@@ -59,8 +60,8 @@ def teacher_zoom(window, desktop_width, desktop_height):
 
       args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
               '-geometry', geometry, '-scale', str(scale),
-              '-escape', 'Alt_L', '-passwd', HOME + '/.vnc/passwd',
-              STUDENT_DISPLAY]
+              '-escape', 'Alt_L',
+              VNC_SOCKET]
 
       proc = subprocess.Popen(args)
       proc.wait()

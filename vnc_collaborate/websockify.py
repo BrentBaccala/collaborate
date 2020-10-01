@@ -24,6 +24,13 @@ import jwt
 
 from . import bigbluebutton
 
+try:
+    import importlib.resources as pkg_resources
+except ImportError:
+    # Try backported to PY<37 `importlib_resources`.
+    # need to run 'pip3 install importlib-resources' to get this
+    import importlib_resources as pkg_resources
+
 # Warning are explicitly disabled here, otherwise we'll get a
 #   "no 'numpy' module, HyBi protocol will be slower"
 # every time we import vnc_collaborate for anything.
@@ -46,8 +53,8 @@ old_new_websocket_client = ProxyRequestHandler.new_websocket_client
 
 def new_websocket_client(self):
     try:
-        userID = urllib.parse.unquote(self.path.split('/')[1].split('?')[0])
-    except IndexError:
+        userID = urllib.parse.urlparse(self.path).path[1:]
+    except (KeyError, IndexError):
         userID = ''
 
     try:
@@ -63,8 +70,30 @@ def new_websocket_client(self):
         rfbport = find_running_VNCserver(UNIXuser)
 
         if not rfbport:
-            subprocess.Popen(['sudo', '-u', UNIXuser, '-i', 'vncserver']).wait()
+
+            # We use a modifed version of the VNC server script that starts a server with no authentication,
+            # since we're providing the authentication using the JSON Web Tokens.
+
+            tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
+            subprocess.Popen(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver).wait()
+
+            # Use our root sudo access to make the user's .Xauthority file readable by group 'teacher',
+            # which allows the teacher to project screenshares onto the student desktop.
+
+            subprocess.Popen(['sudo', 'chgrp', 'teacher', '/home/{}/.Xauthority'.format(UNIXuser)]).wait()
+            subprocess.Popen(['sudo', 'chmod', 'g+r', '/home/{}/.Xauthority'.format(UNIXuser)]).wait()
+
+            # I also want to allow local VNC connections, mainly for overlaying VNC viewers within
+            # the VNC desktops (this is how we do things like screen shares and letting the teacher
+            # observe all of the student desktops).  Since ssvncviewer will connect to a UNIX domain
+            # socket, a simple solution is to start a socat to relay UNIX domain connections from a
+            # socket in /run/vnc to the VNC server.  Set its group to allow teacher access.
+
             rfbport = find_running_VNCserver(UNIXuser)
+            path = '/run/vnc/' + UNIXuser
+            subprocess.Popen(['sudo', 'socat',
+                              'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'teacher'),
+                              'TCP4:localhost:'+str(rfbport)])
 
         if rfbport:
             self.server.target_host = 'localhost'

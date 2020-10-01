@@ -21,7 +21,7 @@ from . import bigbluebutton
 
 # ssvncviewer is preferred over other VNC viewers due to its ability to scale the remote
 # desktop to fit in the window geometry, an essential feature for our miniaturized
-# desktop views.
+# desktop views, and for its ability to connect to UNIX domain sockets.
 
 VIEWONLY_VIEWER = "ssvncviewer"
 
@@ -34,6 +34,7 @@ NAMES = dict()
 IDS = dict()
 UNIXUSER = dict()
 GEOMETRY = dict()
+VNC_SOCKET = dict()
 
 myMeetingID = None
 
@@ -42,7 +43,7 @@ HOME = os.environ['HOME']
 def get_VALID_DISPLAYS_and_NAMES():
     r"""
     Look at the system process table for Xtightvnc processes and match
-    them to the "fullName"s of VIEWERS in the myMeetingID meeting.
+    them to the "fullName"s of attendees in the myMeetingID meeting.
     The fullNames get converted to UNIX usernames using the VNCusers
     table in the Postgres database.  Use this information to update
     VALID_DISPLAYS (a list of X11 display names), NAMES and IDS
@@ -57,10 +58,11 @@ def get_VALID_DISPLAYS_and_NAMES():
 
     running_commands = list(psutil.process_iter(['cmdline']))
 
-    for e in meetingInfo.xpath(".//role[text()='VIEWER']/.."):
+    for e in meetingInfo.xpath(".//attendee"):
 
         fullName = e.find('fullName').text
         userID = e.find('userID').text
+        role = e.find('role').text
 
         UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
 
@@ -70,11 +72,14 @@ def get_VALID_DISPLAYS_and_NAMES():
                 if len(cmdline) > 0 and 'Xtightvnc' in cmdline[0]:
                     m = re.search('/home/{}/'.format(UNIXuser), ' '.join(cmdline))
                     if m:
+                        # cmdline[1] is the X11 display name
                         display = cmdline[1]
-                        VALID_DISPLAYS.append(display)
+                        VNC_SOCKET[display] = 'unix=/run/vnc/' + UNIXuser
                         NAMES[display] = fullName
                         IDS[display] = userID
                         UNIXUSER[display] = UNIXuser
+                        if role == 'VIEWER':
+                            VALID_DISPLAYS.append(display)
                         # XXX we pull the screen geometry from the command line
                         #
                         # This won't work if either 1) we run on a different machine
@@ -164,11 +169,11 @@ def main_loop():
                 # Use the title of the window to identify these windows to the FVWM config,
                 # and to pass information (their userID and display name) to teacher_zoom.
                 # The title won't be displayed with our default FVWM config for teacher mode.
-                title = ";".join(["TeacherViewVNC", IDS[display], display, GEOMETRY[display]])
+                title = ";".join(["TeacherViewVNC", IDS[display], display, GEOMETRY[display], VNC_SOCKET[display]])
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox+offsetx)+'+'+str(geoy+offsety),
                         '-escape', 'never',
-                        '-scale', str(scale), '-passwd', HOME + '/.vnc/passwd',
-                        '-title', title, display]
+                        '-scale', str(scale),
+                        '-title', title, VNC_SOCKET[display]]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
                 processes[display].append(simple_text(NAMES[display], geox + SCREENX/cols/2, geoy))
@@ -243,9 +248,12 @@ def project_to_students(screenx, screeny, student_window_name = None):
             STUDENT_ID = args[1]
             STUDENT_DISPLAY = args[2]
             NATIVE_GEOMETRY = args[3]
+            X_VNC_SOCKET = args[4]
             display_to_project = STUDENT_DISPLAY
             (screenx, screeny) = map(int, NATIVE_GEOMETRY.split('x'))
 
+
+    processes = []
 
     for display in VALID_DISPLAYS:
 
@@ -258,15 +266,15 @@ def project_to_students(screenx, screeny, student_window_name = None):
             offsetx = int((studentx - scale*screenx)/2)
             offsety = int((studenty - scale*screeny)/2)
             title = "OverlayVNC"
-            # have to sudo to the student to get permission to put something up on their display
-            # since we're sudoed, need to read the student's .vnc passwd file, since we no longer
-            # have permission to read the teacher's
-            args = ['sudo', '-u', UNIXUSER[display], '-i', VIEWONLY_VIEWER,
+            # We should be in the 'teacher' group, and therefore able to read the student's
+            # .Xauthority files to get the keys needed to put a window on their screen.
+            args = [VIEWONLY_VIEWER,
                     '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
                     '-escape', 'never', '-display', display,
-                    '-scale', str(scale), '-passwd', '/home/' + UNIXUSER[display] + '/.vnc/passwd',
-                    '-title', title, display_to_project]
-            subprocess.Popen(args, stderr=subprocess.DEVNULL)
+                    '-scale', str(scale),
+                    '-title', title, VNC_SOCKET[display_to_project]]
+            processes.append(subprocess.Popen(args, stderr=subprocess.DEVNULL,
+                                              env={'XAUTHORITY' : '/home/{}/.Xauthority'.format(UNIXUSER[display])}))
 
     # Now put a window up on the teacher's screen to control the projection
 
@@ -293,6 +301,4 @@ def project_to_students(screenx, screeny, student_window_name = None):
 
     # When the window closes, end the projection
 
-    # XXX horrible!  use sudo to kill the matching processes...
-    args = ['sudo', 'pkill', '-f', 'OverlayVNC']
-    subprocess.Popen(args).wait()
+    kill_processes(processes)

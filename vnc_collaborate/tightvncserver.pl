@@ -45,7 +45,10 @@ if (-d "/usr/share/tightvnc-java") {
 }
 $vncUserDir = "$ENV{HOME}/.vnc";
 #$fontPath = "unix/:7100";
-$authType = "-rfbauth $vncUserDir/passwd";
+
+# NO VNC AUTHENTICATION - we depend on websockify to provide our security
+#$authType = "-rfbauth $vncUserDir/passwd";
+$authType = "";
 
 # Read configuration from the system-wide and user files if present.
 
