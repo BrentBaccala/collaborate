@@ -77,10 +77,10 @@ def new_websocket_client(self):
             tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
             subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver)
 
-            # Use our root sudo access to make the user's .Xauthority file readable by group 'teacher',
+            # Use our root sudo access to make the user's .Xauthority file readable by group 'bigbluebutton',
             # which allows the teacher to project screen shares onto the student desktop.
 
-            subprocess.run(['sudo', 'chgrp', 'teacher', '/home/{}/.Xauthority'.format(UNIXuser)])
+            subprocess.run(['sudo', 'chgrp', 'bigbluebutton', '/home/{}/.Xauthority'.format(UNIXuser)])
             subprocess.run(['sudo', 'chmod', 'g+r', '/home/{}/.Xauthority'.format(UNIXuser)])
 
             # I also want to allow local VNC connections, mainly for overlaying VNC viewers within
@@ -93,7 +93,7 @@ def new_websocket_client(self):
             path = '/run/vnc/' + UNIXuser
             subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
             subprocess.Popen(['sudo', 'socat',
-                              'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'teacher'),
+                              'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'bigbluebutton'),
                               'TCP4:localhost:'+str(rfbport)])
 
         if rfbport:

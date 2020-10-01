@@ -266,7 +266,7 @@ def project_to_students(screenx, screeny, student_window_name = None):
             offsetx = int((studentx - scale*screenx)/2)
             offsety = int((studenty - scale*screeny)/2)
             title = "OverlayVNC"
-            # We should be in the 'teacher' group, and therefore able to read the student's
+            # We should be in the 'bigbluebutton' group, and therefore able to read the student's
             # .Xauthority files to get the keys needed to put a window on their screen.
             args = [VIEWONLY_VIEWER,
                     '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
