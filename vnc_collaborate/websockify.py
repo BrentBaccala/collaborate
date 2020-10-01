@@ -91,6 +91,7 @@ def new_websocket_client(self):
 
             rfbport = find_running_VNCserver(UNIXuser)
             path = '/run/vnc/' + UNIXuser
+            subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
             subprocess.Popen(['sudo', 'socat',
                               'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'teacher'),
                               'TCP4:localhost:'+str(rfbport)])
