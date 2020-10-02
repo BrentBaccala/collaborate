@@ -115,6 +115,13 @@ def I_am_moderator():
     all the meetings on the BBB server to find the (first) one
     where this user is a participant and return true if the
     user is a moderator.
+
+    This function used to be used to determine what kind of FVWM configuration
+    to use for a given user, but its disadvantage is that it requires
+    API access to Big Blue Button, which is no longer given to students.
+
+    So it's currently not used at all (the FVWM configs are now handed out
+    based on UNIX group membership).
     """
 
     # XXX what should we do if the user is a participant in multiple meetings?
