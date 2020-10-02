@@ -16,6 +16,7 @@ setuptools.setup(
     url="https://github.com/BrentBaccala/collaborate",
     packages=setuptools.find_packages(),
     package_data={
+        "vnc_collaborate": ["tightvncserver.pl"],
         "": ["*.ppm", "*.gif", "*.png"],
         "vnc_collaborate.fvwm_configs": ["*"]
     },
