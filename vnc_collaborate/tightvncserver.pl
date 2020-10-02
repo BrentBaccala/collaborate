@@ -190,20 +190,6 @@ if (!-d _ || !-o _ || ($vncUserDirUnderTmp && ($mode & 0777) != 0700)) {
     die "$prog: Wrong type or access mode of $vncUserDir.\n";
 }
 
-# Make sure the user has a password.
-
-($z,$z,$mode) = stat("$vncUserDir/passwd");
-if (-e _ && (!-f _ || !-o _)) {
-    die "$prog: Wrong type or ownership on $vncUserDir/passwd.\n";
-}
-if (!-e _ || ($mode & 077) != 0) {
-    warn "\nYou will require a password to access your desktops.\n\n";
-    system("vncpasswd $vncUserDir/passwd");
-    if (($? & 0xFF00) != 0) {
-        exit 1;
-    }
-}
-
 # Find display number.
 
 if ((@ARGV > 0) && ($ARGV[0] =~ /^:(\d+)$/)) {
@@ -223,11 +209,10 @@ $vncPort = 5900 + $displayNumber;
 $desktopLog = "$vncUserDir/$host:$displayNumber.log";
 unlink($desktopLog);
 
-# Make an X server cookie - use as the seed the sum of the current time, our
-# PID and part of the encrypted form of the password.  Ideally we'd use
-# /dev/urandom, but that's only available on Linux.
+# Make an X server cookie - use as the seed the sum of the current time and our
+# PID.  Ideally we'd use /dev/urandom, but that's only available on Linux.
 
-srand(time+$$+unpack("L",`cat $vncUserDir/passwd`));
+srand(time+$$);
 $cookie = "";
 for (1..16) {
     $cookie .= sprintf("%02x", int(rand(256)));
@@ -711,7 +696,7 @@ sub SanityCheck
     #
 
  cmd:
-    foreach $cmd ("uname","xauth","Xtightvnc","vncpasswd") {
+    foreach $cmd ("uname","xauth","Xtightvnc") {
 	for (split(/:/,$ENV{PATH})) {
 	    if (-x "$_/$cmd") {
 		next cmd;
