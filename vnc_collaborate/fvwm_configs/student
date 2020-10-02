@@ -64,7 +64,6 @@ AddToMenu RootMenu      "Root Menu"			Title
 +			"Files"				Exec exec nautilus
 +			"Firefox"			Exec exec firefox
 +			"Whiteboard"			Exec exec xournal
-+			"Student Audio Controls"	Exec exec python3 -m vnc_collaborate student_audio_controls
 +                       ""				Nop
 +                       "Fvwm Window Ops"		Popup Window-Ops
 +                       ""				Nop
