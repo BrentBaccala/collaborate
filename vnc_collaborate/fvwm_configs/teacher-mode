@@ -69,10 +69,12 @@ AddToFunc ZoomDesktop
  + I StartFunction
  + I All ("*vncviewer|Tk") Iconify on
  + I Mouse 3 A  A  -
+ + I Mouse 3 W  A  -
  + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]" $[vp.width] $[vp.height]
  + I Wait "Zoomed Student Desktop"
  + I All ("Zoomed Student Desktop") Layer 0 3
  + I Mouse ("TeacherViewVNC;*") 1 A A   -
+ + I Mouse ("Projection*") 1 A A  -
 
 Mouse ("TeacherViewVNC;*") 1 A A   ZoomDesktop
 
