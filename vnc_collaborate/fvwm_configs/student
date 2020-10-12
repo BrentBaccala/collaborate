@@ -64,6 +64,7 @@ AddToMenu RootMenu      "Root Menu"			Title
 +			"Files"				Exec exec nautilus
 +			"Firefox"			Exec exec firefox
 +			"Whiteboard"			Exec exec xournal
++			"GNS3"				Exec exec gns3
 +                       ""				Nop
 +                       "Fvwm Window Ops"		Popup Window-Ops
 +                       ""				Nop
