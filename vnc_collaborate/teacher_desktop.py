@@ -11,6 +11,7 @@ import psutil
 import re
 import signal
 import os
+import glob
 
 import tkinter as tk
 
@@ -40,7 +41,7 @@ myMeetingID = None
 
 HOME = os.environ['HOME']
 
-def get_VALID_DISPLAYS_and_NAMES():
+def OLD_get_VALID_DISPLAYS_and_NAMES():
     r"""
     Look at the system process table for Xtightvnc processes and match
     them to the "fullName"s of attendees in the myMeetingID meeting.
@@ -78,8 +79,15 @@ def get_VALID_DISPLAYS_and_NAMES():
                         NAMES[display] = fullName
                         IDS[display] = userID
                         UNIXUSER[display] = UNIXuser
-                        if role == 'VIEWER':
+
+                        # one way to do this: only moderators can observe viewers
+                        #if role == 'VIEWER':
+                        #    VALID_DISPLAYS.append(display)
+
+                        # another way - observe everyone in the meeting except yourself
+                        if UNIXuser != os.environ['USER']:
                             VALID_DISPLAYS.append(display)
+
                         # XXX we pull the screen geometry from the command line
                         #
                         # This won't work if either 1) we run on a different machine
@@ -89,6 +97,36 @@ def get_VALID_DISPLAYS_and_NAMES():
                             GEOMETRY[display] = cmdline[cmdline.index('-geometry') + 1]
                         else:
                             GEOMETRY[display] = '1024x768'
+
+def get_VALID_DISPLAYS_and_NAMES():
+    r"""
+    This version of get_VALID_DISPLAY_and_NAMES shows all VNC
+    desktops running on the system, except the current user's.
+
+    It relies on those desktops having UNIX domain sockets in /run/vnc.
+    """
+
+    VALID_DISPLAYS.clear()
+    NAMES.clear()
+    IDS.clear()
+
+    for UNIXuser in glob.glob1('/run/vnc', '*'):
+
+        if UNIXuser != os.environ['USER']:
+
+            fullName = bigbluebutton.UNIX_username_to_fullName(UNIXuser)
+
+            display = UNIXuser
+
+            VNC_SOCKET[display] = 'unix=/run/vnc/' + UNIXuser
+            NAMES[display] = fullName
+            IDS[display] = UNIXuser
+            UNIXUSER[display] = UNIXuser
+
+            # XXX This won't work for other geometries
+            GEOMETRY[display] = '1024x768'
+
+            VALID_DISPLAYS.append(display)
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
