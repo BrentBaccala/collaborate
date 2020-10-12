@@ -165,3 +165,21 @@ def fullName_to_UNIX_username(fullName):
                 print(err)
                 cur.execute('ROLLBACK')
     return None
+
+def UNIX_username_to_fullName(UNIXname):
+    r"""
+    Use a SQL table lookup to convert a UNIX username
+    to a Big Blue Button fullName
+    """
+    open_database()
+    if conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("SELECT VNCuser FROM VNCusers WHERE UNIXuser = %s", (UNIXname,))
+                row = cur.fetchone()
+                if row:
+                    return row[0]
+            except psycopg2.DatabaseError as err:
+                print(err)
+                cur.execute('ROLLBACK')
+    return None
