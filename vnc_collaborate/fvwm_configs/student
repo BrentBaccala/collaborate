@@ -30,7 +30,7 @@ AddToFunc DestroyWindowEvent
  + I None ("OverlayVNC") All (!"OverlayVNC") MoveToDesk
  + I None ("OverlayVNC") Mouse 1 R A Menu RootMenu Nop
  + I None ("OverlayVNC") Mouse 2 R A Menu Window-Ops Nop
- + I None ("OverlayVNC") Mouse 3 R A WindowList
+ + I None ("OverlayVNC") Mouse 3 R A WindowList UseSkipList
 
 *FvwmEvent: add_window AddWindowEvent
 *FvwmEvent: destroy_window DestroyWindowEvent
@@ -42,7 +42,7 @@ Module FvwmEvent
 #   for the root window:
 Mouse 1 R       A       Menu RootMenu Nop
 Mouse 2 R       A       Menu Window-Ops Nop
-Mouse 3 R       A       WindowList
+Mouse 3 R       A       WindowList UseSkipList
 
 #   for the title bar buttons:
 Mouse 0 1       A       Menu Window-Ops2 Close
