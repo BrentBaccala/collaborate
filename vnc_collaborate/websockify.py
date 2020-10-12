@@ -16,6 +16,7 @@
 # websockify would like numpy, but PyPI numpy can't run on Python less than 3.6
 
 import sys
+import os
 import psutil
 import glob
 import urllib
@@ -71,11 +72,22 @@ def new_websocket_client(self):
 
         if not rfbport:
 
-            # We use a modifed version of the VNC server script that starts a server with no authentication,
-            # since we're providing the authentication using the JSON Web Tokens.
+            if os.path.exists('/usr/bin/tigervncserver'):
 
-            tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
-            subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver)
+                # Prefer Tiger VNC if it's installed.  We don't need a custom script to disable authentication,
+                # it supports the RANDR extension, and the most recent versions (not the Ubuntu 18 version)
+                # support UNIX domain sockets, which will (eventually) eliminate the need for the socat below.
+
+                subprocess.run(['sudo', '-u', UNIXuser, '-i',
+                                'tigervncserver', '-localhost', 'yes', '-SecurityTypes', 'None', '-geometry', '1024x768'])
+
+            else:
+
+                # We use a modifed version of the tight VNC server script that starts a server with no authentication,
+                # since we're providing the authentication using the JSON Web Tokens.
+
+                tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
+                subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver)
 
             # Use our root sudo access to make the user's .Xauthority file readable by group 'bigbluebutton',
             # which allows the teacher to project screen shares onto the student desktop.
