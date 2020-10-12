@@ -5,11 +5,20 @@ Style Tk StaysOnTop
 
 DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
+# When we enter "teacher mode", we don't want to close our existing
+# windows, but don't want to see anything except our grid view of the
+# other VNC desktops.
+
+# Make everything except the miniatured VNC views and their labels
+# "invisible" by moving them to desktop 1.  Sticky windows (like
+# tilda, by default) need to be "unstuck" in order to move them.
+
 DestroyFunc StartFunction
 AddToFunc StartFunction
  + I All ("*vncviewer") Layer 0 1
  + I All ("Tk") Iconify off
  + I All ("Tk") Layer 0 2
+ + I All (!"*vncviewer|Tk") Stick False
  + I All (!"*vncviewer|Tk") MoveToDesk 1
 
 DestroyFunc ExitFunction
