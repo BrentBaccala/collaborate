@@ -26,16 +26,29 @@ from . import bigbluebutton
 
 VIEWONLY_VIEWER = "ssvncviewer"
 
+# VALID_DISPLAYS is a list of "displays" that should appear in the teacher mode grid.
+#
+# "displays" can be almost anything that keys into the next set of dictionaries;
+# currently we use UNIX user names.
+
 VALID_DISPLAYS = []
 
-# These dictionaries map X11 display names to BBB full names,
-# BBB userIDs, UNIX usernames, and screen geometries.
+# These dictionaries map "displays" to BBB full names, BBB userIDs,
+# UNIX usernames, screen geometries, VNC UNIX domain sockets (with a
+# "unix=" prefix), and X11 display names (suitable for passing as a
+# '-display' argument).
+#
+# In addition to everything in VALID_DISPLAYS, this dictionaries should
+# also contain an entry for the teacher (teacher_display) themself,
+# in particular the teacher's VNC_SOCKET is needed to screenshare
+# the teacher's display.
 
 NAMES = dict()
 IDS = dict()
 UNIXUSER = dict()
 GEOMETRY = dict()
 VNC_SOCKET = dict()
+X11_DISPLAY = dict()
 
 myMeetingID = None
 
@@ -98,6 +111,19 @@ def OLD_get_VALID_DISPLAYS_and_NAMES():
                         else:
                             GEOMETRY[display] = '1024x768'
 
+def find_X11_DISPLAYs():
+    X11_DISPLAY.clear()
+    running_commands = list(psutil.process_iter(['cmdline']))
+    for proc in running_commands:
+        cmdline = proc.info['cmdline']
+        if len(cmdline) > 0 and '/usr/bin/X' in cmdline[0]:
+            m = re.search(r'/home/(\w*)/.Xauthority', ' '.join(cmdline))
+            if m:
+                # cmdline[1] is the X11 display name
+                # m.group(1) is the UNIX user name
+                X11_DISPLAY[m.group(1)] = cmdline[1]
+    print(X11_DISPLAY)
+
 def get_VALID_DISPLAYS_and_NAMES():
     r"""
     This version of get_VALID_DISPLAY_and_NAMES shows all VNC
@@ -110,15 +136,18 @@ def get_VALID_DISPLAYS_and_NAMES():
     NAMES.clear()
     IDS.clear()
 
+    find_X11_DISPLAYs()
+
     for UNIXuser in glob.glob1('/run/vnc', '*'):
+
+        display = UNIXuser
+
+        VNC_SOCKET[display] = 'unix=/run/vnc/' + UNIXuser
 
         if UNIXuser != os.environ['USER']:
 
             fullName = bigbluebutton.UNIX_username_to_fullName(UNIXuser)
 
-            display = UNIXuser
-
-            VNC_SOCKET[display] = 'unix=/run/vnc/' + UNIXuser
             NAMES[display] = fullName
             IDS[display] = UNIXuser
             UNIXUSER[display] = UNIXuser
@@ -274,7 +303,7 @@ def project_to_students(screenx, screeny, student_window_name = None):
 
     get_VALID_DISPLAYS_and_NAMES()
 
-    teacher_display = os.environ['DISPLAY']
+    teacher_display = os.environ['USER']
     screenx = int(screenx)
     screeny = int(screeny)
     display_to_project = teacher_display
@@ -308,7 +337,7 @@ def project_to_students(screenx, screeny, student_window_name = None):
             # .Xauthority files to get the keys needed to put a window on their screen.
             args = [VIEWONLY_VIEWER,
                     '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
-                    '-escape', 'never', '-display', display,
+                    '-escape', 'never', '-display', X11_DISPLAY[display],
                     '-scale', str(scale),
                     '-title', title, VNC_SOCKET[display_to_project]]
             processes.append(subprocess.Popen(args, stderr=subprocess.DEVNULL,
