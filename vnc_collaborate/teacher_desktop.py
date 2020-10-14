@@ -88,7 +88,7 @@ def OLD_get_VALID_DISPLAYS_and_NAMES():
                     if m:
                         # cmdline[1] is the X11 display name
                         display = cmdline[1]
-                        VNC_SOCKET[display] = 'unix=/run/vnc/' + UNIXuser
+                        VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
                         NAMES[display] = fullName
                         IDS[display] = userID
                         UNIXUSER[display] = UNIXuser
@@ -142,7 +142,7 @@ def get_VALID_DISPLAYS_and_NAMES():
 
         display = UNIXuser
 
-        VNC_SOCKET[display] = 'unix=/run/vnc/' + UNIXuser
+        VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
 
         if UNIXuser != os.environ['USER']:
 
@@ -240,7 +240,7 @@ def main_loop():
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox+offsetx)+'+'+str(geoy+offsety),
                         '-escape', 'never',
                         '-scale', str(scale),
-                        '-title', title, VNC_SOCKET[display]]
+                        '-title', title, 'unix=' + VNC_SOCKET[display]]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
                 processes[display].append(simple_text(NAMES[display], geox + SCREENX/cols/2, geoy))
@@ -339,7 +339,7 @@ def project_to_students(screenx, screeny, student_window_name = None):
                     '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
                     '-escape', 'never', '-display', X11_DISPLAY[display],
                     '-scale', str(scale),
-                    '-title', title, VNC_SOCKET[display_to_project]]
+                    '-title', title, 'unix=' + VNC_SOCKET[display_to_project]]
             processes.append(subprocess.Popen(args, stderr=subprocess.DEVNULL,
                                               env={'XAUTHORITY' : '/home/{}/.Xauthority'.format(UNIXUSER[display])}))
 

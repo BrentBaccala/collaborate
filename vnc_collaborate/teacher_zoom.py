@@ -29,7 +29,6 @@ def teacher_zoom(window, desktop_width, desktop_height):
    # So, this expression undoes the FVWM quoting and splits apart our arguments.
 
    args = window.replace("\\'", "'")[1:-1].split(';')
-   print(args)
 
    if len(args) >= 5 and args[0] == 'TeacherViewVNC':
 
@@ -37,10 +36,6 @@ def teacher_zoom(window, desktop_width, desktop_height):
       STUDENT_DISPLAY = args[2]
       NATIVE_GEOMETRY = args[3]
       VNC_SOCKET = args[4]
-
-      print(STUDENT_ID, STUDENT_DISPLAY)
-
-      freeswitch.print_status()
 
       was_deafed = freeswitch.is_deaf(STUDENT_ID, default=False)
 
@@ -61,7 +56,7 @@ def teacher_zoom(window, desktop_width, desktop_height):
       args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
               '-geometry', geometry, '-scale', str(scale),
               '-escape', 'Alt_L',
-              VNC_SOCKET]
+              'unix=' + VNC_SOCKET]
 
       proc = subprocess.Popen(args)
       proc.wait()
