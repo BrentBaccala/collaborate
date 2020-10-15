@@ -14,6 +14,38 @@ DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
 EdgeScroll 0 0
 
+# The teacher can project VNC viewers onto the student desktops.
+#
+# Projections are identified by the title string "OverlayVNC".
+#
+# Projections appear on the very top (layer 10) and have no decorations at all,
+# so as to completely obscure the student's other windows until they end.
+#
+# When they appear, we move all other windows to a spare desktop and disable all mouse bindings.
+# Once they're gone, we move the windows back and re-enable mouse bindings.
+
+Style OverlayVNC Layer 10, !Title, !Borders, !Handles
+
+DestroyFunc AddWindowEvent
+AddToFunc AddWindowEvent
+ + I Any ("OverlayVNC") All (!"OverlayVNC") MoveToDesk 1
+ + I Any ("OverlayVNC") Mouse 1 R A -
+ + I Any ("OverlayVNC") Mouse 2 R A -
+ + I Any ("OverlayVNC") Mouse 3 R A -
+
+DestroyFunc DestroyWindowEvent
+AddToFunc DestroyWindowEvent
+ + I None ("OverlayVNC") All (!"OverlayVNC") MoveToDesk
+ + I None ("OverlayVNC") Mouse 1 R A Menu RootMenu Nop
+ + I None ("OverlayVNC") Mouse 2 R A Menu Window-Ops Nop
+ + I None ("OverlayVNC") Mouse 3 R A WindowList UseSkipList
+
+*FvwmEvent: add_window AddWindowEvent
+*FvwmEvent: destroy_window DestroyWindowEvent
+
+Module FvwmEvent
+
+
 # some simple default mouse bindings:
 #   for the root window:
 Mouse 1 R       A       Menu RootMenu Nop
