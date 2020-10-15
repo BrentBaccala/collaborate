@@ -94,13 +94,14 @@ Mouse ("TeacherViewVNC;*") 1 A A   ZoomDesktop
 Mouse ("Projection*") 1 A A   Close
 
 # Whenever a window is destroyed, check to see if there are any zoomed
-# desktops left (there should only be one at any time anyway).  If not,
-# replace the ZoomDesktop mouse binding and the TeacherMenu mouse binding,
-# and de-iconify the miniaturized student desktops and their labels.
+# desktops left (there should only be one at any time anyway).  If
+# not, replace the mouse bindings that we removed in ZoomDesktop and
+# de-iconify the miniaturized student desktops and their labels.
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
  + I None ("Zoomed Student Desktop") Mouse ("TeacherViewVNC;*") 1 A A ZoomDesktop
+ + I None ("Zoomed Student Desktop") Mouse ("Projection*") 1 A A   Close
  + I None ("Zoomed Student Desktop") Mouse 3 A  A  Menu TeacherMenu Nop
  + I None ("Zoomed Student Desktop") Mouse 3 W  A  Menu TeacherMenuOnStudentDesktop Nop
  + I None ("Zoomed Student Desktop") All ("*vncviewer|Tk") Iconify off
