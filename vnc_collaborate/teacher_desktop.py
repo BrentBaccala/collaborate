@@ -19,6 +19,7 @@ from lxml import etree
 
 from .simple_text import simple_text
 from . import bigbluebutton
+from .vnc import get_VNC_info
 
 # ssvncviewer is preferred over other VNC viewers due to its ability to scale the remote
 # desktop to fit in the window geometry, an essential feature for our miniaturized
@@ -34,9 +35,8 @@ VIEWONLY_VIEWER = "ssvncviewer"
 VALID_DISPLAYS = []
 
 # These dictionaries map "displays" to BBB full names, BBB userIDs,
-# UNIX usernames, screen geometries, VNC UNIX domain sockets (with a
-# "unix=" prefix), and X11 display names (suitable for passing as a
-# '-display' argument).
+# UNIX usernames, VNC UNIX domain sockets, X11 display names (suitable
+# for passing as a '-display' argument), and RFB port numbers.
 #
 # In addition to everything in VALID_DISPLAYS, this dictionaries should
 # also contain an entry for the teacher (teacher_display) themself,
@@ -46,9 +46,15 @@ VALID_DISPLAYS = []
 NAMES = dict()
 IDS = dict()
 UNIXUSER = dict()
-GEOMETRY = dict()
 VNC_SOCKET = dict()
 X11_DISPLAY = dict()
+RFBPORT = dict()
+
+# Once we've populated RFBPORT, we'll call get_VNC_info to populate
+# the VNCdata dictionary that maps RFB ports to dictionaries with keys
+# 'height' 'width' and 'name', which is how we know our desktop geometry.
+
+VNCdata = None
 
 myMeetingID = None
 
@@ -111,8 +117,9 @@ def OLD_get_VALID_DISPLAYS_and_NAMES():
                         else:
                             GEOMETRY[display] = '1024x768'
 
-def find_X11_DISPLAYs():
+def find_X11_DISPLAYs_and_RFBPORTs():
     X11_DISPLAY.clear()
+    RFBPORT.clear()
     running_commands = list(psutil.process_iter(['cmdline']))
     for proc in running_commands:
         cmdline = proc.info['cmdline']
@@ -122,7 +129,8 @@ def find_X11_DISPLAYs():
                 # cmdline[1] is the X11 display name
                 # m.group(1) is the UNIX user name
                 X11_DISPLAY[m.group(1)] = cmdline[1]
-    print(X11_DISPLAY)
+                if '-rfbport' in cmdline:
+                    RFBPORT[m.group(1)] = int(cmdline[cmdline.index('-rfbport') + 1])
 
 def get_VALID_DISPLAYS_and_NAMES():
     r"""
@@ -136,7 +144,13 @@ def get_VALID_DISPLAYS_and_NAMES():
     NAMES.clear()
     IDS.clear()
 
-    find_X11_DISPLAYs()
+    find_X11_DISPLAYs_and_RFBPORTs()
+
+    # this will hang if any of our VNC displays don't respond to the VNC protocol
+    global VNCdata
+    if VNCdata == None:
+        # get_VNC_info is not re-entrant; we can't call it twice
+        VNCdata = get_VNC_info(RFBPORT.values())
 
     for UNIXuser in glob.glob1('/run/vnc', '*'):
 
@@ -151,9 +165,6 @@ def get_VALID_DISPLAYS_and_NAMES():
             NAMES[display] = fullName
             IDS[display] = UNIXuser
             UNIXUSER[display] = UNIXuser
-
-            # XXX This won't work for other geometries
-            GEOMETRY[display] = '1024x768'
 
             VALID_DISPLAYS.append(display)
 
@@ -225,7 +236,9 @@ def main_loop():
                 processes[display] = []
                 row = int(i/cols)
                 col = i%cols
-                (nativex, nativey) = map(int, GEOMETRY[display].split('x'))
+                nativex = VNCdata[RFBPORT[display]]['width']
+                nativey = VNCdata[RFBPORT[display]]['height']
+                geometry = str(nativex) + 'x' + str(nativey)
                 scalex = SCALEX/nativex
                 scaley = SCALEY/nativey
                 scale = min(scalex, scaley)
@@ -236,7 +249,7 @@ def main_loop():
                 # Use the title of the window to identify these windows to the FVWM config,
                 # and to pass information (their userID and display name) to teacher_zoom.
                 # The title won't be displayed with our default FVWM config for teacher mode.
-                title = ";".join(["TeacherViewVNC", IDS[display], display, GEOMETRY[display], VNC_SOCKET[display]])
+                title = ";".join(["TeacherViewVNC", IDS[display], display, geometry, VNC_SOCKET[display]])
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox+offsetx)+'+'+str(geoy+offsety),
                         '-escape', 'never',
                         '-scale', str(scale),
@@ -326,12 +339,15 @@ def project_to_students(screenx, screeny, student_window_name = None):
 
         if display != display_to_project:
             # We're projecting display_to_project (screenx/screeny) to the student screen (display/nativex/nativey)
-            (studentx, studenty) = map(int, GEOMETRY[display].split('x'))
+            studentx = VNCdata[RFBPORT[display]]['width']
+            studenty = VNCdata[RFBPORT[display]]['height']
             scalex = studentx/screenx
             scaley = studenty/screeny
             scale = min(scalex, scaley)
             offsetx = int((studentx - scale*screenx)/2)
             offsety = int((studenty - scale*screeny)/2)
+            # This title is recognized by the FVWM config and is presented to the user
+            # on top of all other windows and with no window manager decorations.
             title = "OverlayVNC"
             # We should be in the 'bigbluebutton' group, and therefore able to read the student's
             # .Xauthority files to get the keys needed to put a window on their screen.
