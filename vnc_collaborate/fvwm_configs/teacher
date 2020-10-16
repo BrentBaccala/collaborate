@@ -6,7 +6,7 @@ Style * NoIcon
 # XXX I'd like to match on "Projection Controls", but I can't figure
 # how to get that to work, so I use "Tk" instead
 
-Style Tk Layer 10, !Title, !Borders, !Handles
+Style Tk Layer 10, !Title, !Borders, !Handles, Sticky
 
 DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
