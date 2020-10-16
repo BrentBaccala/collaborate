@@ -25,8 +25,6 @@ def simple_text(text, x, y):
 
         button.pack()
 
-        window.update()
-
         xlocation = int(int(x) - (button.winfo_width()/2))
         ylocation = int(y)
         window.geometry("+"+str(xlocation)+"+"+str(ylocation))

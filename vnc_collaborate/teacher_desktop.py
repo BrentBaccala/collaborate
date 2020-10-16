@@ -374,12 +374,11 @@ def project_to_students(screenx, screeny, student_window_name = None):
 
     button.pack()
 
-    window.update()
-
     window.geometry("-0+0")
     window.title("Projection Controls")
     window.wm_title("Projection Controls")
 
+    window.update()
     window.mainloop()
 
     # When the window closes, end the projection
