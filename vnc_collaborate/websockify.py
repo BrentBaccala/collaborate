@@ -78,8 +78,15 @@ def new_websocket_client(self):
                 # it supports the RANDR extension, and the most recent versions (not the Ubuntu 18 version)
                 # support UNIX domain sockets, which will (eventually) eliminate the need for the socat below.
 
-                subprocess.run(['sudo', '-u', UNIXuser, '-i',
-                                'tigervncserver', '-localhost', 'yes', '-SecurityTypes', 'None', '-geometry', '1024x768'])
+                # We do need to set BlacklistThreshold high, since connections with AuthType None are treated
+                # as blacklistable connections, and after we've gotten five of them, the server starts rejecting
+                # connections.
+
+                subprocess.run(['sudo', '-u', UNIXuser, '-i', 'tigervncserver',
+                                '-localhost', 'yes',
+                                '-SecurityTypes', 'None',
+                                '-BlacklistThreshold', '1000000',
+                                '-geometry', '1024x768'])
 
             else:
 
