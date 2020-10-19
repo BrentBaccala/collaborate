@@ -20,7 +20,7 @@ set_ip() {
 	    | xmlstarlet -q unesc > /tmp/vars.xml
 	cp /tmp/vars.xml /opt/freeswitch/etc/freeswitch/vars.xml
 
-	sed -i "s|proxy_pass .*|proxy_pass https://$IP:7443;|" /etc/bigbluebutton/nginx/sip.nginx
+	sed -i "s|proxy_pass .*:7443;|proxy_pass https://$IP:7443;|" /etc/bigbluebutton/nginx/sip.nginx
 	ip addr add $IP dev lo
     fi
 }
