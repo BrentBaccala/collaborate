@@ -85,8 +85,7 @@ def new_websocket_client(self):
                 subprocess.run(['sudo', '-u', UNIXuser, '-i', 'tigervncserver',
                                 '-localhost', 'yes',
                                 '-SecurityTypes', 'None',
-                                '-BlacklistThreshold', '1000000',
-                                '-geometry', '1024x768'])
+                                '-BlacklistThreshold', '1000000'])
 
             else:
 
