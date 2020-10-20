@@ -7,9 +7,14 @@
 # users using a Postgres database whose authentication password
 # is specified on the command line.
 #
-# We search the .vnc/*.pid files and the system process table to find
-# VNC a server that matches the username, otherwise we fall back to
-# the server and port specified on the command line as a default.
+# If the SQL table contains an 'rfbport', we relay the connection
+# to that TCP port (on localhost).  Otherwise, if the SQL table
+# contains an 'UNIXuser', we relay the connection to /run/vnc/USER.
+# If /run/vnc/USER doesn't exist, we start a VNC server for that
+# user along with a socat listening on /run/vnc/USER.
+#
+# If none of this works, we fall back to the server and port specified
+# on the command line as a default.
 #
 # On Ubuntu 16, need to install with --no-deps:
 #   sudo -H pip3 install --no-deps -U websockify
@@ -65,12 +70,25 @@ def new_websocket_client(self):
         print(err)
         fullName = ''
 
+    rfbport = bigbluebutton.fullName_to_rfbport(fullName)
     UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
 
-    if UNIXuser:
-        rfbport = find_running_VNCserver(UNIXuser)
+    if rfbport:
 
-        if not rfbport:
+        self.server.target_host = 'localhost'
+        self.server.target_port = int(rfbport)
+
+        # Perhaps we should use BBB user IDs as the filenames in /run/vnc?
+        # That would require passing them in with the JSON web tokens.
+        path = '/run/vnc/' + fullName
+        subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
+        subprocess.Popen(['sudo', 'socat',
+                          'UNIX-LISTEN:{},fork,group={},mode=775'.format(path, 'bigbluebutton'),
+                          'TCP4:localhost:'+str(rfbport)])
+
+    elif UNIXuser:
+
+        if not os.path.exists('/run/vnc/' + UNIXuser):
 
             if os.path.exists('/usr/bin/tigervncserver'):
 
@@ -107,16 +125,17 @@ def new_websocket_client(self):
             # socket, a simple solution is to start a socat to relay UNIX domain connections from a
             # socket in /run/vnc to the VNC server.  Set its group to allow teacher access.
 
+            # XXX there's a race condition here - the Perl script vncserver has started, but it
+            # might not have yet started Xvnc, which is what find_running_VNCserver looks for
+
             rfbport = find_running_VNCserver(UNIXuser)
             path = '/run/vnc/' + UNIXuser
             subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
-            subprocess.Popen(['sudo', 'socat',
+            subprocess.Popen(['sudo', '-b', 'socat',
                               'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'bigbluebutton'),
                               'TCP4:localhost:'+str(rfbport)])
 
-        if rfbport:
-            self.server.target_host = 'localhost'
-            self.server.target_port = int(rfbport)
+        self.server.unix_target = '/run/vnc/' + UNIXuser
 
     # pass through to the "parent" class's version of this method
     old_new_websocket_client(self)
