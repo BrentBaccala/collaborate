@@ -17,11 +17,11 @@ for p in psutil.process_iter(['username', 'name', 'cmdline']):
         rfbport = int(p.info['cmdline'][p.info['cmdline'].index('-rfbport') + 1])
         if user in RFBPORT:
             print("Duplicate VNC servers:", user, rfbport, RFBPORT[user])
-        RFBPORT[user] = int(p.info['cmdline'][p.info['cmdline'].index('-rfbport') + 1])
+        RFBPORT[user] = rfbport
     if 'socat' in p.info['name']:
         cmdline = ' '.join(p.info['cmdline'])
         m1 = re.search(r'UNIX-LISTEN:/run/vnc/(\w*),', cmdline)
-        m2 = re.search(r'TCP4:localhost:(\d*)', cmdline)
+        m2 = re.search(r'TCP4:localhost:(\d+)', cmdline)
         if m1 and m2:
             user = m1.group(1)
             tcpport = int(m2.group(1))

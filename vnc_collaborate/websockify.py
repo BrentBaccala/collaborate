@@ -126,14 +126,17 @@ def new_websocket_client(self):
             # socket in /run/vnc to the VNC server.  Set its group to allow teacher access.
 
             # XXX there's a race condition here - the Perl script vncserver has started, but it
-            # might not have yet started Xvnc, which is what find_running_VNCserver looks for
+            # might not have yet started Xvnc, which is what find_running_VNCserver looks for.
+            # The only time I've actually seen rfbport set to None is when the user didn't have
+            # a home directory and the vncserver failed completely for that reason.
 
             rfbport = find_running_VNCserver(UNIXuser)
-            path = '/run/vnc/' + UNIXuser
-            subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
-            subprocess.Popen(['sudo', '-b', 'socat',
-                              'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'bigbluebutton'),
-                              'TCP4:localhost:'+str(rfbport)])
+            if rfbport:
+                path = '/run/vnc/' + UNIXuser
+                subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
+                subprocess.Popen(['sudo', '-b', 'socat',
+                                  'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'bigbluebutton'),
+                                  'TCP4:localhost:'+str(rfbport)])
 
         self.server.unix_target = '/run/vnc/' + UNIXuser
 
