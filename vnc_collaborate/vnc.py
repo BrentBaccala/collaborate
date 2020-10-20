@@ -20,7 +20,11 @@ VNC_data = {}
 class RFBDataClient(rfb.RFBClient):
     def vncConnectionMade(self):
         global ntargets
-        VNC_data[self.transport.addr[1]] = {
+        if type(self.transport.addr) == bytes:
+            key = self.transport.addr.decode()   # UNIX socket case; decode() to use string, not bytes, as key
+        else:
+            key = self.transport.addr[1]         # TCP socket case
+        VNC_data[key] = {
             'name': self.name,
             'width': self.width,
             'height': self.height
@@ -44,7 +48,10 @@ class RFBFactory(protocol.ClientFactory):
 def get_VNC_info(portlist):
     global ntargets
     for port in portlist:
-        vncClient = internet.TCPClient('localhost', port, RFBFactory())
+        if type(port) == int:
+            vncClient = internet.TCPClient('localhost', port, RFBFactory())
+        else:
+            vncClient = internet.UNIXClient(port, RFBFactory())
         vncClient.startService()
         ntargets = ntargets + 1
     reactor.run()
