@@ -1,0 +1,46 @@
+#! /usr/bin/python3
+#
+# Verify that the socats in /run/vnc point to vnc servers owned by the
+# same users as the filenames in /run/vnc.
+#
+# i.e, /run/vnc/baccala should point to a vnc server owned by baccala
+
+import psutil
+import re
+
+RFBPORT = {}
+TCPPORT = {}
+
+for p in psutil.process_iter(['username', 'name', 'cmdline']):
+    if 'vnc' in p.info['name'] and '-rfbport' in p.info['cmdline']:
+        user = p.info['username']
+        rfbport = int(p.info['cmdline'][p.info['cmdline'].index('-rfbport') + 1])
+        if user in RFBPORT:
+            print("Duplicate VNC servers:", user, rfbport, RFBPORT[user])
+        RFBPORT[user] = int(p.info['cmdline'][p.info['cmdline'].index('-rfbport') + 1])
+    if 'socat' in p.info['name']:
+        cmdline = ' '.join(p.info['cmdline'])
+        m1 = re.search(r'UNIX-LISTEN:/run/vnc/(\w*),', cmdline)
+        m2 = re.search(r'TCP4:localhost:(\d*)', cmdline)
+        if m1 and m2:
+            user = m1.group(1)
+            tcpport = int(m2.group(1))
+            if user in TCPPORT:
+                # running sessions will spawn additional processes, so we can have duplicate socats
+                # print("Duplicate socat:", user, p.pid)
+                if TCPPORT[user] != tcpport:
+                    print("Conflicting socats:", user, "points to both", TCPPORT[user], "and", tcpport)
+            TCPPORT[user] = tcpport
+
+print('Displays', RFBPORT)
+print('socats', TCPPORT)
+print()
+
+for user in set(RFBPORT.keys()).union(TCPPORT.keys()):
+    if RFBPORT.get(user) != TCPPORT.get(user):
+        if TCPPORT.get(user) == None:
+            print(user, "has no socat running for display on port", RFBPORT.get(user))
+        elif RFBPORT.get(user) == None:
+            print(user, "has no vncserver running, but a socat is on port", TCPPORT.get(user))
+        else:
+            print(user, "has differing ports", RFBPORT.get(user), TCPPORT.get(user))
