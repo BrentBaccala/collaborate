@@ -1,0 +1,7 @@
+#! /usr/bin/python3
+
+from vnc_collaborate import vnc
+import glob
+
+for k,v in vnc.get_VNC_info(glob.glob('/run/vnc/*')).items():
+    print('{:25} {}'.format(k,v))
