@@ -6,7 +6,7 @@ import vnc_collaborate.freeswitch as freeswitch
 
 HOME = os.environ['HOME']
 
-def teacher_zoom(window, desktop_width, desktop_height):
+def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
    r"""
    teacher-zoom(WINDOW-NAME, DESKTOP_WIDTH, DESKTOP_HEIGHT)
 
@@ -53,12 +53,15 @@ def teacher_zoom(window, desktop_width, desktop_height):
 
       geometry = desktop_width + 'x' + desktop_height + '+' + str(offsetx) + '+' + str(offsety)
 
-      args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
-              '-geometry', geometry, '-scale', str(scale),
-              '-escape', 'Alt_L',
-              'unix=' + VNC_SOCKET]
+      proc_args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
+                   '-geometry', geometry, '-scale', str(scale),
+                   '-escape', 'Alt_L',
+                   'unix=' + VNC_SOCKET]
 
-      proc = subprocess.Popen(args)
+      if len(optional_args) > 0 and optional_args[0] == 'viewonly':
+         proc_args.append('-viewonly')
+
+      proc = subprocess.Popen(proc_args)
       proc.wait()
 
       # Re-deaf the student, but ONLY if they were deafed originally
