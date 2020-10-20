@@ -41,7 +41,7 @@ AddToFunc AddWindowEvent
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
  + I None ("OverlayVNC") All (!"OverlayVNC") MoveToDesk
- + I None ("OverlayVNC") Mouse 1 R A Menu RootMenu Nop
+ + I None ("OverlayVNC") Mouse 1 R A Menu MainMenu Nop
  + I None ("OverlayVNC") Mouse 2 R A Menu Window-Ops Nop
  + I None ("OverlayVNC") Mouse 3 R A WindowList UseSkipList
 
@@ -53,7 +53,7 @@ Module FvwmEvent
 
 # some simple default mouse bindings:
 #   for the root window:
-Mouse 1 R       A       Menu RootMenu Nop
+Mouse 1 R       A       Menu MainMenu Nop
 Mouse 2 R       A       Menu Window-Ops Nop
 Mouse 3 R       A       WindowList UseSkipList
 
@@ -73,7 +73,7 @@ Mouse 2 FST     A       Menu Window-Ops2 Nop
 
 
 ######################## Menus ###################
-AddToMenu RootMenu      "Root Menu"		Title
+AddToMenu MainMenu      "Main Menu"		Title
 +                       "Terminal"		Exec exec tilda
 +			"Files"			Exec exec nautilus
 +			"Firefox"		Exec exec firefox
@@ -129,7 +129,7 @@ AddToMenu Window-Ops2   "&Move"         Move
 
 
 AddToFunc Move-or-Raise         I Raise
-+				C Menu RootMenu Nop
++				C Menu MainMenu Nop
 +                               M Move
 +                               D Lower
 
