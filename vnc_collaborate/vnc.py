@@ -54,5 +54,6 @@ def get_VNC_info(portlist):
             vncClient = internet.UNIXClient(port, RFBFactory())
         vncClient.startService()
         ntargets = ntargets + 1
-    reactor.run()
+    if ntargets > 0:
+        reactor.run()
     return VNC_data
