@@ -30,6 +30,8 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 # USA.
 
+use experimental 'smartmatch';
+
 package config;
 
 #########################################################################
@@ -790,10 +792,12 @@ sub startXvncServer {
   # Wait for Xtigervnc to start up
   {
     my $i = 300;
-    for (; $i >= 0; $i = $i-1) {
-      last if &checkTCPPortUsed(5900 + $options->{'displayNumber'});
-      if ($xvncServerPid == waitpid($xvncServerPid, WNOHANG)) { $i = -2; last; }
-      usleep 100000;
+    if (! "-inetd" ~~ @ARGV) {
+      for (; $i >= 0; $i = $i-1) {
+        last if &checkTCPPortUsed(5900 + $options->{'displayNumber'});
+        if ($xvncServerPid == waitpid($xvncServerPid, WNOHANG)) { $i = -2; last; }
+        usleep 100000;
+      }
     }
     for (; $i >= 0; $i = $i-1) {
       last if -e "/tmp/.X11-unix/X$options->{'displayNumber'}" ||
