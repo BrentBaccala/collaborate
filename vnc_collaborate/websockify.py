@@ -27,6 +27,7 @@ import glob
 import urllib
 import subprocess
 import jwt
+import time
 
 from . import bigbluebutton
 
@@ -137,6 +138,8 @@ def new_websocket_client(self):
                 subprocess.Popen(['sudo', '-b', 'socat',
                                   'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'bigbluebutton'),
                                   'TCP4:localhost:'+str(rfbport)])
+                while not os.path.exists(path):
+                    time.sleep(0.1)
 
         self.server.unix_target = '/run/vnc/' + UNIXuser
 
