@@ -74,7 +74,7 @@ Mouse 2 FST     A       Menu Window-Ops2 Nop
 
 ######################## Menus ###################
 AddToMenu MainMenu      "Main Menu"		Title
-+                       "Terminal"		Exec exec tilda
++                       "Terminal"		Exec exec gnome-terminal
 +			"Files"			Exec exec nautilus
 +			"Firefox"		Exec exec firefox
 +			"Chrome"		Exec exec chromium-browser
