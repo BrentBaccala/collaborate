@@ -2,6 +2,8 @@
 import sys
 import os
 import grp
+import subprocess
+
 from vnc_collaborate import *
 from vnc_collaborate import fvwm_configs
 
@@ -33,6 +35,9 @@ if len(sys.argv) > 1:
         mute_students(sys.argv[2:])
     elif sys.argv[1] == 'websockify':
         websockify()
+    elif sys.argv[1] == 'tigervncserver':
+        with pkg_resources.path(__package__, 'tigervncserver.pl') as tigervncserver:
+            subprocess.run(['perl', '--', tigervncserver, *sys.argv[2:]])
     elif sys.argv[1] == 'print':
         if sys.argv[2] =='teacher_mode_fvwm_config':
             print(pkg_resources.read_text(fvwm_configs, 'teacher-mode'))
