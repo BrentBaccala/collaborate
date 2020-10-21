@@ -30,8 +30,6 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 # USA.
 
-use experimental 'smartmatch';
-
 package config;
 
 #########################################################################
@@ -69,6 +67,7 @@ package main;
 
 use strict;
 use warnings;
+use experimental 'smartmatch';
 
 use File::Path;
 use File::Spec;
