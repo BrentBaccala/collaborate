@@ -282,9 +282,13 @@ def signal_handler(sig, frame):
     restore_original_state()
     sys.exit(0)
 
-def teacher_desktop(screenx, screeny):
+def teacher_desktop(screenx=None, screeny=None):
 
     global SCREENX, SCREENY
+
+    if not screenx or not screeny:
+        (screenx, screeny) = subprocess.run(['xdotool', 'getdisplaygeometry'],
+                                            stdout=subprocess.PIPE, encoding='ascii').stdout.split()
 
     SCREENX = int(screenx)
     SCREENY = int(screeny)
