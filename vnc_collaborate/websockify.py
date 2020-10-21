@@ -10,8 +10,13 @@
 # If the SQL table contains an 'rfbport', we relay the connection
 # to that TCP port (on localhost).  Otherwise, if the SQL table
 # contains an 'UNIXuser', we relay the connection to /run/vnc/USER.
+#
 # If /run/vnc/USER doesn't exist, we start a VNC server for that
 # user along with a socat listening on /run/vnc/USER.
+#
+# If the user has a .vncsocket in their home directory, that overrides
+# /run/vnc/USER and is used instead, though care must be taken to
+# ensure that this socket is writable by the uid running this script.
 #
 # If none of this works, we fall back to the server and port specified
 # on the command line as a default.
@@ -89,7 +94,8 @@ def new_websocket_client(self):
 
     elif UNIXuser:
 
-        if not os.path.exists('/run/vnc/' + UNIXuser):
+        homesocket = '/home/{}/.vncsocket'.format(UNIXuser)
+        if not os.path.exists('/run/vnc/' + UNIXuser) and not os.path.exists(homesocket):
 
             if os.path.exists('/usr/bin/tigervncserver'):
 
@@ -141,7 +147,10 @@ def new_websocket_client(self):
                 while not os.path.exists(path):
                     time.sleep(0.1)
 
-        self.server.unix_target = '/run/vnc/' + UNIXuser
+        if os.path.exists(homesocket):
+            self.server.unix_target = homesocket
+        else:
+            self.server.unix_target = '/run/vnc/' + UNIXuser
 
     # pass through to the "parent" class's version of this method
     old_new_websocket_client(self)
