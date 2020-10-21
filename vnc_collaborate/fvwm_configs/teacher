@@ -77,6 +77,7 @@ AddToMenu MainMenu      "Main Menu"		Title
 +                       "Terminal"		Exec exec tilda
 +			"Files"			Exec exec nautilus
 +			"Firefox"		Exec exec firefox
++			"Chrome"		Exec exec chromium-browser
 +			"Whiteboard"		Exec exec xournal
 +			"pgAdmin3"		Exec exec pgadmin3
 +			"GNS3"			Exec exec gns3
