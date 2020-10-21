@@ -458,7 +458,7 @@ sub cleanStale {
     unless ($options->{'dry-run'} || unlink($pidFile) || $! == &ENOENT) {
       print STDERR "$PROG: Can't clean stale pidfile '$pidFile': $!\n";
     } elsif ($stale) {
-      print "Cleaning stale pidfile '$pidFile'!\n";
+      print "Cleaning stale pidfile '$pidFile'!\n" unless $options->{'quiet'};
     }
   }
   if (!$stale || !&checkDisplayNumberUsed($usedDisplay)) {
@@ -466,7 +466,7 @@ sub cleanStale {
       unless ($options->{'dry-run'} || unlink($entry) || $! == &ENOENT) {
         print STDERR "$PROG: Can't clean stale x11 lock '$entry': $!\n";
       } else {
-        print "Cleaning stale x11 lock '$entry'!\n";
+        print "Cleaning stale x11 lock '$entry'!\n" unless $options->{'quiet'};
       }
     }
   }
@@ -528,7 +528,7 @@ sub killXvncServer {
     my $pid   = $runningUserVncservers->{$vnc}->{'pid'};
     
     next unless defined $pid;
-    print "Killing Xtigervnc process ID $pid...";
+    print "Killing Xtigervnc process ID $pid..." unless $options->{'quiet'};
     unless ($options->{'dry-run'}) {
       if (kill('TERM', $pid)) {
         my $i = 10;
@@ -537,17 +537,17 @@ sub killXvncServer {
           usleep 100000;
         }
         if ($i >= 0) {
-          print " success!\n";
+          print " success!\n" unless $options->{'quiet'};
         } else {
           $retval = 1;
-          print " which seems to be deadlocked. Using SIGKILL!\n";
+          print " which seems to be deadlocked. Using SIGKILL!\n" unless $options->{'quiet'};
           unless (kill('KILL', $pid) || $! == &ESRCH) {
             print STDERR "Can't kill '$pid': $!\n";
             next;
           }
         }
       } elsif ($! == &ESRCH) {
-        print " which was already dead\n";
+        print " which was already dead\n" unless $options->{'quiet'};
         $stale = 1;
       } else {
         $retval = 1;
@@ -702,7 +702,7 @@ sub startXvncServer {
   
   # Create the user's vncStartup script if necessary.
   if (defined($vncStartup) && !$xstartupArg && !(-e $vncStartup)) {
-    print "Creating default startup script $vncStartup\n";
+    print "Creating default startup script $vncStartup\n" unless $options->{'quiet'};
     unless ($options->{'dry-run'}) {
       my $sf = IO::File->new($vncStartup, "w", 0755);
       unless (defined $sf) {
@@ -737,12 +737,12 @@ sub startXvncServer {
     if (defined $options->{'vncClasses'} &&
          (defined($options->{'httpPort'}) ||
           defined($options->{'baseHttpPort'}))) {
-      print("Found $options->{'vncClasses'} for http connections.\n");
+      print("Found $options->{'vncClasses'} for http connections.\n") unless $options->{'quiet'};
       push @cmd, '-httpd', $options->{'vncClasses'};
       my $v = $options->{'httpPort'} ||
               $options->{'baseHttpPort'} + $options->{'displayNumber'};
       push @cmd, '-httpPort', $v;
-      print("Listening to $v for http connections.\n");
+      print("Listening to $v for http connections.\n") unless $options->{'quiet'};
     }
     push @cmd, '-auth', $options->{'xauthorityFile'};
     push @cmd, '-geometry', $options->{'geometry'} if $options->{'geometry'};
@@ -823,12 +823,13 @@ sub startXvncServer {
     $ENV{DISPLAY}= "$HOSTFQDN:$options->{'displayNumber'}";
   }
   $ENV{VNCDESKTOP} = $options->{'desktopName'};
-  print "\nNew '$options->{'desktopName'}' desktop at $ENV{DISPLAY} on machine $HOSTFQDN\n\n";
+  print "\nNew '$options->{'desktopName'}' desktop at $ENV{DISPLAY} on machine $HOSTFQDN\n\n"
+      unless $options->{'quiet'};
 
   if (defined $vncStartup) {
     # Run the X startup script.
-    print "Starting applications specified in $vncStartup\n";
-    print "Log file is $desktopLog\n\n";
+    print "Starting applications specified in $vncStartup\n" unless $options->{'quiet'};
+    print "Log file is $desktopLog\n\n" unless $options->{'quiet'};
   } elsif ($options->{'fg'} || $options->{'autokill'}) {
     # Nothing to start and I should also kill the Xtigervnc server when the
     # Xvnc-session terminates. Well, lets do so. What a pointless exercise.
@@ -845,7 +846,7 @@ sub startXvncServer {
     } else {
       push @cmd, "$HOSTFQDN:$options->{'displayNumber'}";
     }
-    print "Use ".join(" ", @cmd)." to connect to the VNC server.\n\n";
+    print "Use ".join(" ", @cmd)." to connect to the VNC server.\n\n" unless $options->{'quiet'};
   }
 
   pipe RH, WH or die "Can't open pipe: $!";
@@ -941,6 +942,7 @@ sub usage {
     "  $PROG [:<number>]            X11 display for VNC server\n".
     $prefix."[-dry-run]             Take no real action\n".
     $prefix."[-verbose]             Be more verbose\n".
+    $prefix,"[-quiet]               Be more quiet\n",
     $prefix."[-useold]              Only start VNC server if not already running\n".
     $prefix."[-name <desktop-name>] VNC desktop name\n".
     $prefix."[-depth <depth>]       Desktop bit depth (8|16|24|32)\n".
@@ -1207,6 +1209,7 @@ SCRIPTEOF
       'cleanstale'        => \$options->{'cleanstale'},
       'clean'             => \$options->{'clean'},
       'verbose'           => \$options->{'verbose'},
+      'quiet'             => \$opts{'quiet'},
       'dry-run'           => \$options->{'dry-run'},
       'SecurityTypes=s'	  => \$options->{'SecurityTypes'},
       'PAMService=s'	  => \$opts{'PAMService'},
@@ -1295,10 +1298,13 @@ SCRIPTEOF
       if (!$opts{'kill'} && !$opts{'list'}) {
         # Feedback on how to connect to the remote tigervnc server.
         if (defined $options->{'displayNumber'}) {
-          print "Use xtigervncviewer -via $options->{'displayHost'} :$options->{'displayNumber'} to connect!\n";
+          print "Use xtigervncviewer -via $options->{'displayHost'} :$options->{'displayNumber'} to connect!\n"
+	      unless $options->{'quiet'};
         } else {
-          print "Use xtigervncviewer -via $options->{'displayHost'} :n to connect!\n";
-          print "The display number :n is given in the above startup message from tigervncserver.\n";
+          print "Use xtigervncviewer -via $options->{'displayHost'} :n to connect!\n"
+	      unless $options->{'quiet'};
+          print "The display number :n is given in the above startup message from tigervncserver.\n"
+	      unless $options->{'quiet'};
         }
       }
       exit 0;
@@ -1436,7 +1442,7 @@ SCRIPTEOF
     }
     if ($options->{'useold'} && $haveOld) {
       my $DISPLAY = $runningUserVncservers->{$options->{'displayNumber'}}->{'DISPLAY'};
-      print "\nUsing old '$options->{'desktopName'}' desktop at $DISPLAY on machine $HOSTFQDN\n\n";
+      print "\nUsing old '$options->{'desktopName'}' desktop at $DISPLAY on machine $HOSTFQDN\n\n" unless $options->{'quiet'};
     } else {
       if ($runningUserVncservers->{$options->{'displayNumber'}} &&
           $runningUserVncservers->{$options->{'displayNumber'}}->{'stale'}) {
