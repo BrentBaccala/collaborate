@@ -383,19 +383,19 @@ sub checkDisplayNumberUsed {
 #
 
 sub checkDisplayNumberAvailable {
-  my ($n) = @_;
+  my ($n, $options) = @_;
 
   return 0 if &checkDisplayNumberUsed($n);
 
   if (-e "/tmp/.X$n-lock") {
-    print "\nWarning: $HOSTFQDN:$n is taken because of /tmp/.X$n-lock\n";
-    print "Remove this file if there is no X server $HOSTFQDN:$n\n";
+    print "\nWarning: $HOSTFQDN:$n is taken because of /tmp/.X$n-lock\n" unless $options->{'quiet'};
+    print "Remove this file if there is no X server $HOSTFQDN:$n\n" unless $options->{'quiet'};
     return 0;
   }
 
   if (-e "/tmp/.X11-unix/X$n") {
-    print "\nWarning: $HOSTFQDN:$n is taken because of /tmp/.X11-unix/X$n\n";
-    print "Remove this file if there is no X server $HOSTFQDN:$n\n";
+    print "\nWarning: $HOSTFQDN:$n is taken because of /tmp/.X11-unix/X$n\n" unless $options->{'quiet'};
+    print "Remove this file if there is no X server $HOSTFQDN:$n\n" unless $options->{'quiet'};
     return 0;
   }
   return 1;
@@ -408,8 +408,9 @@ sub checkDisplayNumberAvailable {
 #
 
 sub getDisplayNumber {
+  my ( $options ) = @_;
   foreach my $n (1..99) {
-    return $n if &checkDisplayNumberAvailable($n);
+    return $n if &checkDisplayNumberAvailable($n, $options);
   }
   
   print STDERR "$PROG: no free display number on $HOSTFQDN.\n";
@@ -1409,13 +1410,13 @@ SCRIPTEOF
       exit 1;
     } elsif ($#vncs == -1 && $options->{'useold'}) {
       # Find display number.
-      push @vncs, &getDisplayNumber();
+      push @vncs, &getDisplayNumber($options);
     }
   } elsif ($options->{'list'}) {
     push @vncs, sort keys %{$runningUserVncservers};
   } else {
     # Find display number.
-    push @vncs, &getDisplayNumber();
+    push @vncs, &getDisplayNumber($options);
   }
   
   if ($options->{'kill'}) {
@@ -1431,7 +1432,7 @@ SCRIPTEOF
     my $haveOld =
       $runningUserVncservers->{$options->{'displayNumber'}} &&
       !$runningUserVncservers->{$options->{'displayNumber'}}->{'stale'};
-    if (!&checkDisplayNumberAvailable($options->{'displayNumber'}) &&
+    if (!&checkDisplayNumberAvailable($options->{'displayNumber'}, $options) &&
         !($options->{'useold'} && $haveOld)) {
       print STDERR "A VNC/X11 server is already running as :$options->{'displayNumber'} on machine $HOSTFQDN\n";
       exit 1;
