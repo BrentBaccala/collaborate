@@ -82,10 +82,6 @@ AddToMenu MainMenu      "Main Menu"		Title
 +			"pgAdmin3"		Exec exec pgadmin3
 +			"GNS3"			Exec exec gns3
 +                       ""			Nop
-+                       "Teacher Mode"		Exec exec python3 -m vnc_collaborate teacher_desktop $[vp.width] $[vp.height]
-+                       "Undeaf All Students"	Exec exec python3 -m vnc_collaborate undeaf_students -a
-+                       "Screenshare"		Exec exec python3 -m vnc_collaborate project_to_students $[vp.width] $[vp.height]
-+                       ""			Nop
 #+                       "Fvwm Window Ops"	Popup Window-Ops
 #+			"Dump Window Info"	All Echo $[w.name]
 +			"Desktop Pager"		Module FvwmPager *
