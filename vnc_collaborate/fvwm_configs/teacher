@@ -26,21 +26,21 @@ Style FvwmPager Sticky, StaysOnTop
 # Projections appear on the very top (layer 10) and have no decorations at all,
 # so as to completely obscure the student's other windows until they end.
 #
-# When they appear, we move all other windows to a spare desktop and disable all mouse bindings.
-# Once they're gone, we move the windows back and re-enable mouse bindings.
+# When they appear, we put them on desktop 1, move to desktop 1, and disable all mouse bindings.
+# Once they're gone, we move back to desktop 0 and re-enable mouse bindings.
 
-Style OverlayVNC Layer 10, !Title, !Borders, !Handles
+Style OverlayVNC Layer 10, !Title, !Borders, !Handles, StartsOnDesk 1
 
 DestroyFunc AddWindowEvent
 AddToFunc AddWindowEvent
- + I Any ("OverlayVNC") All (!"OverlayVNC") MoveToDesk 1
+ + I Any ("OverlayVNC") All (!"OverlayVNC") GotoDesk 0 1
  + I Any ("OverlayVNC") Mouse 1 R A -
  + I Any ("OverlayVNC") Mouse 2 R A -
  + I Any ("OverlayVNC") Mouse 3 R A -
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
- + I None ("OverlayVNC") All (!"OverlayVNC") MoveToDesk
+ + I None ("OverlayVNC") All (!"OverlayVNC") GotoDesk 0 0
  + I None ("OverlayVNC") Mouse 1 R A Menu MainMenu Nop
  + I None ("OverlayVNC") Mouse 2 R A Menu Window-Ops Nop
  + I None ("OverlayVNC") Mouse 3 R A WindowList UseSkipList
