@@ -66,7 +66,6 @@ AddToMenu MainMenu      "Main Menu"			Title
 +			"Firefox"			Exec exec firefox
 +			"Chrome"			Exec exec chromium-browser
 +			"Whiteboard"			Exec exec xournal
-+			"GNS3"				Exec exec gns3
 +                       ""				Nop
 +                       "Fvwm Window Ops"		Popup Window-Ops
 +                       ""				Nop
