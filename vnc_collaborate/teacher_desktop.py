@@ -12,6 +12,7 @@ import re
 import signal
 import os
 import glob
+import jwt
 
 import tkinter as tk
 
@@ -292,6 +293,13 @@ def teacher_desktop(screenx=None, screeny=None):
 
     SCREENX = int(screenx)
     SCREENY = int(screeny)
+
+    try:
+        JWT = jwt.decode(os.environ['JWT'], verify=False)
+        text = '\n'.join([str(k) + ": " + str(v) for k,v in JWT.items()])
+    except Exception as ex:
+        text = repr(ex)
+    simple_text(text, SCREENX/2, SCREENY - 100)
 
     global myMeetingID
     myMeetingID = bigbluebutton.find_current_meeting()
