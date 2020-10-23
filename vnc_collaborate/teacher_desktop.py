@@ -161,7 +161,7 @@ def get_VALID_DISPLAYS_and_NAMES():
 
         VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
 
-        if UNIXuser != os.environ['USER'] and UNIXuser != 'default':
+        if UNIXuser != 'default':
 
             fullName = bigbluebutton.UNIX_username_to_fullName(UNIXuser)
 
