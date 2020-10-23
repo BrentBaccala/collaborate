@@ -69,6 +69,15 @@ VNCdata = None
 
 myMeetingID = None
 
+def set_current_meeting():
+    global myMeetingID
+
+    try:
+        JWT = jwt.decode(os.environ['JWT'], verify=False)
+        myMeetingID = JWT['bbb-meetingID']
+    except:
+        pass
+
 def get_VALID_DISPLAYS():
     r"""
     This function relies on the desktops having UNIX domain sockets in /run/vnc.
@@ -164,6 +173,30 @@ def main_loop():
     global processes
     global locations
 
+    # query the properties on the root window (set by the window manager)
+    # to see what display mode the user has selected.
+    #
+    # Would be more efficient to do this by leaving an "xprop -spy"
+    # running in the background
+
+    try:
+        xprop = subprocess.Popen(["xprop", "-root"], stdout=subprocess.PIPE)
+        (stdoutdata, stderrdata) = xprop.communicate()
+        for l in stdoutdata.decode().split('\n'):
+            if l.startswith('collaborate_display_mode'):
+                # simple_text(l, SCREENX/2, SCREENY - 300)
+                collaborate_display_mode = l.split('"')[1]
+                # simple_text(collaborate_display_mode, SCREENX/2, SCREENY - 300)
+                global myMeetingID
+                if collaborate_display_mode == 'all':
+                    myMeetingID = None
+                if collaborate_display_mode == 'current_meeting':
+                    JWT = jwt.decode(os.environ['JWT'], verify=False)
+                    myMeetingID = JWT['bbb-meetingID']
+
+    except Exception as ex:
+        simple_text(repr(ex), SCREENX/2, SCREENY - 300)
+
     get_VALID_DISPLAYS()
 
     old_cols = math.ceil(math.sqrt(len(locations)))
@@ -251,12 +284,9 @@ def teacher_desktop(screenx=None, screeny=None):
     SCREENX = int(screenx)
     SCREENY = int(screeny)
 
-    global myMeetingID
-
     try:
         JWT = jwt.decode(os.environ['JWT'], verify=False)
         text = '\n'.join([str(k) + ": " + str(v) for k,v in JWT.items()])
-        myMeetingID = JWT['bbb-meetingID']
     except Exception as ex:
         text = repr(ex)
     simple_text(text, SCREENX/2, SCREENY - 100)
@@ -292,8 +322,7 @@ def project_to_students(screenx, screeny, student_window_name = None):
     Project the teacher's desktop to all student desktops
     """
 
-    global myMeetingID
-    myMeetingID = bigbluebutton.find_current_meeting()
+    set_current_meeting()
 
     get_VALID_DISPLAYS()
 

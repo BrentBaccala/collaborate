@@ -39,10 +39,16 @@ Mouse 2 FST A -
 # script detects this, shuts down all the windows created in
 # teacher mode, and starts a new FVWM with a standard config.
 
+AddToMenu DisplayMode   "Display Mode"			Title
++			"All Desktops"			Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode all
++			"Current Meeting"		Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode current_meeting
+
 AddToMenu TeacherMenu	"Teacher Mode"			Title
 +			""				Nop
 +			"Undeaf All Students"		Exec exec python3 -m vnc_collaborate undeaf_students -a
 +			"Deaf All Students"		Exec exec python3 -m vnc_collaborate deaf_students -a
++			""				Nop
++			"Display Mode"			Popup DisplayMode
 +			""				Nop
 +			"Refresh Screen"		Refresh
 
@@ -52,6 +58,8 @@ AddToMenu TeacherMenuOnStudentDesktop	"Teacher Mode"			Title
 +			"Deaf All Students"		Exec exec python3 -m vnc_collaborate deaf_students -a
 +			"View this desktop"		ZoomDesktop viewonly
 +			"Screenshare This Student"	Current Exec exec python3 -m vnc_collaborate project_to_students $[vp.width] $[vp.height] "$[w.name]"
++			""				Nop
++			"Display Mode"			Popup DisplayMode
 +			""				Nop
 +			"Refresh Screen"		Refresh
 
