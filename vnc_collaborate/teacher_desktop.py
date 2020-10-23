@@ -163,14 +163,14 @@ def get_VALID_DISPLAYS_and_NAMES():
 
         if UNIXuser != 'default':
 
-            fullName = bigbluebutton.UNIX_username_to_fullName(UNIXuser)
+            # fullName = bigbluebutton.UNIX_username_to_fullName(UNIXuser)
 
             # For students that don't have UNIX usernames, label their desktop with their Big Blue Button username
-            if not fullName:
-                fullName = UNIXuser
+            #if not fullName:
+            #    fullName = UNIXuser
 
-            NAMES[display] = fullName
-            IDS[display] = UNIXuser
+            NAMES[display] = UNIXuser
+            IDS[display] = ""
             UNIXUSER[display] = UNIXuser
 
             VALID_DISPLAYS.append(display)
