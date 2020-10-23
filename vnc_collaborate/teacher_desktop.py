@@ -44,7 +44,7 @@ VALID_DISPLAYS = []
 #     query the desktop and get its geometry (for showing it somewhere)
 #   - the X11_DISPLAY when showing something on this desktop
 #   - the UNIXUSER when showing something (a screenshare) on this desktop (to get the .Xauthority file)
-#   - the NAMES to label the desktop in teacher mode
+#   - the LABELS to label the desktop in teacher mode
 #   - the (Big Blue Button) IDS to deaf and undeaf students
 #
 # In addition to everything in VALID_DISPLAYS, this dictionaries should
@@ -52,7 +52,7 @@ VALID_DISPLAYS = []
 # in particular the teacher's VNC_SOCKET is needed to screenshare
 # the teacher's display.
 
-NAMES = dict()
+LABELS = dict()
 IDS = dict()
 UNIXUSER = dict()
 VNC_SOCKET = dict()
@@ -64,78 +64,28 @@ X11_DISPLAY = dict()
 
 VNCdata = None
 
+# If myMeetingID is set to a non-None value, we limit the display to
+# only those users in the specified meeting.
+
 myMeetingID = None
 
-HOME = os.environ['HOME']
-
-def OLD_get_VALID_DISPLAYS_and_NAMES():
+def get_VALID_DISPLAYS():
     r"""
-    Look at the system process table for Xtightvnc processes and match
-    them to the "fullName"s of attendees in the myMeetingID meeting.
-    The fullNames get converted to UNIX usernames using the VNCusers
-    table in the Postgres database.  Use this information to update
-    VALID_DISPLAYS (a list of X11 display names), NAMES and IDS
-    (dictionaries mapping X11 display names to fullNames and userIDs).
+    This function relies on the desktops having UNIX domain sockets in /run/vnc.
     """
 
     VALID_DISPLAYS.clear()
-    NAMES.clear()
+    LABELS.clear()
     IDS.clear()
 
-    meetingInfo = bigbluebutton.getMeetingInfo(myMeetingID)
-
-    running_commands = list(psutil.process_iter(['cmdline']))
-
-    for e in meetingInfo.xpath(".//attendee"):
-
-        fullName = e.find('fullName').text
-        userID = e.find('userID').text
-        role = e.find('role').text
-
-        UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
-
-        if UNIXuser:
-            for proc in running_commands:
-                cmdline = proc.info['cmdline']
-                if len(cmdline) > 0 and 'Xtightvnc' in cmdline[0]:
-                    m = re.search('/home/{}/'.format(UNIXuser), ' '.join(cmdline))
-                    if m:
-                        # cmdline[1] is the X11 display name
-                        display = cmdline[1]
-                        VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
-                        NAMES[display] = fullName
-                        IDS[display] = userID
-                        UNIXUSER[display] = UNIXuser
-
-                        # one way to do this: only moderators can observe viewers
-                        #if role == 'VIEWER':
-                        #    VALID_DISPLAYS.append(display)
-
-                        # another way - observe everyone in the meeting except yourself
-                        if UNIXuser != os.environ['USER']:
-                            VALID_DISPLAYS.append(display)
-
-                        # XXX we pull the screen geometry from the command line
-                        #
-                        # This won't work if either 1) we run on a different machine
-                        # (the whole looking at the process table idea wouldn't work),
-                        # or 2) the geometry is changed with xrandr
-                        if '-geometry' in cmdline:
-                            GEOMETRY[display] = cmdline[cmdline.index('-geometry') + 1]
-                        else:
-                            GEOMETRY[display] = '1024x768'
-
-def get_VALID_DISPLAYS_and_NAMES():
-    r"""
-    This version of get_VALID_DISPLAY_and_NAMES shows all VNC
-    desktops running on the system, except the current user's.
-
-    It relies on those desktops having UNIX domain sockets in /run/vnc.
-    """
-
-    VALID_DISPLAYS.clear()
-    NAMES.clear()
-    IDS.clear()
+    if myMeetingID:
+        meetingInfo = bigbluebutton.getMeetingInfo(myMeetingID)
+        for e in meetingInfo.xpath(".//attendee"):
+            fullName = e.find('fullName').text
+            userID = e.find('userID').text
+            UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
+            IDS[UNIXuser] = userID
+            LABELS[UNIXuser] = fullName
 
     for UNIXuser in sorted(glob.glob1('/run/vnc', '*')):
 
@@ -143,16 +93,13 @@ def get_VALID_DISPLAYS_and_NAMES():
 
         VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
 
-        if UNIXuser != 'default':
+        if UNIXuser != 'default' and (not myMeetingID or UNIXuser in IDS.keys()):
 
-            # fullName = bigbluebutton.UNIX_username_to_fullName(UNIXuser)
+            if display not in LABELS:
+                LABELS[display] = UNIXuser
+            if display not in IDS:
+                IDS[display] = ""
 
-            # For students that don't have UNIX usernames, label their desktop with their Big Blue Button username
-            #if not fullName:
-            #    fullName = UNIXuser
-
-            NAMES[display] = UNIXuser
-            IDS[display] = ""
             UNIXUSER[display] = UNIXuser
 
             VALID_DISPLAYS.append(display)
@@ -217,7 +164,7 @@ def main_loop():
     global processes
     global locations
 
-    get_VALID_DISPLAYS_and_NAMES()
+    get_VALID_DISPLAYS()
 
     old_cols = math.ceil(math.sqrt(len(locations)))
     cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
@@ -279,7 +226,7 @@ def main_loop():
                         '-title', title, 'unix=' + VNC_SOCKET[display]]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
-                processes[display].append(simple_text(NAMES[display], geox + SCREENX/cols/2, geoy))
+                processes[display].append(simple_text(LABELS[display], geox + SCREENX/cols/2, geoy))
 
 
 
@@ -304,15 +251,15 @@ def teacher_desktop(screenx=None, screeny=None):
     SCREENX = int(screenx)
     SCREENY = int(screeny)
 
+    global myMeetingID
+
     try:
         JWT = jwt.decode(os.environ['JWT'], verify=False)
         text = '\n'.join([str(k) + ": " + str(v) for k,v in JWT.items()])
+        myMeetingID = JWT['bbb-meetingID']
     except Exception as ex:
         text = repr(ex)
     simple_text(text, SCREENX/2, SCREENY - 100)
-
-    global myMeetingID
-    myMeetingID = bigbluebutton.find_current_meeting()
 
     # When switching to teacher mode, we completely replace the FVWM window manager with a new
     # instance using a completely different config, then switch back to the original config
@@ -348,7 +295,7 @@ def project_to_students(screenx, screeny, student_window_name = None):
     global myMeetingID
     myMeetingID = bigbluebutton.find_current_meeting()
 
-    get_VALID_DISPLAYS_and_NAMES()
+    get_VALID_DISPLAYS()
 
     teacher_display = os.environ['USER']
     screenx = int(screenx)
