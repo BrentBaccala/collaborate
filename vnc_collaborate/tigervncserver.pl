@@ -604,8 +604,22 @@ sub CreateMITCookie {
   } else {
     chomp $cookie;
   }
+
+  #my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+  #    $atime,$mtime,$ctime,$blksize,$blocks)
+  #    = stat($xauthorityFile);
+
   system(getCommand("xauth"), "-f", "$xauthorityFile", "add", "$HOSTFQDN:$displayNumber", ".", "$cookie");
   system(getCommand("xauth"), "-f", "$xauthorityFile", "add", "$HOST/unix:$displayNumber", ".", "$cookie"); 
+
+  # xauth messes with the file permissions; put them back the way they were
+  # chmod $mode, $xauthorityFile;
+  # chown $uid, $gid, $xauthorityFile;
+
+  # that doesn't work for some reason; put them back the way we want them
+  my $gid = getgrnam("bigbluebutton");
+  chown -1, $gid, $xauthorityFile;
+  chmod 0640, $xauthorityFile;
 }
 
 # Make sure the user has a password.
