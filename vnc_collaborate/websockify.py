@@ -1,11 +1,11 @@
 # A customized version of websockify that uses the websockify library,
 # but replaces one method call to allow VNC Websocket connections
 # to be relayed to different destinations based on the path
-# specified in the URL, which should be the BBB fullName.
+# specified in the URL, which should be a JSON Web Token.
 #
-# We map the BBB fullName (or whatever path was specified) to UNIX
-# users using a Postgres database whose authentication password
-# is specified on the command line.
+# We map the subject of the JSON Web Token to UNIX users using a
+# Postgres database whose authentication password is specified on the
+# command line.
 #
 # If the SQL table contains an 'rfbport', we relay the connection
 # to that TCP port (on localhost).  Otherwise, if the SQL table
@@ -15,8 +15,18 @@
 # user along with a socat listening on /run/vnc/USER.
 #
 # If the user has a .vncsocket in their home directory, that overrides
-# /run/vnc/USER and is used instead, though care must be taken to
-# ensure that this socket is writable by the uid running this script.
+# /run/vnc/USER and is used instead.  If .vncsocket is a socket, then
+# the connection is relayed to the program listening on the socket.
+# If .vncsocket is an executable, then it is executed, with the
+# permissions of USER (so it is currently implicitly setuid, and no
+# check is made to ensure that it is owned by USER), and the connected
+# is relayed to the program's stdin.
+#
+# If it is an executable, the JSON Web Token is passed to it in
+# the environment variable "JWT".
+#
+# If it is a socket, care must be taken to ensure that this socket is
+# writable by the uid running this script.
 #
 # If none of this works, we fall back to the server and port specified
 # on the command line as a default.
@@ -33,6 +43,7 @@ import urllib
 import subprocess
 import jwt
 import time
+import tempfile
 
 from . import bigbluebutton
 
@@ -65,15 +76,15 @@ old_new_websocket_client = ProxyRequestHandler.new_websocket_client
 
 def new_websocket_client(self):
     try:
-        userID = urllib.parse.urlparse(self.path).path[1:]
+        JWT = urllib.parse.urlparse(self.path).path[1:]
     except (KeyError, IndexError):
-        userID = ''
+        JWT = ''
 
     try:
-        decoded = jwt.decode(userID, bigbluebutton.securitySalt())
+        decoded = jwt.decode(JWT, bigbluebutton.securitySalt())
         fullName = decoded['sub']
     except (jwt.PyJWTError, KeyError) as err:
-        print(err)
+        print(repr(err))
         fullName = ''
 
     rfbport = bigbluebutton.fullName_to_rfbport(fullName)
@@ -148,7 +159,25 @@ def new_websocket_client(self):
                     time.sleep(0.1)
 
         if os.path.exists(homesocket):
-            self.server.unix_target = homesocket
+            stat = os.stat(homesocket)
+            if (stat.st_mode & ~0o777 == 0o140000):
+                # If .vncsocket is a socket, relay the connection to it
+                self.server.unix_target = homesocket
+            else:
+                # If .vncsocket is a executable, execute it and relay the connection.
+                #
+                # Probably should be a "sudo -u nobody" and the script has to be SUID.
+                #
+                # The "socat" is needed because websockify currently can't handle a pipe.
+                # It needs to be modified so that it can operate like "inetd".
+                socket_fn = tempfile.mktemp()
+                env = os.environ
+                env['JWT'] = JWT
+                subprocess.Popen(["sudo", "-u", UNIXuser, "-i", "--preserve-env=JWT",
+                                  "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + homesocket], env=env);
+                while not os.path.exists(socket_fn):
+                    time.sleep(0.1)
+                self.server.unix_target = socket_fn
         else:
             self.server.unix_target = '/run/vnc/' + UNIXuser
 
