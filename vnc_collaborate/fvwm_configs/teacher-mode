@@ -45,7 +45,6 @@ AddToMenu TeacherMenu	"Teacher Mode"			Title
 +			"Deaf All Students"		Exec exec python3 -m vnc_collaborate deaf_students -a
 +			""				Nop
 +			"Refresh Screen"		Refresh
-+			"Exit Teacher Mode"		Quit
 
 AddToMenu TeacherMenuOnStudentDesktop	"Teacher Mode"			Title
 +			""				Nop
@@ -55,7 +54,6 @@ AddToMenu TeacherMenuOnStudentDesktop	"Teacher Mode"			Title
 +			"Screenshare This Student"	Current Exec exec python3 -m vnc_collaborate project_to_students $[vp.width] $[vp.height] "$[w.name]"
 +			""				Nop
 +			"Refresh Screen"		Refresh
-+			"Exit Teacher Mode"		Quit
 
 Mouse 3 A       A       Menu TeacherMenu Nop
 Mouse 3 W       A       Menu TeacherMenuOnStudentDesktop Nop
