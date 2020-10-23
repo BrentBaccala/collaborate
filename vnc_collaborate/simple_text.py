@@ -23,7 +23,19 @@ def simple_text(text, x, y):
             fg="black",
         )
 
+        # We can't use the standard Tk options to center the widget on
+        # some coordinate, since the widget occupies the entire window
+        # and we're using the X11 window geometry to place the window
+        # on the screen.  Therefore, call "update" to compute the
+        # geometry of the window (even though this causes the window
+        # to appear briefly on the screen in the wrong position)
+        # before setting its final position.
+        #
+        # This is why acd4be was reverted.
+
         button.pack()
+
+        window.update()
 
         xlocation = int(int(x) - (button.winfo_width()/2))
         ylocation = int(y)
