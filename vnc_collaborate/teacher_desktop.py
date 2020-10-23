@@ -43,8 +43,9 @@ VALID_DISPLAYS = []
 #   - the VNC_SOCKET when showing this desktop somewhere, and to
 #     query the desktop and get its geometry (for showing it somewhere)
 #   - the X11_DISPLAY when showing something on this desktop
-#   - the UNIXUSER when showing something on this desktop (to get the .Xauthority file)
+#   - the UNIXUSER when showing something (a screenshare) on this desktop (to get the .Xauthority file)
 #   - the NAMES to label the desktop in teacher mode
+#   - the (Big Blue Button) IDS to deaf and undeaf students
 #
 # In addition to everything in VALID_DISPLAYS, this dictionaries should
 # also contain an entry for the teacher (teacher_display) themself,
@@ -124,23 +125,6 @@ def OLD_get_VALID_DISPLAYS_and_NAMES():
                         else:
                             GEOMETRY[display] = '1024x768'
 
-def find_X11_DISPLAYs():
-    r"""
-    Populate the X11_DISPLAY dictionary by searching our process table and finding X servers.
-
-    Maybe we should do this by looking at the VNC display name (announced via the VNC protocol) instead.
-    """
-    X11_DISPLAY.clear()
-    running_commands = list(psutil.process_iter(['cmdline']))
-    for proc in running_commands:
-        cmdline = proc.info['cmdline']
-        if len(cmdline) > 0 and '/usr/bin/X' in cmdline[0]:
-            m = re.search(r'/home/(\w*)/.Xauthority', ' '.join(cmdline))
-            if m:
-                # cmdline[1] is the X11 display name
-                # m.group(1) is the UNIX user name
-                X11_DISPLAY[m.group(1)] = cmdline[1]
-
 def get_VALID_DISPLAYS_and_NAMES():
     r"""
     This version of get_VALID_DISPLAY_and_NAMES shows all VNC
@@ -153,9 +137,7 @@ def get_VALID_DISPLAYS_and_NAMES():
     NAMES.clear()
     IDS.clear()
 
-    find_X11_DISPLAYs()
-
-    for UNIXuser in glob.glob1('/run/vnc', '*'):
+    for UNIXuser in sorted(glob.glob1('/run/vnc', '*')):
 
         display = UNIXuser
 
@@ -180,6 +162,34 @@ def get_VALID_DISPLAYS_and_NAMES():
     if VNCdata == None:
         # get_VNC_info is not re-entrant; we can't call it twice
         VNCdata = get_VNC_info(list(VNC_SOCKET.values()))
+
+    # Having obtained a list of VNC sockets, we now wish to query
+    # those sockets to obtain their X11 display names.
+    #
+    # Let us first note that they may not have X11 display names, if,
+    # for example, they are VNC consoles on a virtual machine running
+    # in GNS3 (or qemu, or VirtualBox).  Such displays will can not,
+    # in our present implementation, support screensharing, since we
+    # screenshare by putting a VNC viewer on the X11 desktop and
+    # configuring the window manager to overlay it on top of all other
+    # windows.
+    #
+    # Furthermore, our tigervnc servers, by default, do not accept X11
+    # protocol TCP connections (they do accept VNC protocol TCP
+    # connections), but the display names they present in their VNC
+    # desktop name strings use TCP protocol syntax, like this:
+    #
+    #     max.fios-router.home:2 (alex)
+    #
+    # which we convert to UNIX socket syntax by striping off
+    # everything except the ":2"
+
+    X11_DISPLAY.clear()
+    for display in VALID_DISPLAYS:
+        try:
+            X11_DISPLAY[display] = ':' + VNCdata[VNC_SOCKET[display]]['name'].decode().split()[0].split(':')[1]
+        except:
+            pass
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
