@@ -171,7 +171,7 @@ def kill_processes(list_of_procs):
         elif isinstance(proc, multiprocessing.Process):
             proc.terminate()
 
-def main_loop():
+def main_loop_1():
 
     global processes
     global locations
@@ -182,15 +182,12 @@ def main_loop():
     # Would be more efficient to do this by leaving an "xprop -spy"
     # running in the background
 
-    try:
-        xprop = subprocess.Popen(["xprop", "-root"], stdout=subprocess.PIPE)
-        (stdoutdata, stderrdata) = xprop.communicate()
-        for l in stdoutdata.decode().split('\n'):
-            if l.startswith('collaborate_display_mode'):
-                global collaborate_display_mode
-                collaborate_display_mode = l.split('"')[1]
-    except Exception as ex:
-        simple_text(repr(ex), SCREENX/2, SCREENY - 300)
+    xprop = subprocess.Popen(["xprop", "-root"], stdout=subprocess.PIPE)
+    (stdoutdata, stderrdata) = xprop.communicate()
+    for l in stdoutdata.decode().split('\n'):
+        if l.startswith('collaborate_display_mode'):
+            global collaborate_display_mode
+            collaborate_display_mode = l.split('"')[1]
 
     get_VALID_DISPLAYS()
 
@@ -256,7 +253,11 @@ def main_loop():
 
                 processes[display].append(simple_text(LABELS[display], geox + SCREENX/cols/2, geoy))
 
-
+def main_loop():
+    try:
+        main_loop_1()
+    except Exception as ex:
+        simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
 def restore_original_state():
     for procs in processes.values():
