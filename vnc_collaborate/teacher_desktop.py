@@ -81,7 +81,7 @@ except:
 
 collaborate_display_mode = 'all'
 
-def get_VALID_DISPLAYS():
+def get_VALID_DISPLAYS(all_displays=(collaborate_display_mode == 'all')):
     r"""
     This function relies on the desktops having UNIX domain sockets in /run/vnc.
     """
@@ -105,9 +105,9 @@ def get_VALID_DISPLAYS():
 
         VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
 
-        if UNIXuser != 'default' and (UNIXuser in IDS.keys() or collaborate_display_mode == 'all'):
+        if UNIXuser != 'default' and (UNIXuser in IDS.keys() or all_displays):
 
-            if collaborate_display_mode == 'all' or display not in LABELS:
+            if all_displays or display not in LABELS:
                 LABELS[display] = UNIXuser
             if display not in IDS:
                 IDS[display] = ""
@@ -318,7 +318,8 @@ def project_to_students(screenx, screeny, student_window_name = None):
     Project the teacher's desktop to all student desktops
     """
 
-    get_VALID_DISPLAYS()
+    # never screenshare to all displays; screenshare to current meeting only
+    get_VALID_DISPLAYS(all_displays = False)
 
     teacher_display = os.environ['USER']
     screenx = int(screenx)
