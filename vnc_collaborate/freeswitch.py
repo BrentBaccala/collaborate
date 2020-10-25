@@ -6,6 +6,8 @@ from lxml import etree
 
 from . import bigbluebutton
 
+from .teacher_desktop import myMeetingID
+
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
 
 # We pull the freeswitch API key from XML_CONF (so we need to be able to read this file).
@@ -27,24 +29,28 @@ def get_freeswitch_password():
             freeswitch_pw = xml.xpath(".//param[@name='password']/@value")[0]
 
 
-def get_status():
+def get_status(meetingID = myMeetingID, viewersOnly = True):
     r"""
     Fetch freeswitch conference data for the current meeting,
     and build freeswitch_ids (map names to freeswitch id numbers),
     mute_status, and deaf_status (both map id numbers to bools).
 
-    Only tracks viewers (not moderators), so it's possible to deaf
-    a viewer, promote them to moderator, and then have no way to
-    un-deaf them (except by demoting them to viewer).
+    By default, only tracks viewers (not moderators), so it's possible
+    to deaf a viewer, promote them to moderator, and then have no way
+    to un-deaf them (except by demoting them to viewer).
     """
 
     global voiceBridge
 
     get_freeswitch_password()
-    meetingInfo = bigbluebutton.getMeetingInfo(bigbluebutton.find_current_meeting())
+    meetingInfo = bigbluebutton.getMeetingInfo(meetingID)
     voiceBridge = meetingInfo.find("voiceBridge").text
-    viewerIDs = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../userID")]
-    viewerFullNames = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../fullName")]
+    if viewersOnly:
+        viewerIDs = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../userID")]
+        viewerFullNames = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../fullName")]
+    else:
+        viewerIDs = [e.text for e in meetingInfo.xpath(".//userID")]
+        viewerFullNames = [e.text for e in meetingInfo.xpath(".//fullName")]
 
     freeswitch_process = subprocess.Popen([FS_CLI, '-p', freeswitch_pw, '-x', 'conference json_list'], stdout=subprocess.PIPE)
     (stdoutdata, stderrdata) = freeswitch_process.communicate()
@@ -80,10 +86,13 @@ def get_status():
                             deaf_status[id] = not member['flags']['can_hear']
 
 def print_status():
-    get_status()
-    print(freeswitch_ids)
-    print('Mute:', mute_status)
-    print('Deaf:', deaf_status)
+    xml = bigbluebutton.getMeetings()
+    for element in xml.xpath(".//meetingID"):
+        get_status(element.text, viewersOnly = False)
+        meeting_name = element.getparent().xpath("string(./meetingName)")
+        print(meeting_name, ":", freeswitch_ids)
+        print('    Mute:', mute_status)
+        print('    Deaf:', deaf_status)
 
 def freeswitch_cmd(cmd):
     get_freeswitch_password()
