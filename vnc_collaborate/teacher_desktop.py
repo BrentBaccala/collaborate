@@ -64,19 +64,22 @@ X11_DISPLAY = dict()
 
 VNCdata = None
 
-# If myMeetingID is set to a non-None value, we limit the display to
-# only those users in the specified meeting.
+# myMeetingID: the Big Blue Button meeting identifier, which we fetch
+# from the JSON Web Token passed in from websockify via the
+# environment
 
 myMeetingID = None
 
-def set_current_meeting():
-    global myMeetingID
+try:
+    JWT = jwt.decode(os.environ['JWT'], verify=False)
+    myMeetingID = JWT['bbb-meetingID']
+except:
+    pass
 
-    try:
-        JWT = jwt.decode(os.environ['JWT'], verify=False)
-        myMeetingID = JWT['bbb-meetingID']
-    except:
-        pass
+# If collaborate_display_mode is 'current_meeting' we limit the display to
+# only those users in the specified meeting.
+
+collaborate_display_mode = 'all'
 
 def get_VALID_DISPLAYS():
     r"""
@@ -102,9 +105,9 @@ def get_VALID_DISPLAYS():
 
         VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
 
-        if UNIXuser != 'default' and (not myMeetingID or UNIXuser in IDS.keys()):
+        if UNIXuser != 'default' and (UNIXuser in IDS.keys() or collaborate_display_mode == 'all'):
 
-            if display not in LABELS:
+            if collaborate_display_mode == 'all' or display not in LABELS:
                 LABELS[display] = UNIXuser
             if display not in IDS:
                 IDS[display] = ""
@@ -184,16 +187,8 @@ def main_loop():
         (stdoutdata, stderrdata) = xprop.communicate()
         for l in stdoutdata.decode().split('\n'):
             if l.startswith('collaborate_display_mode'):
-                # simple_text(l, SCREENX/2, SCREENY - 300)
+                global collaborate_display_mode
                 collaborate_display_mode = l.split('"')[1]
-                # simple_text(collaborate_display_mode, SCREENX/2, SCREENY - 300)
-                global myMeetingID
-                if collaborate_display_mode == 'all':
-                    myMeetingID = None
-                if collaborate_display_mode == 'current_meeting':
-                    JWT = jwt.decode(os.environ['JWT'], verify=False)
-                    myMeetingID = JWT['bbb-meetingID']
-
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
@@ -321,8 +316,6 @@ def project_to_students(screenx, screeny, student_window_name = None):
     r"""
     Project the teacher's desktop to all student desktops
     """
-
-    set_current_meeting()
 
     get_VALID_DISPLAYS()
 
