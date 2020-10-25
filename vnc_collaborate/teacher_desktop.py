@@ -81,10 +81,13 @@ except:
 
 collaborate_display_mode = 'all'
 
-def get_VALID_DISPLAYS(all_displays=(collaborate_display_mode == 'all'), include_default_display = False):
+def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
     r"""
     This function relies on the desktops having UNIX domain sockets in /run/vnc.
     """
+
+    if all_displays == None:
+        all_displays = (collaborate_display_mode == 'all')
 
     VALID_DISPLAYS.clear()
     LABELS.clear()
