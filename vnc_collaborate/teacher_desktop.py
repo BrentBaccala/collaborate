@@ -100,7 +100,17 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
             userID = e.find('userID').text
             UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
             IDS[UNIXuser] = userID
-            LABELS[UNIXuser] = fullName
+            # If multiple BBB names map to the same UNIX user (especially
+            # likely for the default user), stack them vertically in the label
+            if UNIXuser not in LABELS:
+                LABELS[UNIXuser] = fullName
+            else:
+                LABELS[UNIXuser] = LABELS[UNIXuser] + '\n' + fullName
+
+    # If we're looking at the current meeting and there are users in
+    # the meeting that see the default display, include it in the grid
+    if collaborate_display_mode == 'current_meeting' and None in LABELS:
+        include_default_display = True
 
     for UNIXuser in sorted(glob.glob1('/run/vnc', '*')):
 
@@ -255,7 +265,13 @@ def main_loop_1():
                         '-title', title, 'unix=' + VNC_SOCKET[display]]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
-                processes[display].append(simple_text(LABELS[display], geox + SCREENX/cols/2, geoy))
+                # The default user is special - use the label for BBB users that
+                # mapped to no UNIX user
+                if display == 'default':
+                    label = LABELS[None]
+                else:
+                    label = LABELS[display]
+                processes[display].append(simple_text(label, geox + SCREENX/cols/2, geoy))
 
 def main_loop():
     try:
