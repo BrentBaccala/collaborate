@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-# Usage: ./list-logins-2 < /var/log/bigbluebutton/bbb-web.2020-05-06.log
+# Usage: ./list-logins < /var/log/bigbluebutton/bbb-web.2020-05-06.log
 
 import sys
 import re
