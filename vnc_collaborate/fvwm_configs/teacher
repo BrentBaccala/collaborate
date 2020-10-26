@@ -14,10 +14,15 @@ DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
 EdgeScroll 0 0
 
-# Styling for the desktop pager
+# Styling for the desktop pager: "Font none" prevents display of the
+# desktop number, which we don't want the user to change because we
+# use it to overlay screenshares (see below).  The remaining options
+# are more obvious - it always stays on the top of the display, and
+# it's iconify and maximize buttons are fairly useless and take up
+# too much space in its small title-bar.
 
 *FvwmPager: Font none
-Style FvwmPager Sticky, StaysOnTop
+Style FvwmPager Sticky, StaysOnTop, !Button 4, !Button 2
 
 # The teacher can project VNC viewers onto the student desktops.
 #
