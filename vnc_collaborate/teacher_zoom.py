@@ -4,8 +4,6 @@ import os
 
 import vnc_collaborate.freeswitch as freeswitch
 
-HOME = os.environ['HOME']
-
 def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
    r"""
    teacher-zoom(WINDOW-NAME, DESKTOP_WIDTH, DESKTOP_HEIGHT)
