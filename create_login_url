@@ -1,0 +1,36 @@
+#! /usr/bin/python3
+#
+# Create a JSON web token that can be used with a custom CGI script
+# to login to a Big Blue Button meeting.
+#
+# Two know problems with the script:
+#
+# 1. It doesn't work, possibly due to a bug in BBB.  The API call from
+#    the CGI script returns Success, but the return session token
+#    doesn't work.
+#
+# 2. The password is included in the JWT and can be read even if you
+#    don't have the API key to verify the signature.  It isn't really
+#    needed at all since the CGI script has access to the API key
+#    and can use it to obtain the meeting password.
+
+
+import sys
+import jwt
+from vnc_collaborate.bigbluebutton import *
+
+xml = getMeetings()
+
+meetings = xml.xpath(".//meetingID")
+
+if len(meetings) > 1:
+   print("More than one meeting running")
+   exit()
+
+if len(sys.argv) != 2:
+   print("Usage: create_login_url USER")
+   exit()
+
+JWT = {'user': sys.argv[1], 'meetingID': meetings[0].text, 'password': meetings[0].getparent().xpath("string(./attendeePW)")}
+
+print("https://max.freesoft.org/www/bbb_login.cgi/" + jwt.encode(JWT, securitySalt()).decode())
