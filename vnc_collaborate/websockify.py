@@ -106,7 +106,11 @@ def new_websocket_client(self):
     elif UNIXuser:
 
         homesocket = '/home/{}/.vncsocket'.format(UNIXuser)
-        if not os.path.exists('/run/vnc/' + UNIXuser) and not os.path.exists(homesocket):
+        rfbpath = '/run/vnc/' + UNIXuser
+
+        if not os.path.exists(rfbpath) and not os.path.exists(homesocket):
+
+            tigervnc_version = 10
 
             if os.path.exists('/usr/bin/tigervncserver'):
 
@@ -118,10 +122,21 @@ def new_websocket_client(self):
                 # as blacklistable connections, and after we've gotten five of them, the server starts rejecting
                 # connections.
 
-                subprocess.run(['sudo', '-u', UNIXuser, '-i', 'tigervncserver',
-                                '-localhost', 'yes',
-                                '-SecurityTypes', 'None',
-                                '-BlacklistThreshold', '1000000'])
+                if tigervnc_version < 10:
+                    subprocess.run(['sudo', '-u', UNIXuser, '-i', 'tigervncserver',
+                                    '-localhost', 'yes',
+                                    '-SecurityTypes', 'None',
+                                    '-BlacklistThreshold', '1000000'])
+                else:
+                    # use our own tigervncserver because of a bug in the system version
+                    # that waits for the server to be listening on a TCP port even
+                    # if you requested a UNIX domain socket via "-rfbunixpath"
+                    subprocess.run(['sudo', '-u', UNIXuser, '-i',
+                                    'python3', '-m', 'vnc_collaborate', 'tigervncserver',
+                                    '-localhost', 'yes',
+                                    '-rfbunixpath', rfbpath,
+                                    '-SecurityTypes', 'None',
+                                    '-BlacklistThreshold', '1000000'])
 
             else:
 
@@ -148,15 +163,22 @@ def new_websocket_client(self):
             # The only time I've actually seen rfbport set to None is when the user didn't have
             # a home directory and the vncserver failed completely for that reason.
 
-            rfbport = find_running_VNCserver(UNIXuser)
-            if rfbport:
-                path = '/run/vnc/' + UNIXuser
-                subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
-                subprocess.Popen(['sudo', '-b', 'socat',
-                                  'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(path, UNIXuser, 'bigbluebutton'),
-                                  'TCP4:localhost:'+str(rfbport)])
-                while not os.path.exists(path):
+            if tigervnc_version < 10:
+                rfbport = find_running_VNCserver(UNIXuser)
+                if rfbport:
+                    subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
+                    subprocess.Popen(['sudo', '-b', 'socat',
+                                      'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(rfbpath, UNIXuser, 'bigbluebutton'),
+                                      'TCP4:localhost:'+str(rfbport)])
+                    while not os.path.exists(rfbpath):
+                        time.sleep(0.1)
+            else:
+                # Xvnc allows us to set the mode of its UNIX domain socket, but not its group,
+                # so we need to wait for it to appear and adjust things accordingly
+                while not os.path.exists(rfbpath):
                     time.sleep(0.1)
+                subprocess.run(['sudo', 'chgrp', 'bigbluebutton', rfbpath])
+                subprocess.run(['sudo', 'chmod', 'g+rw', rfbpath])
 
         if os.path.exists(homesocket):
             stat = os.stat(homesocket)
