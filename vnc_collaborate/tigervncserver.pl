@@ -806,7 +806,7 @@ sub startXvncServer {
   # Wait for Xtigervnc to start up
   {
     my $i = 300;
-    if (! "-inetd" ~~ @ARGV) {
+    if (! "-inetd" ~~ @ARGV && ! "-rfbunixpath" ~~ @ARGV) {
       for (; $i >= 0; $i = $i-1) {
         last if &checkTCPPortUsed(5900 + $options->{'displayNumber'});
         if ($xvncServerPid == waitpid($xvncServerPid, WNOHANG)) { $i = -2; last; }
