@@ -101,7 +101,7 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
             UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
             IDS[UNIXuser] = userID
             # If multiple BBB names map to the same UNIX user (especially
-            # likely for the default user), stack them vertically in the label
+            # likely for the default display), stack them vertically in the label
             if UNIXuser not in LABELS:
                 LABELS[UNIXuser] = fullName
             else:
@@ -118,15 +118,21 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
 
         VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
 
-        if (include_default_display and UNIXuser == 'default') or \
-           ((UNIXuser != 'default') and (all_displays or UNIXuser in IDS.keys())):
+        if (include_default_display and UNIXuser == myMeetingID) or \
+           ((UNIXuser != myMeetingID) and (all_displays or UNIXuser in IDS.keys())):
 
             if all_displays or display not in LABELS:
                 LABELS[display] = UNIXuser
             if display not in IDS:
                 IDS[display] = ""
 
-            UNIXUSER[display] = UNIXuser
+            # the default display is listed in /var/run under the meeting ID,
+            # but is owned by the user 'default'
+
+            if display == myMeetingID:
+                UNIXUSER[display] = 'default'
+            else:
+                UNIXUSER[display] = UNIXuser
 
             VALID_DISPLAYS.append(display)
 
@@ -267,7 +273,7 @@ def main_loop_1():
 
                 # The default user is special - use the label for BBB users that
                 # mapped to no UNIX user
-                if display == 'default':
+                if display == myMeetingID:
                     label = LABELS[None]
                 else:
                     label = LABELS[display]
