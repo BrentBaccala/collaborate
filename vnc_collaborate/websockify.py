@@ -95,14 +95,6 @@ def new_websocket_client(self):
         self.server.target_host = 'localhost'
         self.server.target_port = int(rfbport)
 
-        # Perhaps we should use BBB user IDs as the filenames in /run/vnc?
-        # That would require passing them in with the JSON web tokens.
-        path = '/run/vnc/' + fullName
-        subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
-        subprocess.Popen(['sudo', 'socat',
-                          'UNIX-LISTEN:{},fork,group={},mode=775'.format(path, 'bigbluebutton'),
-                          'TCP4:localhost:'+str(rfbport)])
-
     elif UNIXuser:
 
         homesocket = '/home/{}/.vncsocket'.format(UNIXuser)
