@@ -5,10 +5,15 @@
 import sys
 import re
 import json
+import dateutil.parser
 
-for line in map(str.rstrip, sys.stdin):
-    m = re.match('^(\S*).*data=(.*)$', line)
+re_line = re.compile('^(\S*).*data=(.*user_.*)$')
+
+for line in sys.stdin:
+    m = re.match(re_line, line)
     if m:
         j = json.loads(m.group(2))
         if j['logCode'] in ('user_left_message', 'user_joined_message'):
-            print('{:30} {:30} {}'.format(m.group(1), j['logCode'], j['username']))
+            timestamp = dateutil.parser.parse(m.group(1))
+            timestr = timestamp.strftime("%b %d %I:%M:%S %p")
+            print('{:20} {:30} {}'.format(timestr, j['logCode'], j['username']))
