@@ -66,7 +66,10 @@ def APIcall(call_name, query_dict):
     checksum = hashlib.sha256((call_name + query_string + securitySalt).encode('utf-8')).hexdigest()
     url = bbbUrl + call_name + '?' + query_string + '&checksum=' + checksum
     response = requests.get(url)
-    xml = etree.fromstring(response.text)
+    try:
+        xml = etree.fromstring(response.text)
+    except:
+        return response.text
     return xml
 
 def getMeetings():
