@@ -52,6 +52,15 @@ def open_database():
         except psycopg2.DatabaseError as err:
             print(err)
 
+def API_URL(call_name, query_dict):
+    load_config()
+    securitySalt = config['securitySalt']
+    bbbUrl = config['bigbluebutton.web.serverURL'] + '/bigbluebutton/api/'
+    query_string = urllib.parse.urlencode(query_dict)
+    checksum = hashlib.sha256((call_name + query_string + securitySalt).encode('utf-8')).hexdigest()
+    url = bbbUrl + call_name + '?' + query_string + '&checksum=' + checksum
+    return url
+
 def APIcall(call_name, query_dict):
     r"""
     Make a Big Blue Button REST API call.  The first argument is the name
@@ -59,12 +68,7 @@ def APIcall(call_name, query_dict):
 
     Expect an etree XML object in return.
     """
-    load_config()
-    securitySalt = config['securitySalt']
-    bbbUrl = config['bigbluebutton.web.serverURL'] + '/bigbluebutton/api/'
-    query_string = urllib.parse.urlencode(query_dict)
-    checksum = hashlib.sha256((call_name + query_string + securitySalt).encode('utf-8')).hexdigest()
-    url = bbbUrl + call_name + '?' + query_string + '&checksum=' + checksum
+    url = API_URL(call_name, query_dict)
     response = requests.get(url)
     try:
         xml = etree.fromstring(response.text)
