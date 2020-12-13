@@ -46,6 +46,7 @@ VALID_DISPLAYS = []
 #   - the UNIXUSER when showing something (a screenshare) on this desktop (to get the .Xauthority file)
 #   - the LABELS to label the desktop in teacher mode
 #   - the (Big Blue Button) IDS to deaf and undeaf students
+#   - the VNCdata ('height', 'width' and 'name' in a dictionary)
 #
 # In addition to everything in VALID_DISPLAYS, this dictionaries should
 # also contain an entry for the teacher (teacher_display) themself,
@@ -57,12 +58,7 @@ IDS = dict()
 UNIXUSER = dict()
 VNC_SOCKET = dict()
 X11_DISPLAY = dict()
-
-# Once we've populated VNC_SOCKET, we'll call get_VNC_info to populate
-# the VNCdata dictionary that maps VNC sockets to dictionaries with keys
-# 'height' 'width' and 'name', which is how we know our desktop geometry.
-
-VNCdata = None
+VNCdata = dict()
 
 # myMeetingID: the Big Blue Button meeting identifier, which we fetch
 # from the JSON Web Token passed in from websockify via the
@@ -136,14 +132,12 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
 
             VALID_DISPLAYS.append(display)
 
-    # this will hang if any of our VNC displays don't respond to the VNC protocol
-    global VNCdata
-    if VNCdata == None:
-        # get_VNC_info is not re-entrant; we can't call it twice
-        VNCdata = get_VNC_info(list(VNC_SOCKET.values()))
+        # XXX this will hang if any of our VNC displays don't respond to the VNC protocol
+        if display not in VNCdata:
+            VNCdata[display] = get_VNC_info(VNC_SOCKET[display])
 
-    # Having obtained a list of VNC sockets, we now wish to query
-    # those sockets to obtain their X11 display names.
+    # Having obtained a list of VNC sockets, we now wish to obtain
+    # their X11 display names.
     #
     # Let us first note that they may not have X11 display names, if,
     # for example, they are VNC consoles on a virtual machine running
@@ -166,7 +160,7 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
     X11_DISPLAY.clear()
     for display in VALID_DISPLAYS:
         try:
-            X11_DISPLAY[display] = ':' + VNCdata[VNC_SOCKET[display]]['name'].decode().split()[0].split(':')[1]
+            X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
         except:
             pass
 
@@ -243,7 +237,7 @@ def main_loop_1():
         SCALE = str(SCALEX) + "x" + str(SCALEY)
 
         for display in VALID_DISPLAYS:
-            if display not in processes:
+            if display not in processes and display in VNCdata:
                 # pick the first screen location not already claimed in locations
                 i = [i for i in range(len(VALID_DISPLAYS)) if i not in locations.values()][0]
                 locations[display] = i
@@ -251,8 +245,8 @@ def main_loop_1():
                 processes[display] = []
                 row = int(i/cols)
                 col = i%cols
-                nativex = VNCdata[VNC_SOCKET[display]]['width']
-                nativey = VNCdata[VNC_SOCKET[display]]['height']
+                nativex = VNCdata[display]['width']
+                nativey = VNCdata[display]['height']
                 geometry = str(nativex) + 'x' + str(nativey)
                 scalex = SCALEX/nativex
                 scaley = SCALEY/nativey
@@ -368,10 +362,10 @@ def project_to_students(screenx, screeny, student_window_name = None):
 
     for display in VALID_DISPLAYS:
 
-        if display != display_to_project and display in X11_DISPLAY:
+        if display != display_to_project and display in X11_DISPLAY and display in VNCdata:
             # We're projecting display_to_project (screenx/screeny) to the student screen (display/nativex/nativey)
-            studentx = VNCdata[VNC_SOCKET[display]]['width']
-            studenty = VNCdata[VNC_SOCKET[display]]['height']
+            studentx = VNCdata[display]['width']
+            studenty = VNCdata[display]['height']
             scalex = studentx/screenx
             scaley = studenty/screeny
             scale = min(scalex, scaley)

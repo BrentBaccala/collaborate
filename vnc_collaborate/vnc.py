@@ -4,34 +4,30 @@
 #
 # The whole twisted package is a bit... twisted.  It's a
 # single-threaded implementation and its main event loop can't be
-# called twice, so we pass in a list of RFB ports that we
-# want to query and get a dictionary returned back to us.
-#
-# An attempt to call get_VNC_info() a second time will throw
-# an exception.
+# called twice, so we run in a different subprocess every time
+# we call get_VNC_info().
 
 from vncdotool import rfb
 from twisted.internet import reactor, protocol
 from twisted.application import internet
+import concurrent.futures
 
-ntargets = 0
-VNC_data = {}
+VNC_data = None
 
 class RFBDataClient(rfb.RFBClient):
     def vncConnectionMade(self):
-        global ntargets
         if type(self.transport.addr) == bytes:
             key = self.transport.addr.decode()   # UNIX socket case; decode() to use string, not bytes, as key
         else:
             key = self.transport.addr[1]         # TCP socket case
-        VNC_data[key] = {
+
+        global VNC_data
+        VNC_data = {
             'name': self.name,
             'width': self.width,
             'height': self.height
         }
-        ntargets = ntargets - 1
-        if ntargets == 0:
-            reactor.stop()
+        reactor.stop()
 
 class RFBFactory(protocol.ClientFactory):
     """A factory for remote frame buffer connections."""
@@ -45,15 +41,16 @@ class RFBFactory(protocol.ClientFactory):
         self.password = password
         self.shared = shared
 
-def get_VNC_info(portlist):
-    global ntargets
-    for port in portlist:
-        if type(port) == int:
-            vncClient = internet.TCPClient('localhost', port, RFBFactory())
-        else:
-            vncClient = internet.UNIXClient(port, RFBFactory())
-        vncClient.startService()
-        ntargets = ntargets + 1
-    if ntargets > 0:
-        reactor.run()
+def get_VNC_info_subprocess(port):
+    if type(port) == int:
+        vncClient = internet.TCPClient('localhost', port, RFBFactory())
+    else:
+        vncClient = internet.UNIXClient(port, RFBFactory())
+    vncClient.startService()
+    reactor.run()
     return VNC_data
+
+def get_VNC_info(port):
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        future = executor.submit(get_VNC_info_subprocess, port)
+    return future.result()
