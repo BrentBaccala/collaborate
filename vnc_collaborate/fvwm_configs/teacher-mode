@@ -3,27 +3,29 @@ Style * SloppyFocus
 Style * NoIcon
 Style Tk StaysOnTop
 
+# SkipMapping stops fvwm from changing desktops when a new window
+# appears, which is what we want since we manage the current
+# desktop from this script
+
+Style * SkipMapping
+
+# Most windows (i.e, the grid view) appear on desktop 0.  A zoomed
+# student view appears on desktop 1, so that any changes to the grid
+# (i.e, students coming and going) get made to desktop 0 and are
+# invisible until the zoom ends on desktop 1.
+
+Style * StartsOnDesk 0
+Style "Zoomed Student Desktop" StartsOnDesk 1
+
+# The Tk windows are the window labels and the "end screenshare"
+# button.  We always want them on top of the other windows.
+
+Style "*vncviewer" Layer 1
+Style "Tk" Layer 2
+
+# The font for the teacher pull down menu.
+
 DefaultFont "xft:Sans:Bold:size=20:antialias=True"
-
-# When we enter "teacher mode", we don't want to close our existing
-# windows, but don't want to see anything except our grid view of the
-# other VNC desktops.
-
-# Make everything except the miniatured VNC views and their labels
-# "invisible" by moving them to desktop 1.  Sticky windows (like
-# tilda, by default) need to be "unstuck" in order to move them.
-
-DestroyFunc StartFunction
-AddToFunc StartFunction
- + I All ("*vncviewer") Layer 0 1
- + I All ("Tk") Iconify off
- + I All ("Tk") Layer 0 2
- + I All (!"*vncviewer|Tk") Stick False
- + I All (!"*vncviewer|Tk") MoveToDesk 1
-
-DestroyFunc ExitFunction
-AddToFunc ExitFunction
- + I All (!"*vncviewer|Tk") MoveToDesk
 
 # remove all standard FVWM mouse and key mappings
 
@@ -34,10 +36,6 @@ Mouse 1 R A   -
 Mouse 1 T   A -
 Mouse 1 FS  A -
 Mouse 2 FST A -
-
-# We exit teacher mode by terminating FVWM.  The teacher-desktop
-# script detects this, shuts down all the windows created in
-# teacher mode, and starts a new FVWM with a standard config.
 
 AddToMenu DisplayMode   "Display Mode"			Title
 +			"All Desktops"			Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode all
@@ -70,27 +68,16 @@ Mouse 3 W       A       Menu TeacherMenuOnStudentDesktop Nop
 # we launch a "zoomed" view of that desktop that is fully interactive.
 # We need to remove the mouse binding to allow the zoomed view to
 # work right.  When the teacher exits the zoomed view, we replace
-# the mouse binding.  We also iconify (which means vanish, because
-# icons are turned off) all of the miniaturized viewers and their
-# labels for the duration of the zoom.  We also disable the
-# right-click menu while in the zoomed desktop; it should only
-# work from the overview mode.
-
-# I call StartFunction here because some of these things didn't get
-# put in the right layers, probably because they were mapped after
-# fvwm started
+# the mouse binding.  We also switch to desktop 1 for the zoomed view.
 
 DestroyFunc ZoomDesktop
 AddToFunc ZoomDesktop
- + I StartFunction
- + I All ("*vncviewer|Tk") Iconify on
  + I Mouse 3 A  A  -
  + I Mouse 3 W  A  -
  + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]" $[vp.width] $[vp.height] $0
- + I Wait "Zoomed Student Desktop"
- + I All ("Zoomed Student Desktop") Layer 0 3
  + I Mouse ("TeacherViewVNC;*") 1 A A   -
  + I Mouse ("Projection*") 1 A A  -
+ + I GotoDesk 0 1
 
 Mouse ("TeacherViewVNC;*") 1 A A   ZoomDesktop
 
@@ -103,7 +90,7 @@ Mouse ("Projection*") 1 A A   Close
 # Whenever a window is destroyed, check to see if there are any zoomed
 # desktops left (there should only be one at any time anyway).  If
 # not, replace the mouse bindings that we removed in ZoomDesktop and
-# de-iconify the miniaturized student desktops and their labels.
+# return to desktop 0.
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
@@ -111,7 +98,7 @@ AddToFunc DestroyWindowEvent
  + I None ("Zoomed Student Desktop") Mouse ("Projection*") 1 A A   Close
  + I None ("Zoomed Student Desktop") Mouse 3 A  A  Menu TeacherMenu Nop
  + I None ("Zoomed Student Desktop") Mouse 3 W  A  Menu TeacherMenuOnStudentDesktop Nop
- + I None ("Zoomed Student Desktop") All ("*vncviewer|Tk") Iconify off
+ + I None ("Zoomed Student Desktop") GotoDesk 0 0
 
 *FvwmEvent: destroy_window DestroyWindowEvent
 
