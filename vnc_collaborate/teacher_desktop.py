@@ -338,6 +338,10 @@ def teacher_desktop(screenx=None, screeny=None):
 
     restore_original_state()
 
+#
+# THE SCREENSHARE FEATURE
+#
+
 def close_projection_button():
     def app():
 
@@ -405,20 +409,20 @@ def project_to_one_display(display, display_to_project, processes):
 
     XAUTHORITY = '/home/{}/.Xauthority'.format(UNIXUSER[display])
     if os.access(XAUTHORITY, os.R_OK):
-        processes.append(subprocess.Popen(args, stderr=subprocess.PIPE,
-                                          env={'XAUTHORITY' : XAUTHORITY}))
+        processes[display] = subprocess.Popen(args, stderr=subprocess.PIPE,
+                                              env={'XAUTHORITY' : XAUTHORITY})
     else:
-        processes.append(simple_text("Can't read " + XAUTHORITY, SCREENX/2, SCREENY - 300))
+        processes[display] = simple_text("Can't read " + XAUTHORITY, SCREENX/2, SCREENY - 300)
 
 def project_to_students_inner_function(student_window_name = None):
     r"""
     Project the teacher's desktop to all student desktops
+
+    "Inner" function because it's wrapped in a try/except loop that catches
+    exceptions and displays them using Tk widgets.
     """
 
-    # never screenshare to all displays; screenshare to current meeting only
-    get_VALID_DISPLAYS(all_displays = False, include_default_display = True)
-
-    processes = []
+    processes = dict()
 
     display_to_project = None
 
@@ -435,41 +439,45 @@ def project_to_students_inner_function(student_window_name = None):
             display_to_project = STUDENT_DISPLAY
 
     if not display_to_project:
-        processes.append(simple_text("Screenshare not called correctly", SCREENX/2, SCREENY - 300))
+        process = simple_text("Screenshare not called correctly", SCREENX/2, SCREENY - 300)
         time.sleep(5)
-        kill_processes(processes)
-
-    for display in VALID_DISPLAYS:
-        if display != display_to_project and display in X11_DISPLAY and display in VNCdata:
-            project_to_one_display(display, display_to_project, processes)
+        kill_processes([process])
+        return
 
     # Now put a window up on the teacher's screen to control the projection
     # and wait for it to close.
 
     process = close_projection_button()
 
-    # If any of the screenshare processes die prematurely, show an
-    # error message to the presenter.
-    # XXX - multiple error messages will overlap
-
     while True:
+        # never screenshare to all displays; screenshare to current meeting only
+        get_VALID_DISPLAYS(all_displays = False, include_default_display = True)
+
+        for display in VALID_DISPLAYS:
+            if display != display_to_project and display in X11_DISPLAY and display in VNCdata and display not in processes:
+                project_to_one_display(display, display_to_project, processes)
+
+        # if projection button has been closed, end the projection
         process.join(timeout=1)
         if not process.is_alive():
             break
-        for p in processes[:]:
+
+        # If any of the screenshare processes die prematurely, show an
+        # error message to the presenter.
+        # XXX - multiple error messages will overlap
+
+        for display,p in list(processes.items()):
             if isinstance(p, subprocess.Popen):
                 p.poll()
                 if p.returncode:
-                    processes.append(simple_text(p.stderr.read(), SCREENX/2, SCREENY - 300))
-                    processes.remove(p)
+                    processes[display] = simple_text(p.stderr.read(), SCREENX/2, SCREENY - 300)
             elif isinstance(p, multiprocessing.Process):
                 if not p.is_alive():
-                    processes.append(simple_text('process died', SCREENX/2, SCREENY - 300))
-                    processes.remove(p)
+                    processes[display] = simple_text('process died', SCREENX/2, SCREENY - 300)
 
     # When the window closes, end the projection
 
-    kill_processes(processes)
+    kill_processes(processes.values())
 
 def project_to_students(screenx, screeny, student_window_name = None):
     get_global_display_geometry(screenx, screeny)
