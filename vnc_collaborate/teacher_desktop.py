@@ -289,7 +289,7 @@ def signal_handler(sig, frame):
     restore_original_state()
     sys.exit(0)
 
-def teacher_desktop(screenx=None, screeny=None):
+def get_global_display_geometry(screenx=None, screeny=None):
 
     global SCREENX, SCREENY
 
@@ -299,6 +299,10 @@ def teacher_desktop(screenx=None, screeny=None):
 
     SCREENX = int(screenx)
     SCREENY = int(screeny)
+
+def teacher_desktop(screenx=None, screeny=None):
+
+    get_global_display_geometry(screenx, screeny)
 
     try:
         JWT = jwt.decode(os.environ['JWT'], verify=False)
@@ -378,13 +382,14 @@ def project_to_students(screenx, screeny, student_window_name = None):
     Project the teacher's desktop to all student desktops
     """
 
+    get_global_display_geometry(screenx, screeny)
+
     # never screenshare to all displays; screenshare to current meeting only
     get_VALID_DISPLAYS(all_displays = False, include_default_display = True)
 
-    teacher_display = os.environ['USER']
-    screenx = int(screenx)
-    screeny = int(screeny)
-    display_to_project = teacher_display
+    processes = []
+
+    display_to_project = None
 
     if student_window_name:
         # see comment in teacher_zoom to understand this
@@ -397,8 +402,10 @@ def project_to_students(screenx, screeny, student_window_name = None):
             display_to_project = STUDENT_DISPLAY
             (screenx, screeny) = map(int, NATIVE_GEOMETRY.split('x'))
 
-
-    processes = []
+    if not display_to_project:
+        processes.append(simple_text("Screenshare not called correctly", SCREENX/2, SCREENY - 300))
+        time.sleep(5)
+        kill_processes(processes)
 
     for display in VALID_DISPLAYS:
 
