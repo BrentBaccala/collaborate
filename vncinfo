@@ -3,6 +3,7 @@
 from vnc_collaborate import vnc
 import glob
 
-VNCdata = vnc.get_VNC_info(glob.glob('/run/vnc/*'))
-for k,v in VNCdata.items():
-    print('{:25} {}'.format(k,v))
+for fn in glob.glob('/run/vnc/*'):
+    VNCdata = vnc.get_VNC_info(fn)
+    for k,v in VNCdata.items():
+        print('{:25} {:8} {}'.format(fn,k,v))
