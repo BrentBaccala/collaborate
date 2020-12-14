@@ -133,6 +133,7 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
             VALID_DISPLAYS.append(display)
 
         # XXX this will hang if any of our VNC displays don't respond to the VNC protocol
+        # XXX should we only do this for the displays we're working on (to optimize this)
         if display not in VNCdata:
             VNCdata[display] = get_VNC_info(VNC_SOCKET[display])
 
@@ -377,12 +378,42 @@ def close_projection_button():
     process.start()
     return process
 
-def project_to_students(screenx, screeny, student_window_name = None):
+def project_to_one_display(display, display_to_project, processes):
+    # We're projecting display_to_project (screenx/screeny) to the student screen (display/nativex/nativey)
+    screenx = VNCdata[display_to_project]['width']
+    screeny = VNCdata[display_to_project]['height']
+    studentx = VNCdata[display]['width']
+    studenty = VNCdata[display]['height']
+    scalex = studentx/screenx
+    scaley = studenty/screeny
+    scale = min(scalex, scaley)
+    offsetx = int((studentx - scale*screenx)/2)
+    offsety = int((studenty - scale*screeny)/2)
+    # This title is recognized by the FVWM config and is presented to the user
+    # on top of all other windows and with no window manager decorations.
+    title = "OverlayVNC"
+
+    args = [VIEWONLY_VIEWER,
+            '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
+            '-escape', 'never', '-display', X11_DISPLAY[display],
+            '-scale', str(scale),
+            '-title', title, 'unix=' + VNC_SOCKET[display_to_project]]
+
+    # We should be in the 'bigbluebutton' group, and therefore able to read the student's
+    # .Xauthority files to get the keys needed to put a window on their screen.
+    # Not having this permission is a common enough error than I check for it here.
+
+    XAUTHORITY = '/home/{}/.Xauthority'.format(UNIXUSER[display])
+    if os.access(XAUTHORITY, os.R_OK):
+        processes.append(subprocess.Popen(args, stderr=subprocess.PIPE,
+                                          env={'XAUTHORITY' : XAUTHORITY}))
+    else:
+        processes.append(simple_text("Can't read " + XAUTHORITY, SCREENX/2, SCREENY - 300))
+
+def project_to_students_inner_function(student_window_name = None):
     r"""
     Project the teacher's desktop to all student desktops
     """
-
-    get_global_display_geometry(screenx, screeny)
 
     # never screenshare to all displays; screenshare to current meeting only
     get_VALID_DISPLAYS(all_displays = False, include_default_display = True)
@@ -397,10 +428,11 @@ def project_to_students(screenx, screeny, student_window_name = None):
         if len(args) >= 4 and args[0] == 'TeacherViewVNC':
             STUDENT_ID = args[1]
             STUDENT_DISPLAY = args[2]
+            # NATIVE_GEOMETRY contains the geometry detected by the script that produced the grid view
+            # We ignore it and query the geometry ourselves (in get_VALID_DISPLAYS)
             NATIVE_GEOMETRY = args[3]
             X_VNC_SOCKET = args[4]
             display_to_project = STUDENT_DISPLAY
-            (screenx, screeny) = map(int, NATIVE_GEOMETRY.split('x'))
 
     if not display_to_project:
         processes.append(simple_text("Screenshare not called correctly", SCREENX/2, SCREENY - 300))
@@ -408,36 +440,8 @@ def project_to_students(screenx, screeny, student_window_name = None):
         kill_processes(processes)
 
     for display in VALID_DISPLAYS:
-
         if display != display_to_project and display in X11_DISPLAY and display in VNCdata:
-            # We're projecting display_to_project (screenx/screeny) to the student screen (display/nativex/nativey)
-            studentx = VNCdata[display]['width']
-            studenty = VNCdata[display]['height']
-            scalex = studentx/screenx
-            scaley = studenty/screeny
-            scale = min(scalex, scaley)
-            offsetx = int((studentx - scale*screenx)/2)
-            offsety = int((studenty - scale*screeny)/2)
-            # This title is recognized by the FVWM config and is presented to the user
-            # on top of all other windows and with no window manager decorations.
-            title = "OverlayVNC"
-
-            args = [VIEWONLY_VIEWER,
-                    '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
-                    '-escape', 'never', '-display', X11_DISPLAY[display],
-                    '-scale', str(scale),
-                    '-title', title, 'unix=' + VNC_SOCKET[display_to_project]]
-
-            # We should be in the 'bigbluebutton' group, and therefore able to read the student's
-            # .Xauthority files to get the keys needed to put a window on their screen.
-            # Not having this permission is a common enough error than I check for it here.
-
-            XAUTHORITY = '/home/{}/.Xauthority'.format(UNIXUSER[display])
-            if os.access(XAUTHORITY, os.R_OK):
-                processes.append(subprocess.Popen(args, stderr=subprocess.PIPE,
-                                                  env={'XAUTHORITY' : XAUTHORITY}))
-            else:
-                processes.append(simple_text("Can't read " + XAUTHORITY, screenx/2, screeny - 300))
+            project_to_one_display(display, display_to_project, processes)
 
     # Now put a window up on the teacher's screen to control the projection
     # and wait for it to close.
@@ -448,26 +452,32 @@ def project_to_students(screenx, screeny, student_window_name = None):
     # error message to the presenter.
     # XXX - multiple error messages will overlap
 
-    try:
-        while True:
-            process.join(timeout=1)
-            if not process.is_alive():
-                break
-            for p in processes[:]:
-                if isinstance(p, subprocess.Popen):
-                    p.poll()
-                    if p.returncode:
-                        processes.append(simple_text(p.stderr.read(), screenx/2, screeny - 300))
-                        processes.remove(p)
-                elif isinstance(p, multiprocessing.Process):
-                    if not p.is_alive():
-                        processes.append(simple_text('process died', screenx/2, screeny - 300))
-                        processes.remove(p)
-
-    except Exception as ex:
-        processes.append(simple_text(repr(ex), screenx/2, screeny - 300))
-        time.sleep(5)
+    while True:
+        process.join(timeout=1)
+        if not process.is_alive():
+            break
+        for p in processes[:]:
+            if isinstance(p, subprocess.Popen):
+                p.poll()
+                if p.returncode:
+                    processes.append(simple_text(p.stderr.read(), SCREENX/2, SCREENY - 300))
+                    processes.remove(p)
+            elif isinstance(p, multiprocessing.Process):
+                if not p.is_alive():
+                    processes.append(simple_text('process died', SCREENX/2, SCREENY - 300))
+                    processes.remove(p)
 
     # When the window closes, end the projection
 
     kill_processes(processes)
+
+def project_to_students(screenx, screeny, student_window_name = None):
+    get_global_display_geometry(screenx, screeny)
+
+    try:
+        project_to_students_inner_function(student_window_name)
+    except Exception as ex:
+        processes = []
+        processes.append(simple_text(repr(ex), SCREENX/2, SCREENY - 300))
+        time.sleep(5)
+        kill_processes(processes)
