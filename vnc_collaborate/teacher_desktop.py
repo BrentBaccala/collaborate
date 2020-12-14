@@ -333,6 +333,46 @@ def teacher_desktop(screenx=None, screeny=None):
 
     restore_original_state()
 
+def close_projection_button():
+    def app():
+
+        window = tk.Tk()
+
+        button = tk.Label(
+            master=window,
+            text="End screenshare",
+            bg="cyan",
+            fg="black",
+        )
+
+        button.bind("<Button-1>", lambda self: window.destroy())
+
+        button.pack()
+
+        window.geometry("-0+0")
+        window.title("Projection Controls")
+        window.wm_title("Projection Controls")
+
+        window.update()
+
+        # Implementing this function with the multiprocessing package
+        # is problematic.  We inherit a lot of state from the parent
+        # process, in particular, its signal handlers, which were
+        # changed in teacher_desktop(), and I do depend on being able
+        # to close this window by sending it SIGTERM.  Maybe it would
+        # be best to spawn an entire new Python process to avoid these
+        # kinds of problems, i.e, use process.Popen rather than
+        # multiprocessing.Process.
+
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+        window.mainloop()
+
+    process = multiprocessing.Process(target = app)
+    process.start()
+    return process
+
 def project_to_students(screenx, screeny, student_window_name = None):
     r"""
     Project the teacher's desktop to all student desktops
@@ -374,37 +414,52 @@ def project_to_students(screenx, screeny, student_window_name = None):
             # This title is recognized by the FVWM config and is presented to the user
             # on top of all other windows and with no window manager decorations.
             title = "OverlayVNC"
-            # We should be in the 'bigbluebutton' group, and therefore able to read the student's
-            # .Xauthority files to get the keys needed to put a window on their screen.
+
             args = [VIEWONLY_VIEWER,
                     '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
                     '-escape', 'never', '-display', X11_DISPLAY[display],
                     '-scale', str(scale),
                     '-title', title, 'unix=' + VNC_SOCKET[display_to_project]]
-            processes.append(subprocess.Popen(args, stderr=subprocess.DEVNULL,
-                                              env={'XAUTHORITY' : '/home/{}/.Xauthority'.format(UNIXUSER[display])}))
+
+            # We should be in the 'bigbluebutton' group, and therefore able to read the student's
+            # .Xauthority files to get the keys needed to put a window on their screen.
+            # Not having this permission is a common enough error than I check for it here.
+
+            XAUTHORITY = '/home/{}/.Xauthority'.format(UNIXUSER[display])
+            if os.access(XAUTHORITY, os.R_OK):
+                processes.append(subprocess.Popen(args, stderr=subprocess.PIPE,
+                                                  env={'XAUTHORITY' : XAUTHORITY}))
+            else:
+                processes.append(simple_text("Can't read " + XAUTHORITY, screenx/2, screeny - 300))
 
     # Now put a window up on the teacher's screen to control the projection
+    # and wait for it to close.
 
-    window = tk.Tk()
+    process = close_projection_button()
 
-    button = tk.Label(
-        master=window,
-        text="End screenshare",
-        bg="cyan",
-        fg="black",
-    )
+    # If any of the screenshare processes die prematurely, show an
+    # error message to the presenter.
+    # XXX - multiple error messages will overlap
 
-    button.bind("<Button-1>", lambda self: window.destroy())
+    try:
+        while True:
+            process.join(timeout=1)
+            if not process.is_alive():
+                break
+            for p in processes[:]:
+                if isinstance(p, subprocess.Popen):
+                    p.poll()
+                    if p.returncode:
+                        processes.append(simple_text(p.stderr.read(), screenx/2, screeny - 300))
+                        processes.remove(p)
+                elif isinstance(p, multiprocessing.Process):
+                    if not p.is_alive():
+                        processes.append(simple_text('process died', screenx/2, screeny - 300))
+                        processes.remove(p)
 
-    button.pack()
-
-    window.geometry("-0+0")
-    window.title("Projection Controls")
-    window.wm_title("Projection Controls")
-
-    window.update()
-    window.mainloop()
+    except Exception as ex:
+        processes.append(simple_text(repr(ex), screenx/2, screeny - 300))
+        time.sleep(5)
 
     # When the window closes, end the projection
 
