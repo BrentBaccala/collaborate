@@ -85,14 +85,19 @@ def get_status(meetingID = myMeetingID, viewersOnly = True):
                             mute_status[id] = not member['flags']['can_speak']
                             deaf_status[id] = not member['flags']['can_hear']
 
+mutestr={True: 'MUTED', False: 'UNMUTED'}
+deafstr={True: 'DEAFED', False: 'UNDEAFED'}
+
 def print_status():
     xml = bigbluebutton.getMeetings()
     for element in xml.xpath(".//meetingID"):
         get_status(element.text, viewersOnly = False)
         meeting_name = element.getparent().xpath("string(./meetingName)")
-        print(meeting_name, ":", freeswitch_ids)
-        print('    Mute:', mute_status)
-        print('    Deaf:', deaf_status)
+        print(meeting_name)
+        for key in sorted(freeswitch_ids.keys()):
+            if ' ' in key:
+                id = freeswitch_ids[key]
+                print('{:25} {:5} {:10} {:10}'.format(key, id, mutestr[mute_status[id]], deafstr[deaf_status[id]]))
 
 def freeswitch_cmd(cmd):
     get_freeswitch_password()
