@@ -1,0 +1,6 @@
+#!/bin/bash
+#
+# Kills all running screenshares (i.e, overlays) if, for some reason,
+# we can't end a screenshare normally.
+
+echo sudo kill $(ps ax | grep Overl | grep -v grep | sed 's/ *\([0-9]*\).*/\1/')
