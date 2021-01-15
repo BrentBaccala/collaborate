@@ -1,36 +1,47 @@
 #!/usr/bin/python3
+#
+# Read the current contents of Big Blue Button's "Shared Notes" and print
+# it to stdout in HTML format.
+#
+# I've figured how to map from a Big Blue Button meeting to the Shared
+# Notes padID, but I'm still wrestling with how to figure how the
+# current meeting, since multiple meetings could be using the same
+# shared desktop, so the script currently assumes that only a single
+# Big Blue Button meeting is running, and throws an exception
+# otherwise.
 
 import requests
 import sys
 from urllib.parse import urlencode, quote_plus
 
+from lxml import etree
+import subprocess
+
+from vnc_collaborate import bigbluebutton
+
+import fnvhash
+
+# Get the internal meeting ID and convert it to the Etherpad padID
+# using the algorithm hard-wired into BBB's HTML5 client.
+
+xml = bigbluebutton.getMeetings()
+
+meetingIDs = xml.xpath('.//internalMeetingID')
+
+if len(meetingIDs) != 1:
+   raise "Can't find a unique Big Blue Button meeting"
+
+padID = hex(fnvhash.fnv1a_32(meetingIDs[0].text.encode('ascii')))[2:]
+
+# Get the APIKEY used to communicate with the Etherpad server.
+
 f = open("/usr/share/etherpad-lite/APIKEY.txt")
 key = f.read()
 f.close()
 
-payload = {'apikey' : key}
-result = urlencode(payload, quote_via=quote_plus)
-url = "http://localhost:9001/api/1.2.1/listAllPads?" + result
-response = requests.get(url)
-response.raise_for_status()
-#print(response.json())
+# Retrieve the data and print it
 
-lastEdited = {}
-
-for padID in response.json()['data']['padIDs']:
-   payload = {'apikey' : key, 'padID' : padID}
-   result = urlencode(payload, quote_via=quote_plus)
-   url = "http://localhost:9001/api/1.2.1/getLastEdited?" + result
-   response2 = requests.get(url)
-   response2.raise_for_status()
-   #print(response2.json())
-   lastEdited[response2.json()['data']['lastEdited']] = padID
-
-times = sorted(lastEdited.keys())
-last_time = times[-1]
-#print(lastEdited[last_time])
-
-payload = {'apikey' : key, 'padID' : lastEdited[last_time]}
+payload = {'apikey' : key, 'padID' : padID}
 result = urlencode(payload, quote_via=quote_plus)
 url = "http://localhost:9001/api/1/getHTML?" + result
 response = requests.get(url)
