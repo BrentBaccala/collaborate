@@ -1,0 +1,12 @@
+#!/bin/bash
+#
+# Delete all automatically created student accounts (i.e, all accounts
+# other than mine, Bruce's, and the AWS EC2 ubuntu user)
+
+USERS=$(ls /home | grep -v -e BrentBaccala -e BruceCaslow -e ubuntu)
+
+for user in $USERS; do
+    echo sudo killall -u $user
+    echo sudo deluser --remove-home $user
+done
+
