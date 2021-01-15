@@ -66,6 +66,7 @@ AddToMenu MainMenu      "Main Menu"			Title
 +			"Firefox"			Exec exec firefox
 +			"Chrome"			Exec exec chromium-browser
 +			"Whiteboard"			Exec exec xournal
++			"Jupyter"			Popup Jupyter
 +                       ""				Nop
 +                       "Fvwm Window Ops"		Popup Window-Ops
 +                       ""				Nop
@@ -74,6 +75,10 @@ AddToMenu MainMenu      "Main Menu"			Title
 +                       "Restart FVWM"			Restart
 
 
+
+
+AddToMenu Jupyter       "Jupyter   "        Title
++                       "Start Server"      Exec exec jupyter-notebook
 
 
 AddToMenu Window-Ops    "Window Ops"    Title
