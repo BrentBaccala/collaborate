@@ -1,13 +1,16 @@
 #! /usr/bin/python3
 
 import setuptools
+from datetime import datetime
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+version = "0.0.1.dev" + datetime.now().strftime("%Y%m%d%H%M")
+
 setuptools.setup(
     name="vnc-collaborate-tool",
-    version="0.0.1",
+    version=version,
     author="Brent Baccala",
     author_email="cosine@freesoft.org",
     description="Scripts to facilite VNC remote desktop collaboration",
