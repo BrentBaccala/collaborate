@@ -137,7 +137,8 @@ def new_websocket_client(self):
                     subprocess.run(['sudo', '-u', UNIXuser, '-i', 'tigervncserver',
                                     '-localhost', 'yes',
                                     '-SecurityTypes', 'None',
-                                    '-BlacklistThreshold', '1000000'])
+                                    '-BlacklistThreshold', '1000000'],
+                    start_new_session=True)
                 else:
                     # use our own tigervncserver because of a bug in the system version
                     # that waits for the server to be listening on a TCP port even
@@ -147,7 +148,8 @@ def new_websocket_client(self):
                                     '-localhost', 'yes',
                                     '-rfbunixpath', rfbpath,
                                     '-SecurityTypes', 'None',
-                                    '-BlacklistThreshold', '1000000'])
+                                    '-BlacklistThreshold', '1000000'],
+                    start_new_session=True)
 
             else:
 
@@ -155,7 +157,7 @@ def new_websocket_client(self):
                 # since we're providing the authentication using the JSON Web Tokens.
 
                 tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
-                subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver)
+                subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver, start_new_session=True)
 
             # Use our root sudo access to make the user's .Xauthority file readable by group 'bigbluebutton',
             # which allows the teacher to project screen shares onto the student desktop.
@@ -179,7 +181,8 @@ def new_websocket_client(self):
                 if rfbport:
                     subprocess.Popen(['sudo', '-b', 'socat',
                                       'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(rfbpath, UNIXuser, 'bigbluebutton'),
-                                      'TCP4:localhost:'+str(rfbport)])
+                                      'TCP4:localhost:'+str(rfbport)],
+                    start_new_session=True)
                     while not os.path.exists(rfbpath):
                         time.sleep(0.1)
             else:
@@ -243,7 +246,8 @@ def new_websocket_client(self):
                     subprocess.run(['sudo', '-u', UNIXuser, '-i', 'tigervncserver',
                                     '-localhost', 'yes',
                                     '-SecurityTypes', 'None',
-                                    '-BlacklistThreshold', '1000000'])
+                                    '-BlacklistThreshold', '1000000'],
+                    start_new_session=True)
                 else:
                     # use our own tigervncserver because of a bug in the system version
                     # that waits for the server to be listening on a TCP port even
@@ -255,7 +259,8 @@ def new_websocket_client(self):
                                     '-SecurityTypes', 'None',
                                     '-AcceptPointerEvents=0',
                                     '-AcceptKeyEvents=0',
-                                    '-BlacklistThreshold', '1000000'])
+                                    '-BlacklistThreshold', '1000000'],
+                    start_new_session=True)
 
             else:
 
@@ -263,7 +268,7 @@ def new_websocket_client(self):
                 # since we're providing the authentication using the JSON Web Tokens.
 
                 tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
-                subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver)
+                subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver, start_new_session=True)
 
             # Use our root sudo access to make the user's .Xauthority file readable by group 'bigbluebutton',
             # which allows the teacher to project screen shares onto the student desktop.
@@ -287,7 +292,8 @@ def new_websocket_client(self):
                 if rfbport:
                     subprocess.Popen(['sudo', '-b', 'socat',
                                       'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(rfbpath, UNIXuser, 'bigbluebutton'),
-                                      'TCP4:localhost:'+str(rfbport)])
+                                      'TCP4:localhost:'+str(rfbport)],
+                    start_new_session=True)
                     while not os.path.exists(rfbpath):
                         time.sleep(0.1)
             else:
