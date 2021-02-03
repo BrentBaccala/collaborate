@@ -119,39 +119,39 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
         tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
         subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver, start_new_session=True)
 
-        # Use our root sudo access to make the user's .Xauthority file readable by group 'bigbluebutton',
-        # which allows the teacher to project screen shares onto the student desktop.
+    # Use our root sudo access to make the user's .Xauthority file readable by group 'bigbluebutton',
+    # which allows the teacher to project screen shares onto the student desktop.
 
-        subprocess.run(['sudo', 'chgrp', 'bigbluebutton', '/home/{}/.Xauthority'.format(UNIXuser)])
-        subprocess.run(['sudo', 'chmod', 'g+r', '/home/{}/.Xauthority'.format(UNIXuser)])
+    subprocess.run(['sudo', 'chgrp', 'bigbluebutton', '/home/{}/.Xauthority'.format(UNIXuser)])
+    subprocess.run(['sudo', 'chmod', 'g+r', '/home/{}/.Xauthority'.format(UNIXuser)])
 
-        # I also want to allow local VNC connections, mainly for overlaying VNC viewers within
-        # the VNC desktops (this is how we do things like screen shares and letting the teacher
-        # observe all of the student desktops).  Since ssvncviewer will connect to a UNIX domain
-        # socket, a simple solution is to start a socat to relay UNIX domain connections from a
-        # socket in /run/vnc to the VNC server.  Set its group to allow teacher access.
+    # I also want to allow local VNC connections, mainly for overlaying VNC viewers within
+    # the VNC desktops (this is how we do things like screen shares and letting the teacher
+    # observe all of the student desktops).  Since ssvncviewer will connect to a UNIX domain
+    # socket, a simple solution is to start a socat to relay UNIX domain connections from a
+    # socket in /run/vnc to the VNC server.  Set its group to allow teacher access.
 
-        # XXX there's a race condition here - the Perl script vncserver has started, but it
-        # might not have yet started Xvnc, which is what find_running_VNCserver looks for.
-        # The only time I've actually seen rfbport set to None is when the user didn't have
-        # a home directory and the vncserver failed completely for that reason.
+    # XXX there's a race condition here - the Perl script vncserver has started, but it
+    # might not have yet started Xvnc, which is what find_running_VNCserver looks for.
+    # The only time I've actually seen rfbport set to None is when the user didn't have
+    # a home directory and the vncserver failed completely for that reason.
 
-        if tigervnc_version < 10:
-            rfbport = find_running_VNCserver(UNIXuser)
-            if rfbport:
-                subprocess.Popen(['sudo', '-b', 'socat',
-                                  'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(rfbpath, UNIXuser, 'bigbluebutton'),
-                                  'TCP4:localhost:'+str(rfbport)],
-                                 start_new_session=True)
-                while not os.path.exists(rfbpath):
-                    time.sleep(0.1)
-        else:
-            # Xvnc allows us to set the mode of its UNIX domain socket, but not its group,
-            # so we need to wait for it to appear and adjust things accordingly
+    if tigervnc_version < 10:
+        rfbport = find_running_VNCserver(UNIXuser)
+        if rfbport:
+            subprocess.Popen(['sudo', '-b', 'socat',
+                              'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(rfbpath, UNIXuser, 'bigbluebutton'),
+                              'TCP4:localhost:'+str(rfbport)],
+                             start_new_session=True)
             while not os.path.exists(rfbpath):
                 time.sleep(0.1)
-            subprocess.run(['sudo', 'chgrp', 'bigbluebutton', rfbpath])
-            subprocess.run(['sudo', 'chmod', 'g+rw', rfbpath])
+    else:
+        # Xvnc allows us to set the mode of its UNIX domain socket, but not its group,
+        # so we need to wait for it to appear and adjust things accordingly
+        while not os.path.exists(rfbpath):
+            time.sleep(0.1)
+        subprocess.run(['sudo', 'chgrp', 'bigbluebutton', rfbpath])
+        subprocess.run(['sudo', 'chmod', 'g+rw', rfbpath])
 
 
 from websockify.websocketproxy import ProxyRequestHandler
