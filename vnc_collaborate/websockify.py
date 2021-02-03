@@ -121,6 +121,8 @@ def new_websocket_client(self):
 
             tigervnc_version = 10
 
+            subprocess.run(['sudo', 'mkdir', '-p', '-m', '01777', '/run/vnc'])
+
             if os.path.exists('/usr/bin/tigervncserver'):
 
                 # Prefer Tiger VNC if it's installed.  We don't need a custom script to disable authentication,
@@ -175,7 +177,6 @@ def new_websocket_client(self):
             if tigervnc_version < 10:
                 rfbport = find_running_VNCserver(UNIXuser)
                 if rfbport:
-                    subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
                     subprocess.Popen(['sudo', '-b', 'socat',
                                       'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(rfbpath, UNIXuser, 'bigbluebutton'),
                                       'TCP4:localhost:'+str(rfbport)])
@@ -225,6 +226,8 @@ def new_websocket_client(self):
         if not os.path.exists(rfbpath):
 
             tigervnc_version = 10
+
+            subprocess.run(['sudo', 'mkdir', '-p', '-m', '01777', '/run/vnc'])
 
             if os.path.exists('/usr/bin/tigervncserver'):
 
@@ -282,7 +285,6 @@ def new_websocket_client(self):
             if tigervnc_version < 10:
                 rfbport = find_running_VNCserver(UNIXuser)
                 if rfbport:
-                    subprocess.run(['sudo', 'mkdir', '-p', '/run/vnc'])
                     subprocess.Popen(['sudo', '-b', 'socat',
                                       'UNIX-LISTEN:{},fork,user={},group={},mode=775'.format(rfbpath, UNIXuser, 'bigbluebutton'),
                                       'TCP4:localhost:'+str(rfbport)])
