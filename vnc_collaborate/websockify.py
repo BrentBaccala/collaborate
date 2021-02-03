@@ -44,6 +44,7 @@ import subprocess
 import jwt
 import time
 import tempfile
+import pwd
 
 from . import bigbluebutton
 
@@ -96,6 +97,15 @@ def new_websocket_client(self):
 
     rfbport = bigbluebutton.fullName_to_rfbport(fullName)
     UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
+
+    if UNIXuser != "":
+        try:
+            pwd.getpwnam(UNIXuser)
+        except KeyError:
+            print(f'User {UNIXuser} does not exist; creating them')
+            subprocess.run(['sudo', 'adduser', '--force-badname', '--disabled-password', '--gecos', '', UNIXuser])
+    else:
+        UNIXuser = None
 
     if rfbport:
 
