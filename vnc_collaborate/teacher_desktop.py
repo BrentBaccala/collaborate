@@ -13,6 +13,7 @@ import signal
 import os
 import glob
 import jwt
+import stat
 
 import tkinter as tk
 
@@ -112,7 +113,18 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
 
         display = UNIXuser
 
-        VNC_SOCKET[display] = '/run/vnc/' + UNIXuser
+        vnc_socket = '/run/vnc/' + UNIXuser
+        VNC_SOCKET[display] = vnc_socket
+
+        # Run some sanity checks on the files in /run/vnc to make sure
+        # they're actually sockets and we can read them.
+
+        vnc_socket_stat = os.stat(vnc_socket)
+        if not stat.S_ISSOCK(vnc_socket_stat.st_mode):
+            break
+
+        if not os.access(vnc_socket, os.R_OK):
+            break
 
         if (include_default_display and UNIXuser == myMeetingID) or \
            ((UNIXuser != myMeetingID) and (all_displays or UNIXuser in IDS.keys())):
