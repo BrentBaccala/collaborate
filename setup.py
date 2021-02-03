@@ -9,7 +9,7 @@ with open("README.md", "r") as fh:
 version = "0.0.1.dev" + datetime.now().strftime("%Y%m%d%H%M")
 
 setuptools.setup(
-    name="vnc-collaborate-tool",
+    name="vnc-collaborate",
     version=version,
     author="Brent Baccala",
     author_email="cosine@freesoft.org",
