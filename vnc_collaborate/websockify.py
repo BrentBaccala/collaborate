@@ -14,19 +14,15 @@
 # If /run/vnc/USER doesn't exist, we start a VNC server for that
 # user along with a socat listening on /run/vnc/USER.
 #
-# If the user has a .vncsocket in their home directory, that overrides
-# /run/vnc/USER and is used instead.  If .vncsocket is a socket, then
-# the connection is relayed to the program listening on the socket.
-# If .vncsocket is an executable, then it is executed, with the
-# permissions of USER (so it is currently implicitly setuid, and no
-# check is made to ensure that it is owned by USER), and the connected
-# is relayed to the program's stdin.
-#
-# If it is an executable, the JSON Web Token is passed to it in
-# the environment variable "JWT".
-#
-# If it is a socket, care must be taken to ensure that this socket is
-# writable by the uid running this script.
+# If the user has either .vncsocket or .vncserver in their home
+# directory, that overrides /run/vnc/USER and is used instead.  If
+# .vncsocket is a socket, then the connection is relayed to the
+# program listening on the socket.  If .vncserver is an executable,
+# then it is executed, with the permissions of USER (so it is
+# currently implicitly setuid, and no check is made to ensure that it
+# is owned by USER), and the connected is relayed to the program's
+# stdin.  The JSON Web Token is passed to it in the environment
+# variable "JWT".
 #
 # If none of this works, we fall back to the server and port specified
 # on the command line as a default.
@@ -185,50 +181,48 @@ def new_websocket_client(self):
     rfbport = bigbluebutton.fullName_to_rfbport(fullName)
     UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
 
-    if UNIXuser != "":
-        try:
-            pwd.getpwnam(UNIXuser)
-        except KeyError:
-            print(f'User {UNIXuser} does not exist; creating them')
-            subprocess.run(['sudo', 'adduser', '--force-badname', '--disabled-password', '--gecos', '', UNIXuser])
-    else:
-        UNIXuser = None
-
     if rfbport:
 
         self.server.target_host = 'localhost'
         self.server.target_port = int(rfbport)
 
-    elif UNIXuser:
+    elif UNIXuser and UNIXuser != "":
 
-        homesocket = '/home/{}/.vncsocket'.format(UNIXuser)
+        # Create a new UNIX user if they don't exist already
+
+        try:
+            passwd_struct = pwd.getpwnam(UNIXuser)
+        except KeyError:
+            print(f'User {UNIXuser} does not exist; creating them')
+            subprocess.run(['sudo', 'adduser', '--force-badname', '--disabled-password', '--gecos', '', UNIXuser])
+            passwd_struct = pwd.getpwnam(UNIXuser)
+
+        homesocket = passwd_struct.pw_dir + '/.vncsocket'
+        homeserver = passwd_struct.pw_dir + '/.vncserver'
         rfbpath = '/run/vnc/' + UNIXuser
 
-        if not os.path.exists(rfbpath) and not os.path.exists(homesocket):
-            start_VNC_server(UNIXuser, rfbpath)
-
-        if os.path.exists(homesocket):
-            stat = os.stat(homesocket)
-            if (stat.st_mode & ~0o777 == 0o140000):
-                # If .vncsocket is a socket, relay the connection to it
-                self.server.unix_target = homesocket
-            else:
-                # If .vncsocket is a executable, execute it and relay the connection.
-                #
-                # Probably should be a "sudo -u nobody" and the script has to be SUID.
-                #
-                # The "socat" is needed because websockify currently can't handle a pipe.
-                # It needs to be modified so that it can operate like "inetd".
-                socket_fn = tempfile.mktemp()
-                env = os.environ
-                env['JWT'] = JWT
-                subprocess.Popen(["sudo", "-u", UNIXuser, "-i", "--preserve-env=JWT",
-                                  "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + homesocket], env=env);
-                while not os.path.exists(socket_fn):
-                    time.sleep(0.1)
-                self.server.unix_target = socket_fn
+        if os.path.exists(homesocket) and (os.stat(homesocket).st_mode & ~0o777 == 0o140000):
+            # If .vncsocket is a socket, relay the connection to it
+            self.server.unix_target = homesocket
+        elif os.path.exists(homeserver) and (os.stat(homeserver).st_mode & 0o111 != 0):
+            # If .vncserver is a executable, execute it and relay the connection.
+            #
+            # Probably should be a "sudo -u nobody" and the script has to be SUID.
+            #
+            # The "socat" is needed because websockify currently can't handle a pipe.
+            # It needs to be modified so that it can operate like "inetd".
+            socket_fn = tempfile.mktemp()
+            env = os.environ
+            env['JWT'] = JWT
+            subprocess.Popen(["sudo", "-u", UNIXuser, "-i", "--preserve-env=JWT",
+                              "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + homesocket], env=env);
+            while not os.path.exists(socket_fn):
+                time.sleep(0.1)
+            self.server.unix_target = socket_fn
         else:
-            self.server.unix_target = '/run/vnc/' + UNIXuser
+            if not os.path.exists(rfbpath):
+                start_VNC_server(UNIXuser, rfbpath)
+            self.server.unix_target = rfbpath
 
     else:
 
@@ -242,7 +236,6 @@ def new_websocket_client(self):
 
         if not os.path.exists(rfbpath):
             start_VNC_server(UNIXuser, rfbpath, viewOnly=True)
-
         self.server.unix_target = rfbpath
 
     # pass through to the "parent" class's version of this method
