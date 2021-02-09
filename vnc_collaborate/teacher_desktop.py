@@ -23,6 +23,11 @@ from .simple_text import simple_text
 from . import bigbluebutton
 from .vnc import get_VNC_info
 
+# set this True to display the JSON web token at the bottom of the teacher desktop
+# (for debugging purposes)
+
+display_JWT = False
+
 # ssvncviewer is preferred over other VNC viewers due to its ability to scale the remote
 # desktop to fit in the window geometry, an essential feature for our miniaturized
 # desktop views, and for its ability to connect to UNIX domain sockets.
@@ -317,12 +322,13 @@ def teacher_desktop(screenx=None, screeny=None):
 
     get_global_display_geometry(screenx, screeny)
 
-    try:
-        JWT = jwt.decode(os.environ['JWT'], verify=False)
-        text = '\n'.join([str(k) + ": " + str(v) for k,v in JWT.items()])
-    except Exception as ex:
-        text = repr(ex)
-    simple_text(text, SCREENX/2, SCREENY - 100)
+    if display_JWT:
+        try:
+            JWT = jwt.decode(os.environ['JWT'], verify=False)
+            text = '\n'.join([str(k) + ": " + str(v) for k,v in JWT.items()])
+        except Exception as ex:
+            text = repr(ex)
+        simple_text(text, SCREENX/2, SCREENY - 100)
 
     # When switching to teacher mode, we completely replace the FVWM window manager with a new
     # instance using a completely different config, then switch back to the original config
