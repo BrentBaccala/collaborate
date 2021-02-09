@@ -8,6 +8,17 @@ from . import bigbluebutton
 
 from .teacher_desktop import myMeetingID
 
+# If we don't have a meeting ID from the JWT passed in the environment,
+# use the first meeting on the server.
+
+# if not myMeetingID:
+#     try:
+#         xml = bigbluebutton.getMeetings()
+#         element = xml.xpath(".//meetingID")[0]
+#         myMeetingID = element.getparent().xpath("string(./meetingName)")
+#     except:
+#         pass
+
 FS_CLI = "/opt/freeswitch/bin/fs_cli"
 
 # We pull the freeswitch API key from XML_CONF (so we need to be able to read this file).
