@@ -54,7 +54,7 @@ f.close()
 
 data = sys.stdin.read()
 
-if data.startswith('<!DOCTYPE HTML>'):
+if '<!DOCTYPE HTML>' in data:
     payload = {'apikey' : key, 'padID' : padID, 'html' : data}
     url = "http://localhost:9001/api/1/setHTML?"
 else:
