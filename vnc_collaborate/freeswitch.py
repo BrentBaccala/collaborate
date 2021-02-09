@@ -106,7 +106,6 @@ def print_status():
         meeting_name = element.getparent().xpath("string(./meetingName)")
         print(meeting_name)
         for key in sorted(freeswitch_ids.keys()):
-            if ' ' in key:
                 id = freeswitch_ids[key]
                 print('{:25} {:5} {:10} {:10}'.format(key, id, mutestr[mute_status[id]], deafstr[deaf_status[id]]))
 
