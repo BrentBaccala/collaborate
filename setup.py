@@ -31,7 +31,11 @@ setuptools.setup(
         'vncdotool',
         'service_identity'   # this is just here so twisted doesn't print warning messages
     ],
-    scripts=['set-gnome-terminal-fonts'],
+    scripts=[
+        'set-gnome-terminal-fonts',
+        'set-to-shared-notes',
+        'get-from-shared-notes'
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "Operating System :: Linux",
