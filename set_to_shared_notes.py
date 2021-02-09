@@ -52,15 +52,15 @@ f.close()
 
 # Retrieve the data and send it to the server
 
-html = sys.stdin.read()
+data = sys.stdin.read()
 
-payload = {'apikey' : key, 'padID' : padID, 'html' : html}
-result = urlencode(payload, quote_via=quote_plus)
-
-if html.startswith('<!DOCTYPE HTML>'):
-    url = "http://localhost:9001/api/1/setHTML?" + result
+if data.startswith('<!DOCTYPE HTML>'):
+    payload = {'apikey' : key, 'padID' : padID, 'html' : data}
+    url = "http://localhost:9001/api/1/setHTML?"
 else:
-    url = "http://localhost:9001/api/1/setText?" + result
+    payload = {'apikey' : key, 'padID' : padID, 'text' : data}
+    url = "http://localhost:9001/api/1/setText?"
 
-response = requests.get(url)
+result = urlencode(payload, quote_via=quote_plus)
+response = requests.get(url + result)
 print(response)
