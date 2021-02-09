@@ -118,6 +118,14 @@ def fullName_to_rfbport(fullName):
                 cur.execute('ROLLBACK')
     return None
 
+# alternate versions of these functions
+
+def fullName_to_UNIX_username(fullName):
+    return fullName.replace(' ', '')
+
+def fullName_to_rfbport(fullName):
+    return None
+
 def UNIX_username_to_fullName(UNIXname):
     r"""
     Use a SQL table lookup to convert a UNIX username
