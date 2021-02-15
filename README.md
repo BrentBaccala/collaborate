@@ -1,16 +1,20 @@
-This is a pip-installable Python module to facilitate a virtual
-classroom based on [Big Blue Button](https://bigbluebutton.org/) and
-VNC remote desktops.
+This is a extension to the
+[Big Blue Button](https://bigbluebutton.org/) video conferencing
+system to facilitate virtual classrooms by allowing VNC remote
+desktops to be shared in a video conference.
 
-I've developed an extension to the Big Blue Button video conferencing
-system that allows VNC remote desktops to be shared in a video
-conference, much like a screenshare.  This extension is housed
-in the [BrentBaccala/bigbluebutton](https://github.com/BrentBaccala/bigbluebutton) repository.
+This extension itself is housed in the
+[BrentBaccala/bigbluebutton](https://github.com/BrentBaccala/bigbluebutton)
+repository.  This repository contains Python support code,
+but is also the home of the install instructions and the issue tracker.
 
-Once the VNC extension is installed, the Python package in this
-repository allows different VNC desktops to be presented to different
-participants, based on a dispatch table contained in a Postgres SQL
-database.  There is also a "teacher mode" that allows moderators to
+The extension allows different VNC desktops to be presented to different
+participants, each of whom is given a Linux login on the video
+conferencing server.  For security purposes, it's probably best to
+think about this extension as a login method that allows users
+to collaborate among themselves in a video conference.
+
+There is also a "teacher mode" that allows moderators to
 observe all student desktops running in a Big Blue Button session and
 interact with them individually.  When a student's desktop is selected
 (by clicking on it), that student desktop becomes full screen on the
