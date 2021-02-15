@@ -4,9 +4,10 @@ import json
 import re
 from lxml import etree
 
-from . import bigbluebutton
+import bigbluebutton
 
 from .teacher_desktop import myMeetingID
+from .users import fullName_to_UNIX_username, fullName_to_rfbport
 
 # If we don't have a meeting ID from the JWT passed in the environment,
 # use the first meeting on the server.
@@ -90,7 +91,7 @@ def get_status(meetingID = myMeetingID, viewersOnly = True):
                             # allow lookup by full name, userID, or UNIX username
                             freeswitch_ids[fullName] = id
                             freeswitch_ids[userID] = id
-                            UNIXname = bigbluebutton.fullName_to_UNIX_username(fullName)
+                            UNIXname = fullName_to_UNIX_username(fullName)
                             if UNIXname:
                                 freeswitch_ids[UNIXname] = id
                             mute_status[id] = not member['flags']['can_speak']

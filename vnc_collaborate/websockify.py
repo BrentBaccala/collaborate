@@ -43,7 +43,9 @@ import tempfile
 import pwd
 import grp
 
-from . import bigbluebutton
+import bigbluebutton
+
+from .users import fullName_to_UNIX_username, fullName_to_rfbport
 
 try:
     import importlib.resources as pkg_resources
@@ -179,8 +181,8 @@ def new_websocket_client(self):
         print(repr(err))
         meetingID = 'default'
 
-    rfbport = bigbluebutton.fullName_to_rfbport(fullName)
-    UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
+    rfbport = fullName_to_rfbport(fullName)
+    UNIXuser = fullName_to_UNIX_username(fullName)
 
     if rfbport:
 

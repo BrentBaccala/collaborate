@@ -24,8 +24,9 @@ setuptools.setup(
         "vnc_collaborate.fvwm_configs": ["*"]
     },
     install_requires=[
+        'bigbluebutton',
+        'websockify',
         'psutil',
-        'pyjavaproperties',
         'pyjwt',
         'importlib_resources; python_version < "3.7"',
         'vncdotool',

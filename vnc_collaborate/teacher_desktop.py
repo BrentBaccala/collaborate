@@ -19,9 +19,11 @@ import tkinter as tk
 
 from lxml import etree
 
+import bigbluebutton
+
 from .simple_text import simple_text
-from . import bigbluebutton
 from .vnc import get_VNC_info
+from .users import fullName_to_UNIX_username, fullName_to_rfbport
 
 # set this True to display the JSON web token at the bottom of the teacher desktop
 # (for debugging purposes)
@@ -100,7 +102,7 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
         for e in meetingInfo.xpath(".//attendee"):
             fullName = e.find('fullName').text
             userID = e.find('userID').text
-            UNIXuser = bigbluebutton.fullName_to_UNIX_username(fullName)
+            UNIXuser = fullName_to_UNIX_username(fullName)
             IDS[UNIXuser] = userID
             # If multiple BBB names map to the same UNIX user (especially
             # likely for the default display), stack them vertically in the label
