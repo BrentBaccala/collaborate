@@ -42,6 +42,7 @@ import time
 import tempfile
 import pwd
 import grp
+import posix_ipc
 
 import bigbluebutton
 
@@ -69,6 +70,17 @@ def find_running_VNCserver(UNIXuser):
         if p.info['username'] == UNIXuser and 'vnc' in p.info['name'] and '-rfbport' in p.info['cmdline']:
             return int(p.info['cmdline'][p.info['cmdline'].index('-rfbport') + 1])
     return None
+
+def get_or_add_user(UNIXuser):
+    try:
+        passwd_struct = pwd.getpwnam(UNIXuser)
+    except KeyError:
+        print(f'User {UNIXuser} does not exist; creating them')
+        # There's a race condition in the system adduser script, so protect this code with a semaphore
+        with posix_ipc.Semaphore('/etc.passwd', posix_ipc.O_CREAT, initial_value=1):
+            subprocess.run(['sudo', 'adduser', '--force-badname', '--disabled-password', '--gecos', '', UNIXuser])
+        passwd_struct = pwd.getpwnam(UNIXuser)
+    return passwd_struct
 
 def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
     r"""
@@ -192,13 +204,7 @@ def new_websocket_client(self):
     elif UNIXuser and UNIXuser != "":
 
         # Create a new UNIX user if they don't exist already
-
-        try:
-            passwd_struct = pwd.getpwnam(UNIXuser)
-        except KeyError:
-            print(f'User {UNIXuser} does not exist; creating them')
-            subprocess.run(['sudo', 'adduser', '--force-badname', '--disabled-password', '--gecos', '', UNIXuser])
-            passwd_struct = pwd.getpwnam(UNIXuser)
+        passwd_struct = get_or_add_user(UNIXuser)
 
         homesocket = passwd_struct.pw_dir + '/.vncsocket'
         homeserver = passwd_struct.pw_dir + '/.vncserver'

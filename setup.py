@@ -26,6 +26,7 @@ setuptools.setup(
     install_requires=[
         'bigbluebutton',
         'websockify',
+        'posix_ipc',
         'psutil',
         'pyjwt',
         'importlib_resources; python_version < "3.7"',
