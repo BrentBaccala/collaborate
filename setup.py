@@ -35,8 +35,6 @@ setuptools.setup(
     ],
     scripts=[
         'set-gnome-terminal-fonts',
-        'set-to-shared-notes',
-        'get-from-shared-notes'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

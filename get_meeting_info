@@ -1,9 +1,0 @@
-#!/usr/bin/python3
-#
-# suggested usage: get_meeting_info | xmlstarlet fo
-
-from lxml import etree
-
-from vnc_collaborate import bigbluebutton
-
-print(etree.tostring(bigbluebutton.getMeetingInfo(bigbluebutton.find_current_meeting())).decode())
