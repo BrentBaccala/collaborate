@@ -18,7 +18,7 @@ import argparse
 from lxml import etree
 import subprocess
 
-from vnc_collaborate import bigbluebutton
+import bigbluebutton
 
 import fnvhash
 
