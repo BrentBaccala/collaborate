@@ -12,9 +12,9 @@ The extension allows different VNC desktops to be presented to different
 participants, each of whom is given a Linux login on the video
 conferencing server.
 
-*For security purposes, it's probably best to
+**For security purposes, it's probably best to
 think about this extension as a login method that allows UNIX users
-to collaborate among themselves in video conferences.*
+to collaborate among themselves in video conferences.**
 
 There is also a "teacher mode" that allows moderators to
 observe all student desktops running in a Big Blue Button session and
