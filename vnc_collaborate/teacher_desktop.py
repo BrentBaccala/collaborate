@@ -98,7 +98,7 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
     IDS.clear()
 
     if myMeetingID:
-        meetingInfo = bigbluebutton.getMeetingInfo(myMeetingID)
+        meetingInfo = bigbluebutton.getMeetingInfo(meetingID = myMeetingID)
         for e in meetingInfo.xpath(".//attendee"):
             fullName = e.find('fullName').text
             userID = e.find('userID').text

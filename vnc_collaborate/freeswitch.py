@@ -55,7 +55,7 @@ def get_status(meetingID = myMeetingID, viewersOnly = True):
     global voiceBridge
 
     get_freeswitch_password()
-    meetingInfo = bigbluebutton.getMeetingInfo(meetingID)
+    meetingInfo = bigbluebutton.getMeetingInfo(meetingID = meetingID)
     voiceBridge = meetingInfo.find("voiceBridge").text
     if viewersOnly:
         viewerIDs = [e.text for e in meetingInfo.xpath(".//role[text()='VIEWER']/../userID")]
