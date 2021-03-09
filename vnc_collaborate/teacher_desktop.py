@@ -55,6 +55,7 @@ VALID_DISPLAYS = []
 #   - the LABELS to label the desktop in teacher mode
 #   - the (Big Blue Button) IDS to deaf and undeaf students
 #   - the VNCdata ('height', 'width' and 'name' in a dictionary)
+#   - futures to acquire VNCdata asynchronously
 #
 # In addition to everything in VALID_DISPLAYS, this dictionaries should
 # also contain an entry for the teacher (teacher_display) themself,
@@ -67,6 +68,7 @@ UNIXUSER = dict()
 VNC_SOCKET = dict()
 X11_DISPLAY = dict()
 VNCdata = dict()
+VNCdata_futures = dict()
 
 # myMeetingID: the Big Blue Button meeting identifier, which we fetch
 # from the JSON Web Token passed in from websockify via the
@@ -151,10 +153,9 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
 
             VALID_DISPLAYS.append(display)
 
-        # XXX this will hang if any of our VNC displays don't respond to the VNC protocol
         # XXX should we only do this for the displays we're working on (to optimize this)
-        if display not in VNCdata:
-            VNCdata[display] = get_VNC_info(VNC_SOCKET[display])
+        if display not in VNCdata_futures:
+            VNCdata_futures[display] = get_VNC_info(VNC_SOCKET[display], return_future=True)
 
     # Having obtained a list of VNC sockets, we now wish to obtain
     # their X11 display names.
@@ -178,11 +179,14 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
     # everything except the ":2"
 
     X11_DISPLAY.clear()
-    for display in VALID_DISPLAYS:
-        try:
-            X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
-        except:
-            pass
+
+    # Don't do this anymore here; wait until the VNCdata future has resolved
+    #
+    # for display in VALID_DISPLAYS:
+    #     try:
+    #         X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
+    #     except:
+    #         pass
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
@@ -205,10 +209,13 @@ def kill_processes(list_of_procs):
         elif isinstance(proc, multiprocessing.Process):
             proc.terminate()
 
+num_cols = 0
+
 def main_loop_1():
 
     global processes
     global locations
+    global num_cols
 
     # query the properties on the root window (set by the window manager)
     # to see what display mode the user has selected.
@@ -225,8 +232,8 @@ def main_loop_1():
 
     get_VALID_DISPLAYS()
 
-    old_cols = math.ceil(math.sqrt(len(locations)))
-    cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
+    old_num_cols = num_cols
+    num_cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
 
     # If the number of clients changed enough to require a resize of
     # the entire display grid, kill all of our old processes,
@@ -237,7 +244,7 @@ def main_loop_1():
     # have enough display slots available for the VALID_DISPLAYS,
     # which would trigger an exception a little later.
 
-    if old_cols != cols:
+    if old_num_cols != num_cols:
         for procs in processes.values():
             kill_processes(procs)
         processes.clear()
@@ -249,30 +256,36 @@ def main_loop_1():
             processes.pop(disp)
             locations.pop(disp)
 
-    if cols > 0:
+    if num_cols > 0:
 
-        SCALEX = int(SCREENX/cols - .01*SCREENX)
-        SCALEY = int(SCREENY/cols - .01*SCREENY)
+        SCALEX = int(SCREENX/num_cols - .01*SCREENX)
+        SCALEY = int(SCREENY/num_cols - .01*SCREENY)
 
         SCALE = str(SCALEX) + "x" + str(SCALEY)
 
         for display in VALID_DISPLAYS:
+            if display in VNCdata_futures and display not in VNCdata:
+                if VNCdata_futures[display].done():
+                    VNCdata[display] = VNCdata_futures[display].result()
+                    X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
+            # if we haven't started a viewer for this display (display not in processes)
+            # and we've got valid VNCdata for it, add it to the grid
             if display not in processes and display in VNCdata:
                 # pick the first screen location not already claimed in locations
                 i = [i for i in range(len(VALID_DISPLAYS)) if i not in locations.values()][0]
                 locations[display] = i
 
                 processes[display] = []
-                row = int(i/cols)
-                col = i%cols
+                row = int(i/num_cols)
+                col = i%num_cols
                 nativex = VNCdata[display]['width']
                 nativey = VNCdata[display]['height']
                 geometry = str(nativex) + 'x' + str(nativey)
                 scalex = SCALEX/nativex
                 scaley = SCALEY/nativey
                 scale = min(scalex, scaley)
-                geox = int(col * SCREENX/cols + .005*SCREENX)
-                geoy = int(row * SCREENY/cols + .005*SCREENY)
+                geox = int(col * SCREENX/num_cols + .005*SCREENX)
+                geoy = int(row * SCREENY/num_cols + .005*SCREENY)
                 offsetx = int((SCALEX - scale*nativex)/2)
                 offsety = int((SCALEY - scale*nativey)/2)
                 # Use the title of the window to identify these windows to the FVWM config,
@@ -291,7 +304,7 @@ def main_loop_1():
                     label = LABELS[None]
                 else:
                     label = LABELS[display]
-                processes[display].append(simple_text(label, geox + SCREENX/cols/2, geoy))
+                processes[display].append(simple_text(label, geox + SCREENX/num_cols/2, geoy))
 
 def main_loop():
     try:
@@ -474,7 +487,11 @@ def project_to_students_inner_function(student_window_name = None):
         get_VALID_DISPLAYS(all_displays = False, include_default_display = True)
 
         for display in VALID_DISPLAYS:
-            if display != display_to_project and display in X11_DISPLAY and display in VNCdata and display not in processes:
+            if display in VNCdata_futures and display not in VNCdata:
+                if VNCdata_futures[display].done():
+                    VNCdata[display] = VNCdata_futures[display].result()
+                    X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
+            if display != display_to_project and display in VNCdata and display not in processes:
                 project_to_one_display(display, display_to_project, processes)
 
         # if projection button has been closed, end the projection

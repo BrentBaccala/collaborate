@@ -50,7 +50,10 @@ def get_VNC_info_subprocess(port):
     reactor.run()
     return VNC_data
 
-def get_VNC_info(port):
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        future = executor.submit(get_VNC_info_subprocess, port)
-    return future.result()
+def get_VNC_info(port, return_future=False):
+    executor = concurrent.futures.ProcessPoolExecutor()
+    future = executor.submit(get_VNC_info_subprocess, port)
+    if return_future:
+        return future
+    else:
+        return future.result()
