@@ -117,6 +117,7 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
             args = ['sudo', '-u', UNIXuser, '-i',
                     'python3', '-m', 'vnc_collaborate', 'tigervncserver',
                     '-localhost', 'yes',
+                    '-SendPrimary=0', '-SetPrimary=0',
                     '-rfbunixpath', rfbpath,
                     '-SecurityTypes', 'None',
                     '-BlacklistThreshold', '1000000']

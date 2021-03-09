@@ -14,8 +14,12 @@ Style * SkipMapping
 # (i.e, students coming and going) get made to desktop 0 and are
 # invisible until the zoom ends on desktop 1.
 
+# Older zoomed student views are done with ssvncviewer and are named "Zoomed Student Desktop"
+# Newer method is tigervncviewer, which doesn't support the -title option, so it's called "TigerVNC Viewer"
+
 Style * StartsOnDesk 0
 Style "Zoomed Student Desktop" StartsOnDesk 1
+Style "*TigerVNC Viewer*" StartsOnDesk 1
 
 # The Tk windows are the window labels and the "end screenshare"
 # button.  We always want them on top of the other windows.
@@ -94,11 +98,11 @@ Mouse ("Projection*") 1 A A   Close
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
- + I None ("Zoomed Student Desktop") Mouse ("TeacherViewVNC;*") 1 A A ZoomDesktop
- + I None ("Zoomed Student Desktop") Mouse ("Projection*") 1 A A   Close
- + I None ("Zoomed Student Desktop") Mouse 3 A  A  Menu TeacherMenu Nop
- + I None ("Zoomed Student Desktop") Mouse 3 W  A  Menu TeacherMenuOnStudentDesktop Nop
- + I None ("Zoomed Student Desktop") GotoDesk 0 0
+ + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse ("TeacherViewVNC;*") 1 A A ZoomDesktop
+ + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse ("Projection*") 1 A A   Close
+ + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse 3 A  A  Menu TeacherMenu Nop
+ + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse 3 W  A  Menu TeacherMenuOnStudentDesktop Nop
+ + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") GotoDesk 0 0
 
 *FvwmEvent: destroy_window DestroyWindowEvent
 

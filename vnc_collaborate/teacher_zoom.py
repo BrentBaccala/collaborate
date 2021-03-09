@@ -4,6 +4,14 @@ import os
 
 import vnc_collaborate.freeswitch as freeswitch
 
+# I'd been using ssvncviewer, and still use it for the grid view because of its ability
+# to scale the view.  But xtigervncviewer's clipboard (X11 selection) support is much
+# better, and better integrated with the Xtigervnc server, so much so that cut-and-paste
+# is really buggy with an ssvncviewer running on a Xtigervnc server.
+
+#VNC_VIEWER = "ssvncviewer"
+VNC_VIEWER = "xtigervncviewer"
+
 def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
    r"""
    teacher-zoom(WINDOW-NAME, DESKTOP_WIDTH, DESKTOP_HEIGHT)
@@ -53,15 +61,28 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
 
       geometry = desktop_width + 'x' + desktop_height + '+' + str(offsetx) + '+' + str(offsety)
 
-      proc_args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
-                   '-geometry', geometry, '-scale', str(scale),
-                   '-escape', 'Alt_L',
-                   'unix=' + VNC_SOCKET]
+      if VNC_VIEWER == 'xtigervncviewer':
+         # Send/Set Primary is turned off because we just want the clipboard, not the PRIMARY selection
+         # RemoteResize is turned off so that this viewer doesn't try to resize the desktop
+         proc_args = [VNC_VIEWER, '-Fullscreen', '-Shared', '-RemoteResize=0',
+                      '-SetPrimary=0', '-SendPrimary=0',
+                      # '-Log', 'Viewport:stdout:100',
+                      VNC_SOCKET]
+      elif VNC_VIEWER == 'ssvncviewer':
+         proc_args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
+                      '-geometry', geometry, '-scale', str(scale),
+                      '-escape', 'Alt_L',
+                      'unix=' + VNC_SOCKET]
+      else:
+         proc_args = [VNC_VIEWER, VNC_SOCKET]
 
       if len(optional_args) > 0 and optional_args[0] == 'viewonly':
          proc_args.append('-viewonly')
 
-      proc = subprocess.Popen(proc_args)
+      env = os.environ
+      # env['SSVNC_DEBUG_SELECTION'] = '1'
+
+      proc = subprocess.Popen(proc_args, env=env)
       proc.wait()
 
       # Re-deaf the student, but ONLY if they were deafed originally
