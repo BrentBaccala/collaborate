@@ -230,27 +230,36 @@ def new_websocket_client(self):
                 time.sleep(0.1)
             self.server.unix_target = socket_fn
         else:
+            # default if no .vncserver or .vncsocket exists
+            # First, start a standard user desktop if none exists
             if not os.path.exists(rfbpath):
                 start_VNC_server(UNIXuser, rfbpath)
+
+            # Next, select teacher mode if user is in the 'bigbluebutton' group
             try:
                 # in a try/except block just in case the bigbluebutton group doesn't exist
                 teacher_mode = UNIXuser in grp.getgrnam('bigbluebutton').gr_mem
             except:
                 teacher_mode = False
+
+            # Finally, start a dynamic VNC server running 'vnc_function'
+
             if teacher_mode:
-                # The "socat" is needed because websockify currently can't handle a pipe.
-                # It needs to be modified so that it can operate like "inetd".
-                socket_fn = tempfile.mktemp()
-                env = os.environ
-                env['JWT'] = JWT
-                command = "python3 -m vnc_collaborate tigervncserver -quiet -fg -localhost yes -SecurityTypes None -I-KNOW-THIS-IS-INSECURE -inetd -xstartup python3 -- -m vnc_collaborate teacher_desktop"
-                subprocess.Popen(["sudo", "-u", UNIXuser, "-i", "--preserve-env=JWT",
-                                  "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + command], env=env);
-                while not os.path.exists(socket_fn):
-                    time.sleep(0.1)
-                self.server.unix_target = socket_fn
+                vnc_function='teacher_desktop'
             else:
-                self.server.unix_target = rfbpath
+                vnc_function='student_desktop'
+
+            # The "socat" is needed because websockify currently can't handle a pipe.
+            # It needs to be modified so that it can operate like "inetd".
+            socket_fn = tempfile.mktemp()
+            env = os.environ
+            env['JWT'] = JWT
+            command = "python3 -m vnc_collaborate tigervncserver -quiet -fg -localhost yes -SecurityTypes None -I-KNOW-THIS-IS-INSECURE -inetd -xstartup python3 -- -m vnc_collaborate {}".format(vnc_function)
+            subprocess.Popen(["sudo", "-u", UNIXuser, "-i", "--preserve-env=JWT",
+                              "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + command], env=env);
+            while not os.path.exists(socket_fn):
+                time.sleep(0.1)
+            self.server.unix_target = socket_fn
 
     else:
 
