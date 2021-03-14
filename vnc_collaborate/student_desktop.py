@@ -21,6 +21,8 @@ from lxml import etree
 
 import bigbluebutton
 
+import pymongo
+
 from .simple_text import simple_text
 from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
@@ -51,31 +53,24 @@ def kill_processes(list_of_procs):
         elif isinstance(proc, multiprocessing.Process):
             proc.terminate()
             
-def main_loop_1(user):
+def add_full_screen(user):
 
     global processes
 
     VNC_SOCKET = '/run/vnc/' + user
 
-    if len(processes) == 0:
-        # Send/Set Primary is turned off because we just want the clipboard, not the PRIMARY selection
-        # RemoteResize is turned off so that this viewer doesn't try to resize the desktop
-        proc_args = [VNC_VIEWER, '-Fullscreen', '-Shared', '-RemoteResize=0',
-                     '-SetPrimary=0', '-SendPrimary=0',
-                     '-MenuKey=None',
-                     '-geometry', '1280x720+0+0',
-                     # '-Log', 'Viewport:stdout:100',
-                     VNC_SOCKET]
+    # Send/Set Primary is turned off because we just want the clipboard, not the PRIMARY selection
+    # RemoteResize is turned off so that this viewer doesn't try to resize the desktop
+    proc_args = [VNC_VIEWER, '-Fullscreen', '-Shared', '-RemoteResize=0',
+                 '-SetPrimary=0', '-SendPrimary=0',
+                 '-MenuKey=None',
+                 '-geometry', '1280x720+0+0',
+                 # '-Log', 'Viewport:stdout:100',
+                 VNC_SOCKET]
 
-        proc = subprocess.Popen(proc_args, stderr=subprocess.DEVNULL)
-        processes.append(proc)
-
-
-def main_loop(user):
-    try:
-        main_loop_1(user)
-    except Exception as ex:
-        simple_text(repr(ex), SCREENX/2, SCREENY - 300)
+    proc = subprocess.Popen(proc_args, stderr=subprocess.DEVNULL)
+    processes.append(proc)
+    return proc
 
 def restore_original_state():
     for procs in processes:
@@ -114,26 +109,39 @@ def student_desktop(screenx=None, screeny=None):
     #fullName = fullName_to_UNIX_username(JWT[])
     UNIXname = 'CharlieClown'
 
-    args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print student_mode_fvwm_config'", "-r"]
-    fvwm = subprocess.Popen(args)
+    # Especially if the displays all have the same geometry, we don't really need fvwm running.
+    # Screenshares trigger a lot faster if fvwm isn't running.
+
+    #args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print student_mode_fvwm_config'", "-r"]
+    #fvwm = subprocess.Popen(args)
 
     subprocess.run(["xsetroot", "-solid", "black"])
     #time.sleep(10)
-    main_loop(UNIXname)
+
+    try:
+        add_full_screen(UNIXname)
+    except Exception as ex:
+        simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # Big Blue Button currently (version 2.2.22) lacks a mechanism in its REST API
-    # to get notifications when users come and go.  So we poll every second to
-    # update the display until FVWM exits.
+    client = pymongo.MongoClient('mongodb://127.0.1.1/')
+    db = client.meteor
+    db_vnc = db.vnc
+    cursor = db_vnc.watch()
 
-    while True:
-        try:
-            #fvwm.wait(timeout=1)
-            time.sleep(1)
-            #break
-        except subprocess.TimeoutExpired:
-            main_loop(UNIXname)
+    screenshares = dict()
+
+    for document in cursor:
+        if document['operationType'] == 'insert':
+            if 'screenshare' in document['fullDocument']:
+                user = document['fullDocument']['screenshare']
+                if user not in screenshares.keys():
+                    print("Adding", user, file=sys.stdout)
+                    screenshares[user] = add_full_screen(user)
+        if document['operationType'] == 'delete':
+            kill_processes(list(screenshares.values()))
+            screenshares = dict()
 
     restore_original_state()
