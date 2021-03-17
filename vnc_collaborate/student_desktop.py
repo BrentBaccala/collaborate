@@ -103,11 +103,13 @@ def student_desktop(screenx=None, screeny=None):
     except Exception as ex:
         text = repr(ex)
 
+    print('JWT', JWT, file=sys.stderr)
+    sys.stderr.flush()
+
     if display_JWT:
         simple_text(text, SCREENX/2, SCREENY - 100)
 
-    #fullName = fullName_to_UNIX_username(JWT[])
-    UNIXname = 'CharlieClown'
+    UNIXname = fullName_to_UNIX_username(JWT['sub'])
 
     # Especially if the displays all have the same geometry, we don't really need fvwm running.
     # Screenshares trigger a lot faster if fvwm isn't running.
@@ -119,7 +121,7 @@ def student_desktop(screenx=None, screeny=None):
     #time.sleep(10)
 
     try:
-        add_full_screen(UNIXname)
+        base_screen = add_full_screen(UNIXname)
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
@@ -134,6 +136,11 @@ def student_desktop(screenx=None, screeny=None):
     screenshares = dict()
 
     for document in cursor:
+        print(document, file=sys.stderr)
+        sys.stderr.flush()
+        if base_screen.poll():
+            kill_processes(list(screenshares.values()))
+            break
         if document['operationType'] == 'insert':
             if 'screenshare' in document['fullDocument']:
                 user = document['fullDocument']['screenshare']
