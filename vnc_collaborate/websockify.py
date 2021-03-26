@@ -114,11 +114,16 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
             # that waits for the server to be listening on a TCP port even
             # if you requested a UNIX domain socket via "-rfbunixpath"
 
+            # We set the UNIX mode to 0666 because our new screen share feature
+            # requires all of the students to have read/write access to any
+            # other student display
+
             args = ['sudo', '-u', UNIXuser, '-i',
                     'python3', '-m', 'vnc_collaborate', 'tigervncserver',
                     '-localhost', 'yes',
                     '-SendPrimary=0', '-SetPrimary=0',
                     '-rfbunixpath', rfbpath,
+                    '-rfbunixmode', '0666',
                     '-SecurityTypes', 'None',
                     '-BlacklistThreshold', '1000000']
 
