@@ -54,7 +54,7 @@ def kill_processes(list_of_procs):
         elif isinstance(proc, multiprocessing.Process):
             proc.terminate()
             
-def add_full_screen(user):
+def add_full_screen(user, viewonly=False):
 
     global processes
 
@@ -68,6 +68,9 @@ def add_full_screen(user):
                  '-geometry', '1280x720+0+0',
                  # '-Log', 'Viewport:stdout:100',
                  VNC_SOCKET]
+
+    if viewonly:
+        proc_args.insert(-1, '-ViewOnly')
 
     proc = subprocess.Popen(proc_args, stderr=subprocess.DEVNULL)
     processes.append(proc)
@@ -173,7 +176,7 @@ def student_desktop(screenx=None, screeny=None):
                     user = document['fullDocument']['screenshare']
                     if user not in screenshares.keys():
                         print("Adding", user, file=sys.stdout)
-                        screenshares[user] = add_full_screen(user)
+                        screenshares[user] = add_full_screen(user, viewonly=True)
             if document['operationType'] == 'delete':
                 kill_processes(list(screenshares.values()))
                 screenshares = dict()
