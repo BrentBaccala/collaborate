@@ -3,6 +3,7 @@
 
 import subprocess
 import multiprocessing
+import threading
 
 import sys
 import math
@@ -27,7 +28,7 @@ from .simple_text import simple_text
 from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
 
-# set this True to display the JSON web token at the bottom of the teacher desktop
+# set this True to display the JSON web token at the bottom of the student desktop
 # (for debugging purposes)
 
 display_JWT = False
@@ -72,15 +73,15 @@ def add_full_screen(user):
     processes.append(proc)
     return proc
 
-def restore_original_state():
-    for procs in processes:
-        kill_processes(procs)
-    subprocess.run(["xsetroot", "-solid", "grey"])
-    subprocess.Popen(["fvwm", "-r"])
-
-def signal_handler(sig, frame):
-    restore_original_state()
-    sys.exit(0)
+def terminate_this_script(sig=None, frame=None):
+    kill_processes(processes)
+    print('processes killed', file=sys.stderr)
+    sys.stderr.flush()
+    # sys.exit() only exits the current thread, but we want to end the entire process
+    # See https://stackoverflow.com/questions/905189
+    # This os.kill sends SIGINT to the main thread, which triggers a KeyboardInterrupt
+    # there.
+    os.kill(os.getpid(), signal.SIGINT)
 
 def get_global_display_geometry(screenx=None, screeny=None):
 
@@ -118,15 +119,40 @@ def student_desktop(screenx=None, screeny=None):
     #fvwm = subprocess.Popen(args)
 
     subprocess.run(["xsetroot", "-solid", "black"])
-    #time.sleep(10)
 
     try:
         base_screen = add_full_screen(UNIXname)
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
+    # Arrange to monitor the vncviewer watching the base screen to detect when it exits
+    # and kill this script at that point.  This will most commonly happen when the Big
+    # Blue Button client disconnects, which will kill the ephemeral Xvnc server, which
+    # will kill all of the clients running on it.
+    #
+    # base_screen is a subprocess.Popen.  According to its documentation, its wait() method
+    # operates using a busy loop, so it might be best to re-implement this code using asyncio.
+    #
+    # Also, when this module is enhanced to support client screens with different geometries,
+    # we'll probably terminate the base_screen viewer every time a screen activates, so this
+    # code will have to be revisited then.
+
+    def monitor_base_screen(base_screen):
+        base_screen.wait()
+        print('base_screen vncviewer ended', file=sys.stderr)
+        sys.stderr.flush()
+        terminate_this_script()
+
+    monitor_thread = threading.Thread(target = monitor_base_screen, args=(base_screen,))
+    monitor_thread.start()
+
+    # I'd like to catch these signals and kill any subprocesses before exiting this script,
+    # but it's very difficult to make that work right.  Exiting the process from a thread
+    # (see terminate_this_script function) is done by sending a signal to the main thread,
+    # so that signal (SIGINT) can't be caught here.
+
+    #signal.signal(signal.SIGINT, terminate_this_script)
+    #signal.signal(signal.SIGTERM, terminate_this_script)
 
     client = pymongo.MongoClient('mongodb://127.0.1.1/')
     db = client.meteor
@@ -135,20 +161,25 @@ def student_desktop(screenx=None, screeny=None):
 
     screenshares = dict()
 
-    for document in cursor:
-        print(document, file=sys.stderr)
-        sys.stderr.flush()
-        if base_screen.poll():
-            kill_processes(list(screenshares.values()))
-            break
-        if document['operationType'] == 'insert':
-            if 'screenshare' in document['fullDocument']:
-                user = document['fullDocument']['screenshare']
-                if user not in screenshares.keys():
-                    print("Adding", user, file=sys.stdout)
-                    screenshares[user] = add_full_screen(user)
-        if document['operationType'] == 'delete':
-            kill_processes(list(screenshares.values()))
-            screenshares = dict()
+    try:
+        for document in cursor:
+            print(document, file=sys.stderr)
+            sys.stderr.flush()
+            if base_screen.poll():
+                kill_processes(list(screenshares.values()))
+                break
+            if document['operationType'] == 'insert':
+                if 'screenshare' in document['fullDocument']:
+                    user = document['fullDocument']['screenshare']
+                    if user not in screenshares.keys():
+                        print("Adding", user, file=sys.stdout)
+                        screenshares[user] = add_full_screen(user)
+            if document['operationType'] == 'delete':
+                kill_processes(list(screenshares.values()))
+                screenshares = dict()
+    except KeyboardInterrupt:
+        # We'll get KeyboardInterrupt from the os.kill() in terminate_this_script
+        # when the user disconnects.
+        sys.exit(0)
 
-    restore_original_state()
+    terminate_this_script()
