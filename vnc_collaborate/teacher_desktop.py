@@ -21,6 +21,8 @@ from lxml import etree
 
 import bigbluebutton
 
+import pymongo
+
 from .simple_text import simple_text
 from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
@@ -517,12 +519,29 @@ def project_to_students_inner_function(student_window_name = None):
     kill_processes(processes.values())
 
 def project_to_students(screenx, screeny, student_window_name = None):
-    get_global_display_geometry(screenx, screeny)
+    #get_global_display_geometry(screenx, screeny)
 
-    try:
-        project_to_students_inner_function(student_window_name)
-    except Exception as ex:
-        processes = []
-        processes.append(simple_text(repr(ex), SCREENX/2, SCREENY - 300))
-        time.sleep(5)
-        kill_processes(processes)
+    # see comment in teacher_zoom to understand this
+    args = student_window_name.replace("\\'", "'")[1:-1].split(';')
+    if len(args) >= 4 and args[0] == 'TeacherViewVNC':
+        STUDENT_ID = args[1]
+        STUDENT_DISPLAY = args[2]
+        # NATIVE_GEOMETRY contains the geometry detected by the script that produced the grid view
+        # We ignore it and query the geometry ourselves (in get_VALID_DISPLAYS)
+        NATIVE_GEOMETRY = args[3]
+        X_VNC_SOCKET = args[4]
+        display_to_project = STUDENT_DISPLAY
+
+    client = pymongo.MongoClient('mongodb://127.0.1.1/')
+    db = client.meteor
+    db_vnc = db.vnc
+    db_vnc.insert({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
+
+    # Now put a window up on the teacher's screen to control the projection
+    # and wait for it to close.
+
+    process = close_projection_button()
+
+    process.join()
+
+    db_vnc.remove({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
