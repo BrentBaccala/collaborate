@@ -161,6 +161,15 @@ def student_desktop(screenx=None, screeny=None):
     db = client.meteor
     db_vnc = db.vnc
     cursor = db_vnc.watch()
+    # I'm not sure how to write this filter, so I just filter down in the loop below
+    #cursor = db_vnc.watch([{'$match' : {'fullDocument': {'meetingID': JWT['bbb-meetingID']}}}])
+    #cursor = db_vnc.watch([{'$match' : {meetingID: JWT['bbb-meetingID']}}])
+
+    # We're interested in the 'screenshare' documents in the 'vnc' collection, which look like this:
+    #
+    # { 'screenshare': USER_TO_PROJECT, 'meetingID': BBB_MEETINGID }
+    #
+    # There should be no more than one of these documents.
 
     screenshares = dict()
 
@@ -172,9 +181,11 @@ def student_desktop(screenx=None, screeny=None):
                 kill_processes(list(screenshares.values()))
                 break
             if document['operationType'] == 'insert':
-                if 'screenshare' in document['fullDocument']:
-                    user = document['fullDocument']['screenshare']
-                    if user not in screenshares.keys():
+                fullDocument = document['fullDocument']
+                if 'screenshare' in fullDocument and 'meetingID' in fullDocument:
+                    user = fullDocument['screenshare']
+                    meetingID = fullDocument['meetingID']
+                    if meetingID == JWT['bbb-meetingID'] and user not in screenshares.keys():
                         print("Adding", user, file=sys.stdout)
                         screenshares[user] = add_full_screen(user, viewonly=True)
             if document['operationType'] == 'delete':
