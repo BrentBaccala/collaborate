@@ -161,9 +161,9 @@ def student_desktop(screenx=None, screeny=None):
     db = client.meteor
     db_vnc = db.vnc
     cursor = db_vnc.watch()
-    # I'm not sure how to write this filter, so I just filter down in the loop below
-    #cursor = db_vnc.watch([{'$match' : {'fullDocument': {'meetingID': JWT['bbb-meetingID']}}}])
-    #cursor = db_vnc.watch([{'$match' : {meetingID: JWT['bbb-meetingID']}}])
+    # This filter will pick up insert operations, but deletes don't have a fullDocument.
+    # I could get the documentKey from the insert and use it to build a new change stream watching for a matching delete.
+    # cursor = db_vnc.watch([{'$match' : {'fullDocument.meetingID': JWT['bbb-meetingID']}}])
 
     # We're interested in the 'screenshare' documents in the 'vnc' collection, which look like this:
     #
