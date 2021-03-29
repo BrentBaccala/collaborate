@@ -323,6 +323,7 @@ def get_current_screenshare():
         return None
 
 current_screenshare = None
+current_screenshare_cols = 0
 current_screenshare_window = None
 current_screenshare_button = None
 
@@ -331,14 +332,16 @@ def main_loop_screenshare():
     The part of the main loop that outlines a screenshared desktop and presents
     an 'end screenshare' button
     """
-    # XXX still have to handle case when num_cols changes
+
     global locations
     global num_cols
     global current_screenshare
+    global current_screenshare_cols
     global current_screenshare_window
     global current_screenshare_button
+
     new_screenshare = get_current_screenshare()
-    if current_screenshare != new_screenshare:
+    if current_screenshare != new_screenshare or current_screenshare_cols != num_cols:
         if current_screenshare_window:
             current_screenshare_window.terminate()
             # commented out because I'm afraid of this deadlocking us
@@ -355,13 +358,14 @@ def main_loop_screenshare():
 
             current_screenshare_window = colored_rect(SCALEX, SCALEY, geox, geoy)
         current_screenshare = new_screenshare
+        current_screenshare_cols = num_cols
 
-        if current_screenshare and not current_screenshare_button:
-            current_screenshare_button = close_projection_button()
-        if not current_screenshare and current_screenshare_button:
-            current_screenshare_button.terminate()
-            current_screenshare_button = None
-            # again, I'd like to wait for this, but am afraid to
+    if current_screenshare and not current_screenshare_button:
+        current_screenshare_button = close_projection_button()
+    if not current_screenshare and current_screenshare_button:
+        current_screenshare_button.terminate()
+        current_screenshare_button = None
+        # again, I'd like to wait for this, but am afraid to
 
 def main_loop():
     try:
