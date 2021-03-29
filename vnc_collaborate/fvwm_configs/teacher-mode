@@ -22,10 +22,13 @@ Style "Zoomed Student Desktop" StartsOnDesk 1
 Style "*TigerVNC Viewer*" StartsOnDesk 1
 
 # The Tk windows are the window labels and the "end screenshare"
-# button.  We always want them on top of the other windows.
+# button.  We always want them on top of the other windows.  The
+# "highlight" windows are colored rectangles that appear behind the
+# vncviewers.
 
 Style "*vncviewer" Layer 1
 Style "Tk" Layer 2
+Style "highlight" Layer 0
 
 # The font for the teacher pull down menu.
 
