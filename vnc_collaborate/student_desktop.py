@@ -68,7 +68,9 @@ def terminate_this_script(sig=None, frame=None):
 # kill this script at that point.  This will most commonly happen when
 # the Big Blue Button client disconnects, which will kill the
 # ephemeral Xvnc server, which will kill all of the clients running on
-# it.
+# it.  But the vncviewer can also die because this script killed it.
+# The difference between the two cases is whether the vncviewer that
+# died is still current_screen.
 #
 # screen is a subprocess.Popen.  According to its documentation, its
 # wait() method operates using a busy loop, so it might be best to
@@ -77,10 +79,10 @@ def terminate_this_script(sig=None, frame=None):
 current_screen = None
 
 def monitor_screen(screen):
+    global processes
     global current_screen
     screen.wait()
-    print('screen vncviewer ended', file=sys.stderr)
-    sys.stderr.flush()
+    processes.remove(screen)
     if screen == current_screen:
         terminate_this_script()
 
@@ -121,12 +123,12 @@ def get_global_display_geometry(screenx=None, screeny=None):
     SCREENX = int(screenx)
     SCREENY = int(screeny)
 
-def get_current_screenshare(db_vnc, meetingID):
+def get_current_screenshare(db_vnc, meetingID, default):
     mongo_doc = db_vnc.find_one({'screenshare': {'$exists': True}, 'meetingID': meetingID})
     if mongo_doc:
         return mongo_doc['screenshare']
     else:
-        return None
+        return default
 
 def student_desktop(screenx=None, screeny=None):
 
@@ -154,14 +156,6 @@ def student_desktop(screenx=None, screeny=None):
 
     subprocess.run(["xsetroot", "-solid", "black"])
 
-    global current_screen
-
-    try:
-        current_screen = add_full_screen(UNIXname)
-        current_screenshare = None
-    except Exception as ex:
-        simple_text(repr(ex), SCREENX/2, SCREENY - 300)
-
     # I'd like to catch these signals and kill any subprocesses before exiting this script,
     # but it's very difficult to make that work right.  Exiting the process from a thread
     # (see terminate_this_script function) is done by sending a signal to the main thread,
@@ -169,6 +163,12 @@ def student_desktop(screenx=None, screeny=None):
 
     #signal.signal(signal.SIGINT, terminate_this_script)
     #signal.signal(signal.SIGTERM, terminate_this_script)
+
+    # We're interested in the 'screenshare' documents in the 'vnc' collection, which look like this:
+    #
+    # { 'screenshare': USER_TO_PROJECT, 'meetingID': BBB_MEETINGID }
+    #
+    # There should be no more than one of these documents per meeting.
 
     client = pymongo.MongoClient('mongodb://127.0.1.1/')
     db = client.meteor
@@ -179,24 +179,21 @@ def student_desktop(screenx=None, screeny=None):
     # I could get the documentKey from the insert and use it to build a new change stream watching for a matching delete.
     # cursor = db_vnc.watch([{'$match' : {'fullDocument.meetingID': JWT['bbb-meetingID']}}])
 
-    # We're interested in the 'screenshare' documents in the 'vnc' collection, which look like this:
-    #
-    # { 'screenshare': USER_TO_PROJECT, 'meetingID': BBB_MEETINGID }
-    #
-    # There should be no more than one of these documents.
+    global current_screen
 
     try:
+        current_screenshare = get_current_screenshare(db_vnc, JWT['bbb-meetingID'], UNIXname)
+        viewonly = (current_screenshare != UNIXname)
+        current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
         for document in cursor:
             print(document, file=sys.stderr)
             sys.stderr.flush()
-            new_screenshare = get_current_screenshare(db_vnc, JWT['bbb-meetingID'])
+            new_screenshare = get_current_screenshare(db_vnc, JWT['bbb-meetingID'], UNIXname)
             if new_screenshare != current_screenshare:
                 current_screenshare = new_screenshare
                 old_screen = current_screen
-                if current_screenshare:
-                    current_screen = add_full_screen(current_screenshare, viewonly=True)
-                else:
-                    current_screen = add_full_screen(UNIXname, viewonly=False)
+                viewonly = (current_screenshare != UNIXname)
+                current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
                 old_screen.terminate()
 
     except KeyboardInterrupt:
