@@ -311,9 +311,46 @@ def main_loop_1():
                     label = LABELS[display]
                 processes[display].append(simple_text(label, geox + SCREENX/num_cols/2, geoy))
 
+def get_current_screenshare():
+    global db_vnc
+    mongo_doc = db_vnc.find_one({'screenshare': {'$exists': True}, 'meetingID': myMeetingID})
+    if mongo_doc:
+        return mongo_doc['screenshare']
+    else:
+        return None
+
+current_screenshare = None
+current_screenshare_window = None
+
+def main_loop_2():
+    # XXX still have to handle case when num_cols changes
+    global locations
+    global num_cols
+    global current_screenshare
+    global current_screenshare_window
+    new_screenshare = get_current_screenshare()
+    if current_screenshare != new_screenshare:
+        if current_screenshare_window:
+            current_screenshare_window.terminate()
+            # commented out because I'm afraid of this deadlocking us
+            #current_screenshare_window.wait()
+            current_screenshare_window = None
+        if new_screenshare in locations:
+            location = locations[new_screenshare]
+            row = int(location / num_cols)
+            col = location % num_cols
+            geox = int(col * SCREENX/num_cols)
+            geoy = int(row * SCREENY/num_cols)
+            SCALEX = int(SCREENX/num_cols)
+            SCALEY = int(SCREENY/num_cols)
+
+            current_screenshare_window = colored_rect(SCALEX, SCALEY, geox, geoy)
+        current_screenshare = new_screenshare
+
 def main_loop():
     try:
         main_loop_1()
+        main_loop_2()
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
@@ -349,6 +386,13 @@ def teacher_desktop(screenx=None, screeny=None):
         except Exception as ex:
             text = repr(ex)
         simple_text(text, SCREENX/2, SCREENY - 100)
+
+    # open the mongo database so we can watch for screenshare notifications
+
+    global db_vnc
+    client = pymongo.MongoClient('mongodb://127.0.1.1/')
+    db = client.meteor
+    db_vnc = db.vnc
 
     # When switching to teacher mode, we completely replace the FVWM window manager with a new
     # instance using a completely different config, then switch back to the original config
@@ -574,31 +618,6 @@ def project_to_students(screenx, screeny, student_window_name = None):
     db_vnc = db.vnc
     db_vnc.insert({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
 
-    # put a highlight box around the shared desktop
-
-    global locations
-    global num_cols
-
-    print(locations.keys(), file=sys.stderr)
-    print(STUDENT_DISPLAY, file=sys.stderr)
-    sys.stderr.flush()
-
-    #if STUDENT_DISPLAY in locations:
-    if True:
-        #location = locations[STUDENT_DISPLAY]
-        location = 4
-        num_cols=3
-        row = int(location / num_cols)
-        col = location % num_cols
-        geox = int(col * SCREENX/num_cols)
-        geoy = int(row * SCREENY/num_cols)
-        SCALEX = int(SCREENX/num_cols)
-        SCALEY = int(SCREENY/num_cols)
-
-        highlight = colored_rect(SCALEX, SCALEY, geox, geoy)
-    else:
-        highlight = None
-
     # Now put a window up on the teacher's screen to control the projection
     # and wait for it to close.
 
@@ -607,7 +626,3 @@ def project_to_students(screenx, screeny, student_window_name = None):
     process.join()
 
     db_vnc.remove({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
-
-    if highlight:
-        highlight.terminate()
-        highlight.wait()
