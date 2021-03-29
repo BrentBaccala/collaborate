@@ -213,7 +213,10 @@ def kill_processes(list_of_procs):
 
 num_cols = 0
 
-def main_loop_1():
+def main_loop_grid():
+    r"""
+    The portion of the main loop that draws the grid.
+    """
 
     global processes
     global locations
@@ -323,7 +326,11 @@ current_screenshare = None
 current_screenshare_window = None
 current_screenshare_button = None
 
-def main_loop_2():
+def main_loop_screenshare():
+    r"""
+    The part of the main loop that outlines a screenshared desktop and presents
+    an 'end screenshare' button
+    """
     # XXX still have to handle case when num_cols changes
     global locations
     global num_cols
@@ -358,8 +365,8 @@ def main_loop_2():
 
 def main_loop():
     try:
-        main_loop_1()
-        main_loop_2()
+        main_loop_grid()
+        main_loop_screenshare()
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
@@ -481,107 +488,6 @@ def close_projection_button():
     process = multiprocessing.Process(target = app)
     process.start()
     return process
-
-def project_to_one_display(display, display_to_project, processes):
-    # We're projecting display_to_project (screenx/screeny) to the student screen (display/nativex/nativey)
-    screenx = VNCdata[display_to_project]['width']
-    screeny = VNCdata[display_to_project]['height']
-    studentx = VNCdata[display]['width']
-    studenty = VNCdata[display]['height']
-    scalex = studentx/screenx
-    scaley = studenty/screeny
-    scale = min(scalex, scaley)
-    offsetx = int((studentx - scale*screenx)/2)
-    offsety = int((studenty - scale*screeny)/2)
-    # This title is recognized by the FVWM config and is presented to the user
-    # on top of all other windows and with no window manager decorations.
-    title = "OverlayVNC"
-
-    args = [VIEWONLY_VIEWER,
-            '-viewonly', '-geometry', '+'+str(offsetx)+'+'+str(offsety),
-            '-escape', 'never', '-display', X11_DISPLAY[display],
-            '-scale', str(scale),
-            '-title', title, 'unix=' + VNC_SOCKET[display_to_project]]
-
-    # We should be in the 'bigbluebutton' group, and therefore able to read the student's
-    # .Xauthority files to get the keys needed to put a window on their screen.
-    # Not having this permission is a common enough error than I check for it here.
-
-    XAUTHORITY = '/home/{}/.Xauthority'.format(UNIXUSER[display])
-    if os.access(XAUTHORITY, os.R_OK):
-        processes[display] = subprocess.Popen(args, stderr=subprocess.PIPE,
-                                              env={'XAUTHORITY' : XAUTHORITY})
-    else:
-        processes[display] = simple_text("Can't read " + XAUTHORITY, SCREENX/2, SCREENY - 300)
-
-def project_to_students_inner_function(student_window_name = None):
-    r"""
-    Project the teacher's desktop to all student desktops
-
-    "Inner" function because it's wrapped in a try/except loop that catches
-    exceptions and displays them using Tk widgets.
-    """
-
-    processes = dict()
-
-    display_to_project = None
-
-    if student_window_name:
-        # see comment in teacher_zoom to understand this
-        args = student_window_name.replace("\\'", "'")[1:-1].split(';')
-        if len(args) >= 4 and args[0] == 'TeacherViewVNC':
-            STUDENT_ID = args[1]
-            STUDENT_DISPLAY = args[2]
-            # NATIVE_GEOMETRY contains the geometry detected by the script that produced the grid view
-            # We ignore it and query the geometry ourselves (in get_VALID_DISPLAYS)
-            NATIVE_GEOMETRY = args[3]
-            X_VNC_SOCKET = args[4]
-            display_to_project = STUDENT_DISPLAY
-
-    if not display_to_project:
-        process = simple_text("Screenshare not called correctly", SCREENX/2, SCREENY - 300)
-        time.sleep(5)
-        kill_processes([process])
-        return
-
-    # Now put a window up on the teacher's screen to control the projection
-    # and wait for it to close.
-
-    process = close_projection_button()
-
-    while True:
-        # never screenshare to all displays; screenshare to current meeting only
-        get_VALID_DISPLAYS(all_displays = False, include_default_display = True)
-
-        for display in VALID_DISPLAYS:
-            if display in VNCdata_futures and display not in VNCdata:
-                if VNCdata_futures[display].done():
-                    VNCdata[display] = VNCdata_futures[display].result()
-                    X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
-            if display != display_to_project and display in VNCdata and display not in processes:
-                project_to_one_display(display, display_to_project, processes)
-
-        # if projection button has been closed, end the projection
-        process.join(timeout=1)
-        if not process.is_alive():
-            break
-
-        # If any of the screenshare processes die prematurely, show an
-        # error message to the presenter.
-        # XXX - multiple error messages will overlap
-
-        for display,p in list(processes.items()):
-            if isinstance(p, subprocess.Popen):
-                p.poll()
-                if p.returncode:
-                    processes[display] = simple_text(p.stderr.read(), SCREENX/2, SCREENY - 300)
-            elif isinstance(p, multiprocessing.Process):
-                if not p.is_alive():
-                    processes[display] = simple_text('process died', SCREENX/2, SCREENY - 300)
-
-    # When the window closes, end the projection
-
-    kill_processes(processes.values())
 
 def colored_rect(width, height, xlocation, ylocation):
     r"""
