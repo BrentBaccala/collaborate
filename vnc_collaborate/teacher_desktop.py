@@ -260,6 +260,9 @@ def main_loop_1():
 
     if num_cols > 0:
 
+        # each pane has a .005 margin around it on all four sides
+        # this produces a total gap of .01 between any two panes
+
         SCALEX = int(SCREENX/num_cols - .01*SCREENX)
         SCALEY = int(SCREENY/num_cols - .01*SCREENY)
 
@@ -518,8 +521,42 @@ def project_to_students_inner_function(student_window_name = None):
 
     kill_processes(processes.values())
 
+def colored_rect(width, height, xlocation, ylocation):
+    r"""
+    Fork a subprocess to display a colored rectangle, using the tk toolkit.
+
+    Returns a multiprocessing.Process object that manages the subprocess.
+    """
+    def app():
+
+        window = tk.Tk()
+
+        window.geometry(str(width)+"x"+str(height)+"+"+str(xlocation)+"+"+str(ylocation))
+        window.configure(background = 'red')
+        # setting window title 'highlight' causes FVWM to move this window below all others
+        window.title('highlight')
+
+        # Implementing this function with the multiprocessing package
+        # is problematic.  We inherit a lot of state from the parent
+        # process, in particular, its signal handlers, which were
+        # changed in teacher_desktop(), and I do depend on being able
+        # to close this window by sending it SIGTERM.  Maybe it would
+        # be best to spawn an entire new Python process to avoid these
+        # kinds of problems, i.e, use process.Popen rather than
+        # multiprocessing.Process.
+
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+
+        window.mainloop()
+
+    process = multiprocessing.Process(target = app)
+    process.start()
+    return process
+
 def project_to_students(screenx, screeny, student_window_name = None):
-    #get_global_display_geometry(screenx, screeny)
+
+    get_global_display_geometry(screenx, screeny)
 
     # see comment in teacher_zoom to understand this
     args = student_window_name.replace("\\'", "'")[1:-1].split(';')
@@ -537,6 +574,31 @@ def project_to_students(screenx, screeny, student_window_name = None):
     db_vnc = db.vnc
     db_vnc.insert({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
 
+    # put a highlight box around the shared desktop
+
+    global locations
+    global num_cols
+
+    print(locations.keys(), file=sys.stderr)
+    print(STUDENT_DISPLAY, file=sys.stderr)
+    sys.stderr.flush()
+
+    #if STUDENT_DISPLAY in locations:
+    if True:
+        #location = locations[STUDENT_DISPLAY]
+        location = 4
+        num_cols=3
+        row = int(location / num_cols)
+        col = location % num_cols
+        geox = int(col * SCREENX/num_cols)
+        geoy = int(row * SCREENY/num_cols)
+        SCALEX = int(SCREENX/num_cols)
+        SCALEY = int(SCREENY/num_cols)
+
+        highlight = colored_rect(SCALEX, SCALEY, geox, geoy)
+    else:
+        highlight = None
+
     # Now put a window up on the teacher's screen to control the projection
     # and wait for it to close.
 
@@ -545,3 +607,7 @@ def project_to_students(screenx, screeny, student_window_name = None):
     process.join()
 
     db_vnc.remove({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
+
+    if highlight:
+        highlight.terminate()
+        highlight.wait()
