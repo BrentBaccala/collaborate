@@ -121,13 +121,8 @@ def get_global_display_geometry(screenx=None, screeny=None):
     SCREENX = int(screenx)
     SCREENY = int(screeny)
 
-client = pymongo.MongoClient('mongodb://127.0.1.1/')
-db = client.meteor
-db_vnc = db.vnc
-
-def get_current_screenshare(meetingID):
+def get_current_screenshare(db_vnc, meetingID):
     mongo_doc = db_vnc.find_one({'screenshare': {'$exists': True}, 'meetingID': meetingID})
-    sys.stderr.flush()
     if mongo_doc:
         return mongo_doc['screenshare']
     else:
@@ -175,6 +170,10 @@ def student_desktop(screenx=None, screeny=None):
     #signal.signal(signal.SIGINT, terminate_this_script)
     #signal.signal(signal.SIGTERM, terminate_this_script)
 
+    client = pymongo.MongoClient('mongodb://127.0.1.1/')
+    db = client.meteor
+    db_vnc = db.vnc
+
     cursor = db_vnc.watch()
     # This filter will pick up insert operations, but deletes don't have a fullDocument.
     # I could get the documentKey from the insert and use it to build a new change stream watching for a matching delete.
@@ -190,7 +189,7 @@ def student_desktop(screenx=None, screeny=None):
         for document in cursor:
             print(document, file=sys.stderr)
             sys.stderr.flush()
-            new_screenshare = get_current_screenshare(JWT['bbb-meetingID'])
+            new_screenshare = get_current_screenshare(db_vnc, JWT['bbb-meetingID'])
             if new_screenshare != current_screenshare:
                 current_screenshare = new_screenshare
                 old_screen = current_screen
