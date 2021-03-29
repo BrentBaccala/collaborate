@@ -321,6 +321,7 @@ def get_current_screenshare():
 
 current_screenshare = None
 current_screenshare_window = None
+current_screenshare_button = None
 
 def main_loop_2():
     # XXX still have to handle case when num_cols changes
@@ -328,6 +329,7 @@ def main_loop_2():
     global num_cols
     global current_screenshare
     global current_screenshare_window
+    global current_screenshare_button
     new_screenshare = get_current_screenshare()
     if current_screenshare != new_screenshare:
         if current_screenshare_window:
@@ -346,6 +348,13 @@ def main_loop_2():
 
             current_screenshare_window = colored_rect(SCALEX, SCALEY, geox, geoy)
         current_screenshare = new_screenshare
+
+        if current_screenshare and not current_screenshare_button:
+            current_screenshare_button = close_projection_button()
+        if not current_screenshare and current_screenshare_button:
+            current_screenshare_button.terminate()
+            current_screenshare_button = None
+            # again, I'd like to wait for this, but am afraid to
 
 def main_loop():
     try:
@@ -459,6 +468,15 @@ def close_projection_button():
         signal.signal(signal.SIGTERM, signal.SIG_DFL)
 
         window.mainloop()
+
+        # Once the window closes, probably from the FVWM window manager
+        # (see comment there), end any active screen shares for this
+        # meeting.
+
+        client = pymongo.MongoClient('mongodb://127.0.1.1/')
+        db = client.meteor
+        db_vnc = db.vnc
+        db_vnc.remove({'meetingID': myMeetingID})
 
     process = multiprocessing.Process(target = app)
     process.start()
@@ -613,16 +631,11 @@ def project_to_students(screenx, screeny, student_window_name = None):
         X_VNC_SOCKET = args[4]
         display_to_project = STUDENT_DISPLAY
 
+    # put a screenshare announcement into mongo, which will trigger
+    # both the actual screenshares on the student desktops and the
+    # outline indicator and close button on the teacher desktops
+
     client = pymongo.MongoClient('mongodb://127.0.1.1/')
     db = client.meteor
     db_vnc = db.vnc
     db_vnc.insert({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
-
-    # Now put a window up on the teacher's screen to control the projection
-    # and wait for it to close.
-
-    process = close_projection_button()
-
-    process.join()
-
-    db_vnc.remove({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
