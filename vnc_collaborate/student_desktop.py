@@ -54,6 +54,36 @@ def kill_processes(list_of_procs):
         elif isinstance(proc, multiprocessing.Process):
             proc.terminate()
             
+def terminate_this_script(sig=None, frame=None):
+    kill_processes(processes)
+    print('processes killed', file=sys.stderr)
+    sys.stderr.flush()
+    # sys.exit() only exits the current thread, but we want to end the entire process
+    # See https://stackoverflow.com/questions/905189
+    # This os.kill sends SIGINT to the main thread, which triggers a KeyboardInterrupt
+    # there.
+    os.kill(os.getpid(), signal.SIGINT)
+
+# Arrange to monitor a vncviewer to detect when it exits and (maybe)
+# kill this script at that point.  This will most commonly happen when
+# the Big Blue Button client disconnects, which will kill the
+# ephemeral Xvnc server, which will kill all of the clients running on
+# it.
+#
+# screen is a subprocess.Popen.  According to its documentation, its
+# wait() method operates using a busy loop, so it might be best to
+# re-implement this code using asyncio.
+
+current_screen = None
+
+def monitor_screen(screen):
+    global current_screen
+    screen.wait()
+    print('screen vncviewer ended', file=sys.stderr)
+    sys.stderr.flush()
+    if screen == current_screen:
+        terminate_this_script()
+
 def add_full_screen(user, viewonly=False):
 
     global processes
@@ -73,18 +103,12 @@ def add_full_screen(user, viewonly=False):
         proc_args.insert(-1, '-ViewOnly')
 
     proc = subprocess.Popen(proc_args, stderr=subprocess.DEVNULL)
+
+    monitor_thread = threading.Thread(target = monitor_screen, args=(proc,))
+    monitor_thread.start()
+
     processes.append(proc)
     return proc
-
-def terminate_this_script(sig=None, frame=None):
-    kill_processes(processes)
-    print('processes killed', file=sys.stderr)
-    sys.stderr.flush()
-    # sys.exit() only exits the current thread, but we want to end the entire process
-    # See https://stackoverflow.com/questions/905189
-    # This os.kill sends SIGINT to the main thread, which triggers a KeyboardInterrupt
-    # there.
-    os.kill(os.getpid(), signal.SIGINT)
 
 def get_global_display_geometry(screenx=None, screeny=None):
 
@@ -102,11 +126,7 @@ db = client.meteor
 db_vnc = db.vnc
 
 def get_current_screenshare(meetingID):
-    #mongo_doc = db_vnc.find_one({'screenshare': 1, 'meetingID': meetingID})
     mongo_doc = db_vnc.find_one({'screenshare': {'$exists': True}, 'meetingID': meetingID})
-    #mongo_doc = db_vnc.find_one()
-    print('mongo_doc', mongo_doc, file=sys.stderr)
-    #print('mongo find', db_vnc.find({'screenshare': 1, 'meetingID': meetingID}), file=sys.stderr)
     sys.stderr.flush()
     if mongo_doc:
         return mongo_doc['screenshare']
@@ -139,33 +159,13 @@ def student_desktop(screenx=None, screeny=None):
 
     subprocess.run(["xsetroot", "-solid", "black"])
 
+    global current_screen
+
     try:
         current_screen = add_full_screen(UNIXname)
         current_screenshare = None
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
-
-    # Arrange to monitor the vncviewer watching the base screen to detect when it exits
-    # and kill this script at that point.  This will most commonly happen when the Big
-    # Blue Button client disconnects, which will kill the ephemeral Xvnc server, which
-    # will kill all of the clients running on it.
-    #
-    # base_screen is a subprocess.Popen.  According to its documentation, its wait() method
-    # operates using a busy loop, so it might be best to re-implement this code using asyncio.
-    #
-    # Also, when this module is enhanced to support client screens with different geometries,
-    # we'll probably terminate the base_screen viewer every time a screen activates, so this
-    # code will have to be revisited then.
-
-    def monitor_screen(screen):
-        screen.wait()
-        print('screen vncviewer ended', file=sys.stderr)
-        sys.stderr.flush()
-        if screen == current_screen:
-            terminate_this_script()
-
-    monitor_thread = threading.Thread(target = monitor_screen, args=(current_screen,))
-    monitor_thread.start()
 
     # I'd like to catch these signals and kill any subprocesses before exiting this script,
     # but it's very difficult to make that work right.  Exiting the process from a thread
@@ -198,7 +198,7 @@ def student_desktop(screenx=None, screeny=None):
                     current_screen = add_full_screen(current_screenshare, viewonly=True)
                 else:
                     current_screen = add_full_screen(UNIXname, viewonly=False)
-                old_screen.kill()
+                old_screen.terminate()
 
     except KeyboardInterrupt:
         # We'll get KeyboardInterrupt from the os.kill() in terminate_this_script
