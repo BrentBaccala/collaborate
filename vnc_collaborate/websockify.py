@@ -114,16 +114,11 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
             # that waits for the server to be listening on a TCP port even
             # if you requested a UNIX domain socket via "-rfbunixpath"
 
-            # We set the UNIX mode to 0666 because our new screen share feature
-            # requires all of the students to have read/write access to any
-            # other student display
-
             args = ['sudo', '-u', UNIXuser, '-i',
                     'python3', '-m', 'vnc_collaborate', 'tigervncserver',
                     '-localhost', 'yes',
                     '-SendPrimary=0', '-SetPrimary=0',
                     '-rfbunixpath', rfbpath,
-                    '-rfbunixmode', '0666',
                     '-SecurityTypes', 'None',
                     '-BlacklistThreshold', '1000000']
 
@@ -139,12 +134,6 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
 
         tightvncserver = pkg_resources.open_binary(__package__, 'tightvncserver.pl')
         subprocess.run(['sudo', '-u', UNIXuser, '-i', 'perl'], stdin=tightvncserver, start_new_session=True)
-
-    # Use our root sudo access to make the user's .Xauthority file readable by group 'bigbluebutton',
-    # which allows the teacher to project screen shares onto the student desktop.
-
-    subprocess.run(['sudo', 'chgrp', 'bigbluebutton', '/home/{}/.Xauthority'.format(UNIXuser)])
-    subprocess.run(['sudo', 'chmod', 'g+r', '/home/{}/.Xauthority'.format(UNIXuser)])
 
     # I also want to allow local VNC connections, mainly for overlaying VNC viewers within
     # the VNC desktops (this is how we do things like screen shares and letting the teacher
@@ -169,6 +158,9 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
     else:
         # Xvnc allows us to set the mode of its UNIX domain socket, but not its group,
         # so we need to wait for it to appear and adjust things accordingly
+        #
+        # We need the socket to be accessible to group bigbluebutton so that teachers
+        # can connect to student desktops, and to allow screen shares.
         while not os.path.exists(rfbpath):
             time.sleep(0.1)
         subprocess.run(['sudo', 'chgrp', 'bigbluebutton', rfbpath])
@@ -256,11 +248,14 @@ def new_websocket_client(self):
 
             # The "socat" is needed because websockify currently can't handle a pipe.
             # It needs to be modified so that it can operate like "inetd".
+            #
+            # We add group bigbluebutton to allow the student desktop to execute screen shares,
+            # not to allow the students direct accesss to that group.
             socket_fn = tempfile.mktemp()
             env = os.environ
             env['JWT'] = JWT
             command = "python3 -m vnc_collaborate tigervncserver -quiet -fg -localhost yes -SecurityTypes None -I-KNOW-THIS-IS-INSECURE -inetd -xstartup python3 -- -m vnc_collaborate {}".format(vnc_function)
-            subprocess.Popen(["sudo", "-u", UNIXuser, "-i", "--preserve-env=JWT",
+            subprocess.Popen(["sudo", "-u", UNIXuser, "-g", "bigbluebutton", "-i", "--preserve-env=JWT",
                               "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + command], env=env);
             while not os.path.exists(socket_fn):
                 time.sleep(0.1)
