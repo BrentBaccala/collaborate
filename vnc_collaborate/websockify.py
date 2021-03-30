@@ -114,7 +114,12 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
             # that waits for the server to be listening on a TCP port even
             # if you requested a UNIX domain socket via "-rfbunixpath"
 
-            args = ['sudo', '-u', UNIXuser, '-i',
+            # This environment variables seems to be required to get gnome-session
+            # to start properly (i.e, to start at all).
+            env = os.environ
+            env['XDG_SESSION_TYPE'] = 'x11'
+
+            args = ['sudo', '-u', UNIXuser, '-i', '--preserve-env=XDG_SESSION_TYPE',
                     'python3', '-m', 'vnc_collaborate', 'tigervncserver',
                     '-localhost', 'yes',
                     '-SendPrimary=0', '-SetPrimary=0',
@@ -125,7 +130,7 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
             if (viewOnly):
                 args.extend(['-AcceptPointerEvents=0', '-AcceptKeyEvents=0'])
 
-            subprocess.run(args, start_new_session=True)
+            subprocess.run(args, start_new_session=True, env=env)
 
     else:
 
