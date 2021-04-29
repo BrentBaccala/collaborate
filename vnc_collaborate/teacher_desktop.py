@@ -236,8 +236,42 @@ num_cols = 0
 num_rows = 0
 
 def calculate_grid_dimensions():
-    cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
-    rows = cols
+    max_width = 0
+    max_height = 0
+    num_displays = 0
+
+    # note: displays aren't fully "valid" unless we've also got screen geometry for them
+
+    for display in VALID_DISPLAYS:
+        # check to see if our query for display geometry finished, and if so, record the result
+        if display in VNCdata_futures and display not in VNCdata:
+            if VNCdata_futures[display].done():
+                VNCdata[display] = VNCdata_futures[display].result()
+                X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
+        if display in VNCdata:
+            max_width = max(max_width, int(VNCdata[display]['width']))
+            max_height = max(max_height, int(VNCdata[display]['height']))
+            num_displays += 1
+
+    if num_displays == 0: return (0,0)
+
+    rows = 1
+    cols = 1
+
+    # increase the number of rows and cols (separately) until the grid is big enough,
+    # always trying to maximum the scaling factor
+
+    while rows*cols < num_displays:
+        NEXTGRIDX = int(SCREENX/(cols+1) - .01*SCREENX)
+        NEXTGRIDY = int(SCREENY/(rows+1) - .01*SCREENY)
+        nextscalex = NEXTGRIDX/max_width
+        nextscaley = NEXTGRIDY/max_height
+
+        if nextscalex < nextscaley:
+            rows += 1
+        else:
+            cols += 1
+
     return (rows, cols)
 
 def main_loop_grid(reset_display):
