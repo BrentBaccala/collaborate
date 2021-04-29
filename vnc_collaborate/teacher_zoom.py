@@ -4,14 +4,6 @@ import os
 
 import vnc_collaborate.freeswitch as freeswitch
 
-# I'd been using ssvncviewer, and still use it for the grid view because of its ability
-# to scale the view.  But xtigervncviewer's clipboard (X11 selection) support is much
-# better, and better integrated with the Xtigervnc server, so much so that cut-and-paste
-# is really buggy with an ssvncviewer running on a Xtigervnc server.
-
-#VNC_VIEWER = "ssvncviewer"
-VNC_VIEWER = "xtigervncviewer"
-
 def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
    r"""
    teacher-zoom(WINDOW-NAME, DESKTOP_WIDTH, DESKTOP_HEIGHT)
@@ -60,6 +52,16 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
       offsety = int((int(desktop_height) - scale*nativey)/2)
 
       geometry = desktop_width + 'x' + desktop_height + '+' + str(offsetx) + '+' + str(offsety)
+
+      # Use ssvncviewer if we need to scale the view.  But xtigervncviewer's clipboard (X11
+      # selection) support is much better, and better integrated with the Xtigervnc server, so
+      # much so that cut-and-paste is really buggy with an ssvncviewer running on a Xtigervnc
+      # server.
+
+      if scale != 1:
+          VNC_VIEWER = 'ssvncviewer'
+      else:
+          VNC_VIEWER = 'xtigervncviewer'
 
       if VNC_VIEWER == 'xtigervncviewer':
          # Send/Set Primary is turned off because we just want the clipboard, not the PRIMARY selection
