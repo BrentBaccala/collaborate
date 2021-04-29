@@ -310,6 +310,9 @@ def main_loop_grid(reset_display):
                         '-title', title, 'unix=' + VNC_SOCKET[display]]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
+                #print(args, file=sys.stderr)
+                #sys.stderr.flush()
+
                 # The default user is special - use the label for BBB users that
                 # mapped to no UNIX user
                 if display == myMeetingID:
@@ -374,6 +377,14 @@ def main_loop_screenshare(reset_display):
 def main_loop():
     try:
         geometry_changed = get_global_display_geometry()
+        if geometry_changed:
+            args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
+            global fvwm
+            fvwm = subprocess.Popen(args)
+            # we need to wait until the new fvwm has started before we layout windows on the screen,
+            # or the vncviewers that go beyond the edges of the old screen geometry will get smashed
+            # into the upper-left hand corner.  The Tk windows don't have this problem, who knows why.
+            time.sleep(0.1)
         main_loop_grid(geometry_changed)
         main_loop_screenshare(geometry_changed)
         return geometry_changed
@@ -399,6 +410,8 @@ def get_global_display_geometry():
     if SCREENX != int(screenx) or SCREENY != int(screeny):
         SCREENX = int(screenx)
         SCREENY = int(screeny)
+        #print("New screen geometry:",SCREENX,SCREENY,file=sys.stderr)
+        #sys.stderr.flush()
         return True
     else:
         return False
@@ -425,6 +438,7 @@ def teacher_desktop(screenx=None, screeny=None):
     # (using yet another new FVWM instance) when we're not.  Not ideal, but it works.
 
     args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
+    global fvwm
     fvwm = subprocess.Popen(args)
 
     subprocess.run(["xsetroot", "-solid", "black"])
@@ -442,9 +456,7 @@ def teacher_desktop(screenx=None, screeny=None):
             fvwm.wait(timeout=1)
             break
         except subprocess.TimeoutExpired:
-            if main_loop():
-                args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
-                fvwm = subprocess.Popen(args)
+            main_loop()
 
     restore_original_state()
 
