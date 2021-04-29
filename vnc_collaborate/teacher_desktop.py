@@ -88,22 +88,38 @@ try:
 except:
     pass
 
-# If collaborate_display_mode is 'current_meeting' we limit the display to
-# only those users in the specified meeting.
-
-collaborate_display_mode = 'all'
-
-def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
+def get_VALID_DISPLAYS():
     r"""
     This function relies on the desktops having UNIX domain sockets in /run/vnc.
     """
 
-    if all_displays == None:
-        all_displays = (collaborate_display_mode == 'all')
+    # query the properties on the root window (set by the window manager)
+    # to see what display mode the user has selected.
+    #
+    # Default is to show all desktops running on the system.
+    #
+    # Would be more efficient to do this by leaving an "xprop -spy"
+    # running in the background
+
+    collaborate_display_mode = 'all'
+
+    xprop = subprocess.Popen(["xprop", "-root"], stdout=subprocess.PIPE)
+    (stdoutdata, stderrdata) = xprop.communicate()
+    for l in stdoutdata.decode().split('\n'):
+        if l.startswith('collaborate_display_mode'):
+            collaborate_display_mode = l.split('"')[1]
+
+    # If collaborate_display_mode is 'current_meeting' we limit the display to
+    # only those users in the specified meeting.
+
+    all_displays = (collaborate_display_mode == 'all')
 
     VALID_DISPLAYS.clear()
     LABELS.clear()
     IDS.clear()
+
+    # Would be more efficient to do this using Big Blue Button webhooks
+    # that by querying the API every time through this function.
 
     if myMeetingID:
         meetingInfo = bigbluebutton.getMeetingInfo(meetingID = myMeetingID)
@@ -121,8 +137,7 @@ def get_VALID_DISPLAYS(all_displays=None, include_default_display = False):
 
     # If we're looking at the current meeting and there are users in
     # the meeting that see the default display, include it in the grid
-    if collaborate_display_mode == 'current_meeting' and None in LABELS:
-        include_default_display = True
+    include_default_display = (collaborate_display_mode == 'current_meeting' and None in LABELS)
 
     for UNIXuser in sorted(glob.glob1('/run/vnc', '*')):
 
@@ -215,7 +230,15 @@ def kill_processes(list_of_procs):
         elif isinstance(proc, multiprocessing.Process):
             proc.terminate()
 
+# Current grid geometry
+
 num_cols = 0
+num_rows = 0
+
+def calculate_grid_dimensions():
+    cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
+    rows = cols
+    return (rows, cols)
 
 def main_loop_grid(reset_display):
     r"""
@@ -224,25 +247,6 @@ def main_loop_grid(reset_display):
 
     global processes
     global locations
-    global num_cols
-
-    # query the properties on the root window (set by the window manager)
-    # to see what display mode the user has selected.
-    #
-    # Would be more efficient to do this by leaving an "xprop -spy"
-    # running in the background
-
-    xprop = subprocess.Popen(["xprop", "-root"], stdout=subprocess.PIPE)
-    (stdoutdata, stderrdata) = xprop.communicate()
-    for l in stdoutdata.decode().split('\n'):
-        if l.startswith('collaborate_display_mode'):
-            global collaborate_display_mode
-            collaborate_display_mode = l.split('"')[1]
-
-    get_VALID_DISPLAYS()
-
-    old_num_cols = num_cols
-    num_cols = math.ceil(math.sqrt(len(VALID_DISPLAYS)))
 
     # If the number of clients changed enough to require a resize of
     # the entire display grid, kill all of our old processes,
@@ -253,7 +257,7 @@ def main_loop_grid(reset_display):
     # have enough display slots available for the VALID_DISPLAYS,
     # which would trigger an exception a little later.
 
-    if old_num_cols != num_cols or reset_display:
+    if reset_display:
         for procs in processes.values():
             kill_processes(procs)
         processes.clear()
@@ -265,13 +269,13 @@ def main_loop_grid(reset_display):
             processes.pop(disp)
             locations.pop(disp)
 
-    if num_cols > 0:
+    if num_cols > 0 and num_rows > 0:
 
         # each pane has a .005 margin around it on all four sides
         # this produces a total gap of .01 between any two panes
 
         SCALEX = int(SCREENX/num_cols - .01*SCREENX)
-        SCALEY = int(SCREENY/num_cols - .01*SCREENY)
+        SCALEY = int(SCREENY/num_rows - .01*SCREENY)
 
         SCALE = str(SCALEX) + "x" + str(SCALEY)
 
@@ -297,7 +301,7 @@ def main_loop_grid(reset_display):
                 scaley = SCALEY/nativey
                 scale = min(scalex, scaley)
                 geox = int(col * SCREENX/num_cols + .005*SCREENX)
-                geoy = int(row * SCREENY/num_cols + .005*SCREENY)
+                geoy = int(row * SCREENY/num_rows + .005*SCREENY)
                 offsetx = int((SCALEX - scale*nativex)/2)
                 offsety = int((SCALEY - scale*nativey)/2)
                 # Use the title of the window to identify these windows to the FVWM config,
@@ -330,7 +334,6 @@ def get_current_screenshare():
         return None
 
 current_screenshare = None
-current_screenshare_cols = 0
 current_screenshare_window = None
 current_screenshare_button = None
 
@@ -340,15 +343,12 @@ def main_loop_screenshare(reset_display):
     an 'end screenshare' button
     """
 
-    global locations
-    global num_cols
     global current_screenshare
-    global current_screenshare_cols
     global current_screenshare_window
     global current_screenshare_button
 
     new_screenshare = get_current_screenshare()
-    if current_screenshare != new_screenshare or current_screenshare_cols != num_cols or reset_display:
+    if current_screenshare != new_screenshare or reset_display:
         if current_screenshare_window:
             current_screenshare_window.terminate()
             # commented out because I'm afraid of this deadlocking us
@@ -359,13 +359,12 @@ def main_loop_screenshare(reset_display):
             row = int(location / num_cols)
             col = location % num_cols
             geox = int(col * SCREENX/num_cols)
-            geoy = int(row * SCREENY/num_cols)
+            geoy = int(row * SCREENY/num_rows)
             SCALEX = int(SCREENX/num_cols)
-            SCALEY = int(SCREENY/num_cols)
+            SCALEY = int(SCREENY/num_rows)
 
             current_screenshare_window = colored_rect(SCALEX, SCALEY, geox, geoy)
         current_screenshare = new_screenshare
-        current_screenshare_cols = num_cols
 
     if current_screenshare and not current_screenshare_button:
         current_screenshare_button = close_projection_button()
@@ -385,9 +384,15 @@ def main_loop():
             # or the vncviewers that go beyond the edges of the old screen geometry will get smashed
             # into the upper-left hand corner.  The Tk windows don't have this problem, who knows why.
             time.sleep(0.1)
-        main_loop_grid(geometry_changed)
-        main_loop_screenshare(geometry_changed)
-        return geometry_changed
+
+        get_VALID_DISPLAYS()
+        global num_rows, num_cols
+        (old_rows, old_cols) = (num_rows, num_cols)
+        (num_rows, num_cols) = calculate_grid_dimensions()
+        grid_changed = ((old_rows, old_cols) != (num_rows, num_cols))
+        main_loop_grid(geometry_changed or grid_changed)
+        main_loop_screenshare(geometry_changed or grid_changed)
+
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
@@ -402,6 +407,10 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 def get_global_display_geometry():
+    r"""
+    Get the display geometry of the "master" display and return True if
+    that geometry changed since the last time this function was called.
+    """
 
     global SCREENX, SCREENY
 
