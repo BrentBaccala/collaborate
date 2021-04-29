@@ -48,12 +48,19 @@ AddToMenu DisplayMode   "Display Mode"			Title
 +			"All Desktops"			Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode all
 +			"Current Meeting"		Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode current_meeting
 
+AddToMenu SetGeometry   "Set Geometry"			Title
++			"3840x2160"			Exec xrandr --fb 3840x2160 --output VNC-0 --off
++			"3584x2016"			Exec xrandr --fb 3584x2016 --output VNC-0 --off
++			"1280x1024"			Exec xrandr --fb 1280x1024 --output VNC-0 --off
++			"1280x720"			Exec xrandr --fb 1280x720 --output VNC-0 --off
+
 AddToMenu TeacherMenu	"Overview Menu"			Title
 +			""				Nop
 +			"Undeaf all viewers"		Exec exec python3 -m vnc_collaborate undeaf_students -a
 +			"Deaf all viewers"		Exec exec python3 -m vnc_collaborate deaf_students -a
 +			""				Nop
 +			"Display Mode"			Popup DisplayMode
++			"Set Geometry"			Popup SetGeometry
 +			""				Nop
 +			"Refresh Screen"		Refresh
 
@@ -65,6 +72,7 @@ AddToMenu TeacherMenuOnStudentDesktop	"Overview Menu"			Title
 +			"Screenshare this desktop"	Current Exec exec python3 -m vnc_collaborate project_to_students $[vp.width] $[vp.height] "$[w.name]"
 +			""				Nop
 +			"Display Mode"			Popup DisplayMode
++			"Set Geometry"			Popup SetGeometry
 +			""				Nop
 +			"Refresh Screen"		Refresh
 
