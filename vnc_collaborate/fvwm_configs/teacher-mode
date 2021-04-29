@@ -51,6 +51,9 @@ AddToMenu DisplayMode   "Display Mode"			Title
 AddToMenu SetGeometry   "Set Geometry"			Title
 +			"3840x2160"			Exec xrandr --fb 3840x2160 --output VNC-0 --off
 +			"3584x2016"			Exec xrandr --fb 3584x2016 --output VNC-0 --off
++			"3072x1728"			Exec xrandr --fb 3072x1728 --output VNC-0 --off
++			"2818x1585"			Exec xrandr --fb 2818x1585 --output VNC-0 --off
++			"1536x864"			Exec xrandr --fb 1536x864 --output VNC-0 --off
 +			"1280x1024"			Exec xrandr --fb 1280x1024 --output VNC-0 --off
 +			"1280x720"			Exec xrandr --fb 1280x720 --output VNC-0 --off
 
