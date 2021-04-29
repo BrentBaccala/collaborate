@@ -236,11 +236,21 @@ num_cols = 0
 num_rows = 0
 
 def calculate_grid_dimensions():
+    r"""
+    Calculate number of rows and columns in grid.
+
+    Currently based on the screen geometry of the largest display in the grid.
+
+    We pick a grid layout that maximizes the scaling of that largest display
+    while also creating a grid large enough for all "valid" displays.
+
+    Note: displays aren't fully "valid", and don't appear in the grid, unless
+    we've also got screen geometry for them.  Without a response to the screen
+    geometry query, they don't appear, even if they're in VALID_DISPLAYS.
+    """
     max_width = 0
     max_height = 0
     num_displays = 0
-
-    # note: displays aren't fully "valid" unless we've also got screen geometry for them
 
     for display in VALID_DISPLAYS:
         # check to see if our query for display geometry finished, and if so, record the result
