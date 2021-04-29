@@ -78,6 +78,10 @@ VNCdata_futures = dict()
 
 myMeetingID = None
 
+# screen geometry of the display used for the grid view
+SCREENX = 0
+SCREENY = 0
+
 try:
     JWT = jwt.decode(os.environ['JWT'], verify=False)
     myMeetingID = JWT['bbb-meetingID']
@@ -213,7 +217,7 @@ def kill_processes(list_of_procs):
 
 num_cols = 0
 
-def main_loop_grid():
+def main_loop_grid(reset_display):
     r"""
     The portion of the main loop that draws the grid.
     """
@@ -249,7 +253,7 @@ def main_loop_grid():
     # have enough display slots available for the VALID_DISPLAYS,
     # which would trigger an exception a little later.
 
-    if old_num_cols != num_cols:
+    if old_num_cols != num_cols or reset_display:
         for procs in processes.values():
             kill_processes(procs)
         processes.clear()
@@ -327,7 +331,7 @@ current_screenshare_cols = 0
 current_screenshare_window = None
 current_screenshare_button = None
 
-def main_loop_screenshare():
+def main_loop_screenshare(reset_display):
     r"""
     The part of the main loop that outlines a screenshared desktop and presents
     an 'end screenshare' button
@@ -341,7 +345,7 @@ def main_loop_screenshare():
     global current_screenshare_button
 
     new_screenshare = get_current_screenshare()
-    if current_screenshare != new_screenshare or current_screenshare_cols != num_cols:
+    if current_screenshare != new_screenshare or current_screenshare_cols != num_cols or reset_display:
         if current_screenshare_window:
             current_screenshare_window.terminate()
             # commented out because I'm afraid of this deadlocking us
@@ -369,8 +373,10 @@ def main_loop_screenshare():
 
 def main_loop():
     try:
-        main_loop_grid()
-        main_loop_screenshare()
+        geometry_changed = get_global_display_geometry()
+        main_loop_grid(geometry_changed)
+        main_loop_screenshare(geometry_changed)
+        return geometry_changed
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
 
@@ -384,20 +390,20 @@ def signal_handler(sig, frame):
     restore_original_state()
     sys.exit(0)
 
-def get_global_display_geometry(screenx=None, screeny=None):
+def get_global_display_geometry():
 
     global SCREENX, SCREENY
 
-    if not screenx or not screeny:
-        (screenx, screeny) = subprocess.run(['xdotool', 'getdisplaygeometry'],
-                                            stdout=subprocess.PIPE, encoding='ascii').stdout.split()
-
-    SCREENX = int(screenx)
-    SCREENY = int(screeny)
+    (screenx, screeny) = subprocess.run(['xdotool', 'getdisplaygeometry'],
+                                        stdout=subprocess.PIPE, encoding='ascii').stdout.split()
+    if SCREENX != int(screenx) or SCREENY != int(screeny):
+        SCREENX = int(screenx)
+        SCREENY = int(screeny)
+        return True
+    else:
+        return False
 
 def teacher_desktop(screenx=None, screeny=None):
-
-    get_global_display_geometry(screenx, screeny)
 
     if display_JWT:
         try:
@@ -436,7 +442,9 @@ def teacher_desktop(screenx=None, screeny=None):
             fvwm.wait(timeout=1)
             break
         except subprocess.TimeoutExpired:
-            main_loop()
+            if main_loop():
+                args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
+                fvwm = subprocess.Popen(args)
 
     restore_original_state()
 
@@ -527,8 +535,6 @@ def colored_rect(width, height, xlocation, ylocation):
     return process
 
 def project_to_students(screenx, screeny, student_window_name = None):
-
-    get_global_display_geometry(screenx, screeny)
 
     # see comment in teacher_zoom to understand this
     args = student_window_name.replace("\\'", "'")[1:-1].split(';')
