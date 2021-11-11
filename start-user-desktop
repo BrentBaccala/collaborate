@@ -1,0 +1,110 @@
+#!/usr/bin/python3
+
+import asyncio
+import websockets
+
+# Python < 3.7 doesn't have asyncio.run, but this (copied from the 3.7 code and modified) does the trick:
+
+from asyncio import coroutines
+from asyncio import events
+from asyncio import tasks
+
+def run(main, *, debug=None):
+    """Execute the coroutine and return the result.
+    This function runs the passed coroutine, taking care of
+    managing the asyncio event loop and finalizing asynchronous
+    generators.
+    This function cannot be called when another asyncio event loop is
+    running in the same thread.
+    If debug is True, the event loop will be run in debug mode.
+    This function always creates a new event loop and closes it at the end.
+    It should be used as a main entry point for asyncio programs, and should
+    ideally only be called once.
+    Example:
+        async def main():
+            await asyncio.sleep(1)
+            print('hello')
+        asyncio.run(main())
+    """
+    if events._get_running_loop() is not None:
+        raise RuntimeError(
+            "asyncio.run() cannot be called from a running event loop")
+
+    if not coroutines.iscoroutine(main):
+        raise ValueError("a coroutine was expected, got {!r}".format(main))
+
+    loop = events.new_event_loop()
+    try:
+        events.set_event_loop(loop)
+        if debug is not None:
+            loop.set_debug(debug)
+        return loop.run_until_complete(main)
+    finally:
+        try:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        finally:
+            events.set_event_loop(None)
+            loop.close()
+
+# Generates login links for a BigBlueButton server using the
+# bbb-auth-jwt service for authentication (from bbb-mklogin)
+# which is the same scheme used by VNC collaborate.
+
+import os
+import sys
+import jwt
+import socket
+from datetime import datetime, timedelta
+import dateutil.parser
+import argparse
+from cryptography.hazmat.primitives import serialization
+
+CONF_FILE='/etc/bigbluebutton/bbb-auth-jwt'
+
+local_timezone = datetime.now().astimezone().tzinfo
+
+parser = argparse.ArgumentParser(description='Start the desktop session for the named user')
+parser.add_argument('-d', '--debug', action="store_true", help="print exact JWT being encoded")
+parser.add_argument('name', help='collaborate username')
+args = parser.parse_args()
+
+exp = datetime.now() + timedelta(days=1)
+
+# If the CONF_FILE exists, read parameters, most importantly JWT_KEY
+# and LOGIN_URL from it.  Otherwise, use the local machine's FQDN to
+# generate LOGIN_URL and read JWT_KEY from the local Big Blue Button
+# properties file.
+#
+# This allows us to configure this script to generate keys for a
+# remote server while falling back to the local server by default.
+#
+# The 'bigbluebutton' package only needs to be installed if we
+# don't have configuration info in CONF_FILE.
+
+if os.path.isfile(CONF_FILE):
+    exec(open(CONF_FILE).read())
+else:
+    import bigbluebutton
+    JWT_KEY = bigbluebutton.securitySalt()
+    algorithm = None
+    LOGIN_URL = bigbluebutton.serverURL().replace('https', 'wss') + '/vnc/'
+
+message = {'sub' : args.name, 'exp' : exp}
+
+if args.debug:
+    print('Expiration time:', exp.strftime('%c %Z'))
+    print(message)
+
+if algorithm:
+    JWT = jwt.encode(message, JWT_KEY, algorithm=algorithm)
+else:
+    JWT = jwt.encode(message, JWT_KEY)
+
+URL = LOGIN_URL + JWT.decode()
+
+async def hello():
+    async with websockets.connect(URL) as websocket:
+        await websocket.recv()
+
+
+run(hello())
