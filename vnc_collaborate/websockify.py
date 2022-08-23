@@ -182,19 +182,27 @@ def new_websocket_client(self):
     except (KeyError, IndexError):
         JWT = ''
 
-    try:
-        decoded = jwt.decode(JWT, bigbluebutton.securitySalt())
-        fullName = decoded['sub']
-    except (jwt.PyJWTError, KeyError) as err:
-        print(repr(err))
-        fullName = ''
+    # local BigBlueButton server is always allowed access
+    keys = [bigbluebutton.securitySalt()]
+    if 'AUTHORIZED_JWT_KEYS' in os.environ:
+        keys.extend(filter(lambda x: len(x)>0, os.environ['AUTHORIZED_JWT_KEYS'].replace(',', ' ').split(' ')))
 
-    try:
-        decoded = jwt.decode(JWT, bigbluebutton.securitySalt())
-        meetingID = decoded['bbb-meetingID']
-    except (jwt.PyJWTError, KeyError) as err:
-        print(repr(err))
-        meetingID = 'default'
+    for key in keys:
+        try:
+            decoded = jwt.decode(JWT, bigbluebutton.securitySalt())
+            fullName = decoded['sub']
+        except (jwt.PyJWTError, KeyError) as err:
+            print(repr(err))
+            fullName = ''
+
+        try:
+            decoded = jwt.decode(JWT, bigbluebutton.securitySalt())
+            meetingID = decoded['bbb-meetingID']
+        except (jwt.PyJWTError, KeyError) as err:
+            print(repr(err))
+            meetingID = 'default'
+
+        if fullname != '': break
 
     rfbport = fullName_to_rfbport(fullName)
     UNIXuser = fullName_to_UNIX_username(fullName)
