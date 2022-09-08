@@ -36,9 +36,12 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
       NATIVE_GEOMETRY = args[3]
       VNC_SOCKET = args[4]
 
-      freeswitch.get_status()
-
-      was_deafed = freeswitch.is_deaf(STUDENT_ID, default=False)
+      try:
+          freeswitch.get_status()
+          was_deafed = freeswitch.is_deaf(STUDENT_ID, default=False)
+      except:
+          # if we couldn't access freeswitch (probably PermissionError), just don't attempt deaf/undeaf operations
+          was_deafed = False
 
       # If the student was deafed, undeaf them, since we're probably about to talk to them
       if was_deafed:
