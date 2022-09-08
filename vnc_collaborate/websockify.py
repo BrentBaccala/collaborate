@@ -21,8 +21,7 @@
 # then it is executed, with the permissions of USER (so it is
 # currently implicitly setuid, and no check is made to ensure that it
 # is owned by USER), and the connected is relayed to the program's
-# stdin.  The JSON Web Token is passed to it in the environment
-# variable "JWT".
+# stdin.
 #
 # If none of this works, we fall back to the server and port specified
 # on the command line as a default.
@@ -37,12 +36,12 @@ import psutil
 import glob
 import urllib
 import subprocess
-import jwt
 import time
 import tempfile
 import pwd
 import grp
 import posix_ipc
+import requests
 
 import bigbluebutton
 
@@ -177,32 +176,34 @@ from websockify.websocketproxy import ProxyRequestHandler
 old_new_websocket_client = ProxyRequestHandler.new_websocket_client
 
 def new_websocket_client(self):
-    try:
-        JWT = urllib.parse.urlparse(self.path).path[1:]
-    except (KeyError, IndexError):
-        JWT = ''
 
-    # local BigBlueButton server is always allowed access
-    keys = [bigbluebutton.securitySalt()]
-    if 'AUTHORIZED_JWT_KEYS' in os.environ:
-        keys.extend(filter(lambda x: len(x)>0, os.environ['AUTHORIZED_JWT_KEYS'].replace(',', ' ').split(' ')))
+    url = urllib.parse.urlparse(self.path)
+    querydict = urllib.parse.parse_qs(url.query)
 
-    for key in keys:
-        try:
-            decoded = jwt.decode(JWT, bigbluebutton.securitySalt())
-            fullName = decoded['sub']
-        except (jwt.PyJWTError, KeyError) as err:
-            print(repr(err))
-            fullName = ''
+    # querydict includes 'sessionToken'
+    #
+    # HTTP request to /bigbluebutton/connection/checkAuthorization
+    # will return User-Id and Meeting-Id in HTTP response headers
+    #
+    # API call to getMeetingInfo with meetingID will return XML with attendee/userID and attendee/fullName
+    #
+    # or just make an API call to getMeetings.  Simplier, but returns more data
 
-        try:
-            decoded = jwt.decode(JWT, bigbluebutton.securitySalt())
-            meetingID = decoded['bbb-meetingID']
-        except (jwt.PyJWTError, KeyError) as err:
-            print(repr(err))
-            meetingID = 'default'
+    if 'User-Id' in self.headers:
+        userID = self.headers['User-Id']
+        meetingID = self.headers['Meeting-Id']
+    else:
+        params = {'sessionToken': querydict['sessionToken']}
+        response = requests.get('https://test24.freesoft.org/bigbluebutton/connection/checkAuthorization', params=params)
+        # This will raise an exception if sessionToken isn't valid
+        response.raise_for_status()
+        userID = response['User-Id']
+        meetingID = response['Meeting-Id']
 
-        if fullname != '': break
+    # something seems to be wrong with this API call - returns 500 Internal Server Error (Aug 26 2022)
+    #meetings = bigbluebutton.getMeetingInfo(meetingID=meetingID)
+    meetings = bigbluebutton.getMeetings()
+    fullName = meetings.xpath('.//userID[text()=$userID]/../fullName', userID=userID)[0].text
 
     rfbport = fullName_to_rfbport(fullName)
     UNIXuser = fullName_to_UNIX_username(fullName)
@@ -233,8 +234,12 @@ def new_websocket_client(self):
             # It needs to be modified so that it can operate like "inetd".
             socket_fn = tempfile.mktemp()
             env = os.environ
-            env['JWT'] = JWT
-            subprocess.Popen(["sudo", "-u", UNIXuser, "-i", "--preserve-env=JWT",
+            env['User-Id'] = userID
+            env['Meeting-Id'] = meetingID
+            env['fullName'] = fullName
+            env['UNIXuser'] = UNIXuser
+            subprocess.Popen(["sudo", "-u", UNIXuser, "-i",
+                              "--preserve-env=User-Id", "--preserve-env=Meeting-Id", "--preserve-env=fullName", "--preserve-env=UNIXuser",
                               "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + homeserver], env=env);
             while not os.path.exists(socket_fn):
                 time.sleep(0.1)
@@ -245,12 +250,10 @@ def new_websocket_client(self):
             if not os.path.exists(rfbpath):
                 start_VNC_server(UNIXuser, rfbpath)
 
-            # Next, select teacher mode if user is in the 'bigbluebutton' group
-            try:
-                # in a try/except block just in case the bigbluebutton group doesn't exist
-                teacher_mode = UNIXuser in grp.getgrnam('bigbluebutton').gr_mem
-            except:
-                teacher_mode = False
+            # Next, select teacher mode if user can access more than one desktop in /run/vnc
+            # XXX this isn't working right because this script runs as root
+            # teacher_mode = list(map(lambda fn: os.access(fn, os.W_OK), glob.glob('/run/vnc/*'))).count(True) > 1
+            teacher_mode = UNIXuser in grp.getgrnam('bigbluebutton').gr_mem
 
             # Finally, start a dynamic VNC server running 'vnc_function'
 
@@ -266,9 +269,14 @@ def new_websocket_client(self):
             # not to allow the students direct accesss to that group.
             socket_fn = tempfile.mktemp()
             env = os.environ
-            env['JWT'] = JWT
+            env['User-Id'] = userID
+            env['Meeting-Id'] = meetingID
+            env['fullName'] = fullName
+            # isn't this available as $USER?
+            env['UNIXuser'] = UNIXuser
             command = "python3 -m vnc_collaborate tigervncserver -quiet -fg -localhost yes -SecurityTypes None -I-KNOW-THIS-IS-INSECURE -inetd -xstartup python3 -- -m vnc_collaborate {}".format(vnc_function)
-            subprocess.Popen(["sudo", "-u", UNIXuser, "-g", "bigbluebutton", "-i", "--preserve-env=JWT",
+            subprocess.Popen(["sudo", "-u", UNIXuser, "-g", "bigbluebutton", "-i",
+                              "--preserve-env=User-Id", "--preserve-env=Meeting-Id", "--preserve-env=fullName", "--preserve-env=UNIXuser",
                               "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + command], env=env);
             while not os.path.exists(socket_fn):
                 time.sleep(0.1)

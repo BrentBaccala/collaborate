@@ -13,7 +13,6 @@ import re
 import signal
 import os
 import glob
-import jwt
 import stat
 
 import tkinter as tk
@@ -27,11 +26,6 @@ import pymongo
 from .simple_text import simple_text
 from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
-
-# set this True to display the JSON web token at the bottom of the student desktop
-# (for debugging purposes)
-
-display_JWT = False
 
 # xtigervncviewer is prefered for its cut-and-paste capability
 
@@ -134,19 +128,8 @@ def student_desktop(screenx=None, screeny=None):
 
     get_global_display_geometry(screenx, screeny)
 
-    try:
-        JWT = jwt.decode(os.environ['JWT'], verify=False)
-        text = '\n'.join([str(k) + ": " + str(v) for k,v in JWT.items()])
-    except Exception as ex:
-        text = repr(ex)
-
-    print('JWT', JWT, file=sys.stderr)
-    sys.stderr.flush()
-
-    if display_JWT:
-        simple_text(text, SCREENX/2, SCREENY - 100)
-
-    UNIXname = fullName_to_UNIX_username(JWT['sub'])
+    # isn't this the current username?
+    UNIXname = os.environ['UNIXuser']
 
     # Especially if the displays all have the same geometry, we don't really need fvwm running.
     # Screenshares trigger a lot faster if fvwm isn't running.
@@ -181,14 +164,15 @@ def student_desktop(screenx=None, screeny=None):
 
     global current_screen
 
+    meetingID = os.environ['Meeting-Id']
     try:
-        current_screenshare = get_current_screenshare(db_vnc, JWT['bbb-meetingID'], UNIXname)
+        current_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
         viewonly = (current_screenshare != UNIXname)
         current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
         for document in cursor:
             print(document, file=sys.stderr)
             sys.stderr.flush()
-            new_screenshare = get_current_screenshare(db_vnc, JWT['bbb-meetingID'], UNIXname)
+            new_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
             if new_screenshare != current_screenshare:
                 current_screenshare = new_screenshare
                 old_screen = current_screen

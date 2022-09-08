@@ -4,7 +4,7 @@
 # converting python dependencies to dpkg dependencies only works if
 # the package is already installed.
 
-DEPENDENCIES=python3-bigbluebutton python3-jwt python3-posix-ipc python3-psutil python3-service-identity python3-vncdotool python3-websockify
+DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-service-identity python3-vncdotool python3-websockify
 
 all:
 	#apt install $(DEPENDENCIES)

@@ -28,7 +28,6 @@ setuptools.setup(
         'websockify',
         'posix_ipc',
         'psutil',
-        'pyjwt',
         'importlib_resources; python_version < "3.7"',
         'vncdotool',
         'service_identity'   # this is just here so twisted doesn't print warning messages

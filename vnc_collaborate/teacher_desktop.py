@@ -12,8 +12,9 @@ import re
 import signal
 import os
 import glob
-import jwt
 import stat
+import getpass
+import grp
 
 import tkinter as tk
 
@@ -27,10 +28,14 @@ from .simple_text import simple_text
 from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
 
-# set this True to display the JSON web token at the bottom of the teacher desktop
-# (for debugging purposes)
+myUNIXname = getpass.getuser()
 
-display_JWT = False
+# Next, select teacher mode if user is in the 'bigbluebutton' group
+try:
+    # in a try/except block just in case the bigbluebutton group doesn't exist
+    teacher_mode = myUNIXname in grp.getgrnam('bigbluebutton').gr_mem
+except:
+    teacher_mode = False
 
 # ssvncviewer is preferred over other VNC viewers due to its ability to scale the remote
 # desktop to fit in the window geometry, an essential feature for our miniaturized
@@ -72,21 +77,13 @@ X11_DISPLAY = dict()
 VNCdata = dict()
 VNCdata_futures = dict()
 
-# myMeetingID: the Big Blue Button meeting identifier, which we fetch
-# from the JSON Web Token passed in from websockify via the
-# environment
+# myMeetingID: the Big Blue Button meeting identifier
 
-myMeetingID = None
+myMeetingID = os.environ.get('Meeting-Id')
 
 # screen geometry of the display used for the grid view
 SCREENX = 0
 SCREENY = 0
-
-try:
-    JWT = jwt.decode(os.environ['JWT'], verify=False)
-    myMeetingID = JWT['bbb-meetingID']
-except:
-    pass
 
 def get_VALID_DISPLAYS():
     r"""
@@ -122,7 +119,9 @@ def get_VALID_DISPLAYS():
     # that by querying the API every time through this function.
 
     if myMeetingID:
-        meetingInfo = bigbluebutton.getMeetingInfo(meetingID = myMeetingID)
+        # some kind of problem with this API call
+        # meetingInfo = bigbluebutton.getMeetingInfo(meetingID = myMeetingID)
+        meetingInfo = bigbluebutton.getMeetings().xpath('.//internalMeetingID[text()=$meetingID]/..', meetingID= myMeetingID)[0]
         for e in meetingInfo.xpath(".//attendee"):
             fullName = e.find('fullName').text
             userID = e.find('userID').text
@@ -470,14 +469,6 @@ def get_global_display_geometry():
         return False
 
 def teacher_desktop(screenx=None, screeny=None):
-
-    if display_JWT:
-        try:
-            JWT = jwt.decode(os.environ['JWT'], verify=False)
-            text = '\n'.join([str(k) + ": " + str(v) for k,v in JWT.items()])
-        except Exception as ex:
-            text = repr(ex)
-        simple_text(text, SCREENX/2, SCREENY - 100)
 
     # open the mongo database so we can watch for screenshare notifications
 
