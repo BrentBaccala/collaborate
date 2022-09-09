@@ -33,7 +33,7 @@ setuptools.setup(
         'service_identity'   # this is just here so twisted doesn't print warning messages
     ],
     scripts=[
-        'set-gnome-terminal-fonts',
+        'scripts/set-gnome-terminal-fonts',
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
