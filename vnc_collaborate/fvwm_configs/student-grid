@@ -14,23 +14,22 @@ Style * SkipMapping
 # (i.e, students coming and going) get made to desktop 0 and are
 # invisible until the zoom ends on desktop 1.
 
+# Grid panes are done with ssvncviewer whose title starts with "TeacherViewVNC".
 # Older zoomed student views are done with ssvncviewer and are named "Zoomed Student Desktop"
 # Newer method is tigervncviewer, which doesn't support the -title option, so it's called "TigerVNC Viewer"
+# Both the older and the newer method are currently in use, since the newer method doesn't support scaling
+#   and the older method can't handle cut-and-paste.
 
 Style * StartsOnDesk 0
 Style "Zoomed Student Desktop" StartsOnDesk 1
 Style "*TigerVNC Viewer*" StartsOnDesk 1
 
-# The Tk windows are the window labels and the "end screenshare"
-# button.  We always want them on top of the other windows.  The
-# "highlight" windows are colored rectangles that appear behind the
-# vncviewers.
+# The Tk windows are the window labels.  We always want them on top of the other windows.
 
 Style "*vncviewer" Layer 1
 Style "Tk" Layer 2
-Style "highlight" Layer 0
 
-# The font for the teacher pull down menu.
+# The font for the pull down menu.
 
 DefaultFont "xft:Sans:Bold:size=20:antialias=True"
 
@@ -44,10 +43,6 @@ Mouse 1 T   A -
 Mouse 1 FS  A -
 Mouse 2 FST A -
 
-AddToMenu DisplayMode   "Display Mode"			Title
-+			"All Desktops"			Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode all
-+			"Current Meeting"		Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode current_meeting
-
 AddToMenu SetGeometry   "Set Geometry"			Title
 +			"3840x2160"			Exec xrandr --fb 3840x2160 --output VNC-0 --off
 +			"3584x2016"			Exec xrandr --fb 3584x2016 --output VNC-0 --off
@@ -59,22 +54,14 @@ AddToMenu SetGeometry   "Set Geometry"			Title
 
 AddToMenu TeacherMenu	"Overview Menu"			Title
 +			""				Nop
-+			"Undeaf all viewers"		Exec exec python3 -m vnc_collaborate undeaf_students -a
-+			"Deaf all viewers"		Exec exec python3 -m vnc_collaborate deaf_students -a
-+			""				Nop
-+			"Display Mode"			Popup DisplayMode
 +			"Set Geometry"			Popup SetGeometry
 +			""				Nop
 +			"Refresh Screen"		Refresh
 
 AddToMenu TeacherMenuOnStudentDesktop	"Overview Menu"			Title
 +			""				Nop
-+			"Undeaf all viewers"		Exec exec python3 -m vnc_collaborate undeaf_students -a
-+			"Deaf all viewers"		Exec exec python3 -m vnc_collaborate deaf_students -a
 +			"View this desktop"		ZoomDesktop viewonly
-+			"Screenshare this desktop"	Current Exec exec python3 -m vnc_collaborate project_to_students $[vp.width] $[vp.height] "$[w.name]"
 +			""				Nop
-+			"Display Mode"			Popup DisplayMode
 +			"Set Geometry"			Popup SetGeometry
 +			""				Nop
 +			"Refresh Screen"		Refresh
@@ -84,9 +71,6 @@ Mouse 3 W       A       Menu TeacherMenuOnStudentDesktop Nop
 
 # MAJOR FEATURE: when the teacher clicks on a miniaturized student desktop,
 # we launch a "zoomed" view of that desktop that is fully interactive.
-# We need to remove the mouse binding to allow the zoomed view to
-# work right.  When the teacher exits the zoomed view, we replace
-# the mouse binding.  We also switch to desktop 1 for the zoomed view.
 
 DestroyFunc ZoomDesktop
 AddToFunc ZoomDesktop
@@ -94,16 +78,10 @@ AddToFunc ZoomDesktop
  + I Mouse 3 W  A  -
  + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]" $[vp.width] $[vp.height] $0
  + I Mouse ("TeacherViewVNC;*") 1 A A   -
- + I Mouse ("Projection*") 1 A A  -
  + I GotoDesk 0 1
 
 Mouse ("TeacherViewVNC;*") 1 A A   ZoomDesktop
 
-# The "Projection Controls" window should accept mouse clicks to close it,
-# but I think the previous Mouse... command means that FVWM intercepts all
-# of the mouse events and relays them on as SendEvents, which don't seem
-# to work.  So we add an FVWM mouse event to close the window by clicking on it.
-Mouse ("Projection*") 1 A A   Close
 
 # Whenever a window is destroyed, check to see if there are any zoomed
 # desktops left (there should only be one at any time anyway).  If
@@ -113,7 +91,6 @@ Mouse ("Projection*") 1 A A   Close
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
  + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse ("TeacherViewVNC;*") 1 A A ZoomDesktop
- + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse ("Projection*") 1 A A   Close
  + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse 3 A  A  Menu TeacherMenu Nop
  + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse 3 W  A  Menu TeacherMenuOnStudentDesktop Nop
  + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") GotoDesk 0 0
