@@ -82,6 +82,16 @@ AddToFunc ZoomDesktop
 
 Mouse ("TeacherViewVNC;*") 1 A A   ZoomDesktop
 
+# Whenever a window is created, check to see if there are any zoomed
+# desktops present (either interactive or a screenshare).  If so,
+# remove our mouse bindings and switch to desktop 1.
+
+DestroyFunc CreateWindowEvent
+AddToFunc CreateWindowEvent
+ + I Any ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse ("TeacherViewVNC;*") 1 A A -
+ + I Any ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse 3 A  A  -
+ + I Any ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse 3 W  A  -
+ + I Any ("Zoomed Student Desktop|*TigerVNC Viewer*") GotoDesk 0 1
 
 # Whenever a window is destroyed, check to see if there are any zoomed
 # desktops left (there should only be one at any time anyway).  If
@@ -96,6 +106,7 @@ AddToFunc DestroyWindowEvent
  + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") GotoDesk 0 0
 
 *FvwmEvent: destroy_window DestroyWindowEvent
+*FvwmEvent: add_window CreateWindowEvent
 
 Module FvwmEvent
 
