@@ -18,5 +18,5 @@ all:
 	# prevents us from including post install scripts.
 	#
 	# See https://github.com/astraw/stdeb/issues/132
-	cp debian/* deb_dist/vnc-collaborate-*/debian/
+	# cp debian/* deb_dist/vnc-collaborate-*/debian/
 	cd deb_dist/vnc-collaborate-*; dpkg-buildpackage -rfakeroot -uc -us
