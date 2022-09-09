@@ -8,7 +8,7 @@ DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-serv
 
 all:
 	#apt install $(DEPENDENCIES)
-	pip3 -q show stdeb || echo "ERROR: stdeb is required to build python3-vnc-collaborate"
+	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-vnc-collaborate"; exit 1; fi
 	rm -rf deb_dist
 	python3 setup.py --command-packages=stdeb.command bdist_deb
 	rm vnc-collaborate-*.tar.gz
