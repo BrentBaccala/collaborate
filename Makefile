@@ -8,6 +8,7 @@ DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-serv
 
 all:
 	#apt install $(DEPENDENCIES)
+	pip3 -q show stdeb
 	rm -rf deb_dist
 	python3 setup.py --command-packages=stdeb.command bdist_deb
 	rm vnc-collaborate-*.tar.gz
