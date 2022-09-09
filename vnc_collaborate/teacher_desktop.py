@@ -416,11 +416,70 @@ def main_loop_screenshare(reset_display):
         current_screenshare_button = None
         # again, I'd like to wait for this, but am afraid to
 
+# NOT CURRENTLY USED
+def monitor_screen(screen):
+    screen.wait()
+
+# NOT CURRENTLY USED
+def add_full_screen(user, viewonly=False):
+
+    VNC_SOCKET = '/run/vnc/' + user
+
+    # Send/Set Primary is turned off because we just want the clipboard, not the PRIMARY selection
+    # RemoteResize is turned off so that this viewer doesn't try to resize the desktop
+    proc_args = [VNC_VIEWER, '-Fullscreen', '-Shared', '-RemoteResize=0',
+                 '-SetPrimary=0', '-SendPrimary=0',
+                 '-MenuKey=None',
+                 '-geometry', '1280x720+0+0',
+                 # '-Log', 'Viewport:stdout:100',
+                 VNC_SOCKET]
+
+    if viewonly:
+        proc_args.insert(-1, '-ViewOnly')
+
+    proc = subprocess.Popen(proc_args, stderr=subprocess.DEVNULL)
+
+    # don't put 'proc' in 'processes' because we don't want to kill it if the grid resizes
+
+    # we do want to wait on the process so it doesn't become a zombie
+    monitor_thread = threading.Thread(target = monitor_screen, args=(proc,))
+    monitor_thread.start()
+
+    return proc
+
+# NOT CURRENTLY USED
+def main_loop_student_screenshare(reset_display):
+    r"""
+    The part of the main loop that puts a screenshared desktop over the grid.
+    """
+
+    global current_screenshare
+    global current_screenshare_process
+
+    new_screenshare = get_current_screenshare()
+    if current_screenshare != new_screenshare or reset_display:
+        if current_screenshare_process:
+            current_screenshare_process.terminate()
+            # commented out because I'm afraid of this deadlocking us
+            #current_screenshare_process.wait()
+            current_screenshare_process = None
+        # What should we do if we're screen sharing this user's desktop?
+        # Currently, don't screen share at all, which might leave the user in grid mode
+        if new_screenshare and (current_screenshare != myUNIXname):
+            current_screenshare_process = add_full_screen(current_screenshare, viewonly=True)
+        current_screenshare = new_screenshare
+
 def main_loop():
     try:
         geometry_changed = get_global_display_geometry()
         if geometry_changed:
-            args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
+            # teacher_mode is currently always true, since teacher_desktop is only
+            # called by websockify when the user is in group bigbluebutton
+            if teacher_mode:
+                fvwm_config = 'teacher_mode_fvwm_config'
+            else:
+                fvwm_config = 'student_grid_fvwm_config'
+            args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print %s'" % fvwm_config, "-r"]
             global fvwm
             fvwm = subprocess.Popen(args)
             # we need to wait until the new fvwm has started before we layout windows on the screen,
