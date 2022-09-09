@@ -1,0 +1,8 @@
+Origin: freesoft.org
+Update: bigbluebutton.org
+Label: BigBlueButton
+Codename: bigbluebutton-bionic
+Architectures: amd64
+Components: main
+Description: BigBlueButton with freesoft.org customizations
+SignWith: yes

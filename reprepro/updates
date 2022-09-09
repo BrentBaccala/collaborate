@@ -1,0 +1,9 @@
+Name: bigbluebutton.org
+Method: http://ubuntu.bigbluebutton.org/bionic-240
+Suite: bigbluebutton-bionic
+Components: main
+Architectures: amd64
+VerifyRelease: blindtrust
+
+# Doesn't seem to do what I want
+Config: Acquire::Http::Proxy=http://osito.freesoft.org:3128
