@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+#
+# apt install python3-websockets
 
 import asyncio
 import websockets
