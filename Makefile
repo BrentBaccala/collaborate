@@ -57,13 +57,18 @@ bigbluebutton-build:
 vncdotool:
 	# sudo apt install python3-sphinx
 	# sudo apt install python-sphinx
+	# pip3 install pycryptodome
 	rm -rf build/vncdotool
 	mkdir -p build/vncdotool
 	cd build/vncdotool; git init
 	cd build/vncdotool; git remote add origin https://github.com/sibson/vncdotool.git
 	cd build/vncdotool; git fetch --depth 1 origin v1.0.0
 	cd build/vncdotool; git checkout FETCH_HEAD
-	cd build/vncdotool; dpkg-buildpackage -b --no-sign
+	# distributed debian/ packaging only builds for python2
+	#cd build/vncdotool; dpkg-buildpackage -b --no-sign
+	# this will build a python3 package
+	cd build/vncdotool; python3 setup.py --command-packages=stdeb.command bdist_deb
+	cp build/vncdotool/deb_dist/*.deb build
 
 FORCE: ;
 
