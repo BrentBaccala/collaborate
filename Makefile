@@ -86,3 +86,23 @@ reprepro: FORCE
 	cd bionic-240; reprepro remove bigbluebutton-bionic bbb-html5   # if I want to overwrite without changing filename
 	cd bionic-240; reprepro includedeb bigbluebutton-bionic ../build/*.deb
 	# rsync -avvz --delete /var/www/html/bionic-230-dev ubuntu@ec2.freesoft.org:/var/www
+
+keys:
+	wget "https://ubuntu.bigbluebutton.org/repo/bigbluebutton.asc" -O bionic-240/fred.asc
+	gpg --export --armor --output bionic-240/baccala.asc
+	cat bionic-240/fred.asc bionic-240/baccala.asc > bionic-240/bigbluebutton.asc
+
+tigervnc:
+	mkdir -p build
+	rm -rf build/tigervnc*
+	cd build; wget http://archive.ubuntu.com/ubuntu/pool/universe/t/tigervnc/tigervnc_1.10.1+dfsg-3.dsc
+	cd build; wget http://archive.ubuntu.com/ubuntu/pool/universe/t/tigervnc/tigervnc_1.10.1+dfsg.orig.tar.xz
+	cd build; wget http://archive.ubuntu.com/ubuntu/pool/universe/t/tigervnc/tigervnc_1.10.1+dfsg-3.debian.tar.xz
+	cd build; dpkg-source -x tigervnc_1.10.1+dfsg-3.dsc
+	sudo apt install equivs xorg-server-source
+	cd build/tigervnc-1.10.1+dfsg; mk-build-deps debian/control
+	# ignore xorg-server-source because it wants a newer version
+	cd build/tigervnc-1.10.1+dfsg; sudo dpkg -i --ignore-depends=xorg-server-source tigervnc-build-deps*.deb
+	sudo apt remove tigervnc-build-deps
+	# -d to ignore dependency problem with xorg-server-source
+	cd build/tigervnc-1.10.1+dfsg; dpkg-buildpackage -d -b --no-sign
