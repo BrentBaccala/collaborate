@@ -29,13 +29,20 @@ ssvnc:
 	sed -i 's/do_escape = 1/do_escape = 0/' build/ssvnc*/vnc_unixsrc/vncviewer/desktop.c
 	cd build/ssvnc-*; dpkg-buildpackage -b --no-sign
 
+PACKAGES=bbb-html5 bbb-config bbb-freeswitch-core bbb-webrtc-sfu
+PLACEHOLDERS=freeswitch bbb-webrtc-sfu
+
 bigbluebutton:
-	rm -rf build/bigbluebutton
+	# sudo!?  really?  really.  it creates stuff as root
+	sudo rm -rf build/bigbluebutton
 	mkdir -p build/bigbluebutton
 	cd build/bigbluebutton; git init
 	cd build/bigbluebutton; git remote add origin https://github.com/BrentBaccala/bigbluebutton.git
 	cd build/bigbluebutton; git fetch --depth 1 origin v2.4.x-release
 	cd build/bigbluebutton; git checkout v2.4.x-release
+	cd build/bigbluebutton; for pkg in $(PLACEHOLDERS); do if [ -r $$pkg.placeholder.sh ]; then bash $$pkg.placeholder.sh; fi; done
+	cd build/bigbluebutton; for pkg in $(PACKAGES); do ./build/setup.sh $$pkg; done
+	cp build/bigbluebutton/artifacts/*.deb build/
 
 bigbluebutton-build:
 	# sudo!?  really?  really.  it creates stuff as root
