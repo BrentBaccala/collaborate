@@ -4,6 +4,9 @@
 # converting python dependencies to dpkg dependencies only works if
 # the package is already installed.
 
+# bash so we can use compgen
+SHELL := /bin/bash
+
 DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-service-identity python3-vncdotool python3-websockify
 
 all: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc reprepro keys
@@ -31,7 +34,9 @@ $(PYTHON3_VNC_COLLABORATE_PACKAGE):
 	rm -f build/python3-vnc-collaborate*.deb
 	cp deb_dist/*.deb build
 
-ssvnc:
+ssvnc: build/ssvnc_1.0.29-3build1_amd64.deb
+
+build/ssvnc_1.0.29-3build1_amd64.deb:
 	mkdir -p build
 	cd build; apt source ssvnc
 	sed -i 's/do_escape = 1/do_escape = 0/' build/ssvnc*/vnc_unixsrc/vncviewer/desktop.c
@@ -40,19 +45,22 @@ ssvnc:
 PACKAGES=bbb-html5 bbb-config bbb-freeswitch-core bbb-webrtc-sfu
 PLACEHOLDERS=freeswitch bbb-webrtc-sfu
 
-bigbluebutton:
+build/bigbluebutton:
 	# sudo!?  really?  really.  it creates stuff as root
 	sudo rm -rf build/bigbluebutton
 	mkdir -p build/bigbluebutton
 	cd build/bigbluebutton; git init
 	cd build/bigbluebutton; git remote add origin https://github.com/BrentBaccala/bigbluebutton.git
+
+bigbluebutton: build/bigbluebutton
 	cd build/bigbluebutton; git fetch --depth 1 origin v2.4.x-release
 	cd build/bigbluebutton; git checkout v2.4.x-release
-	cd build/bigbluebutton; for pkg in $(PLACEHOLDERS); do if [ -r $$pkg.placeholder.sh ]; then bash $$pkg.placeholder.sh; fi; done
-	cd build/bigbluebutton; for pkg in $(PACKAGES); do ./build/setup.sh $$pkg; done
+	$(eval BBB_TIMESTAMP := $(shell cd build/bigbluebutton; git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S'))
+	cd build/bigbluebutton; for pkg in $(PLACEHOLDERS); do if [ -r $$pkg.placeholder.sh -a ! -r $$pkg ]; then bash $$pkg.placeholder.sh; fi; done
+	cd build/bigbluebutton; for pkg in $(PACKAGES); do if ! compgen -G artifacts/$$pkg*$(BBB_TIMESTAMP)*.deb > /dev/null; then ./build/setup.sh $$pkg; fi; done
 	cp build/bigbluebutton/artifacts/*.deb build/
 
-bigbluebutton-build: bigbluebutton
+build/bigbluebutton-build: build/bigbluebutton
 	# sudo!?  really?  really.  it creates stuff as root
 	sudo rm -rf build/bigbluebutton-build
 	mkdir -p build/bigbluebutton-build
@@ -60,16 +68,20 @@ bigbluebutton-build: bigbluebutton
 	# this is a private repository
 	#cd build/bigbluebutton-build; git remote add origin https://github.com/BrentBaccala/build.git
 	cd build/bigbluebutton-build; git remote add origin git@github.com:BrentBaccala/build.git
-	cd build/bigbluebutton-build; git fetch --depth 1 origin master
-	cd build/bigbluebutton-build; git checkout master
-	# build bbb-vnc-collaborate, python3-bigbluebutton, freesoft-gnome-desktop, bbb-auth-jwt
-	cd build/bigbluebutton-build; SOURCE=$(PWD)/build/bigbluebutton PACKAGE=bbb-vnc-collaborate ./setup.sh
-	cd build/bigbluebutton-build; SOURCE=$(PWD)/build/bigbluebutton PACKAGE=bbb-auth-jwt ./setup.sh
-	cd build/bigbluebutton-build; SOURCE=$(PWD)/build/bigbluebutton PACKAGE=python3-bigbluebutton ./setup.sh
-	cd build/bigbluebutton-build; SOURCE=$(PWD)/build/bigbluebutton PACKAGE=freesoft-gnome-desktop ./setup.sh
-	cp /tmp/build/*/*.deb build/
 
-vncdotool:
+BUILD_PACKAGES=bbb-vnc-collaborate bbb-auth-jwt python3-bigbluebutton freesoft-gnome-desktop
+
+bigbluebutton-build: build/bigbluebutton build/bigbluebutton-build
+	cd build/bigbluebutton-build; git fetch --depth 1 origin master
+	cd build/bigbluebutton-build; git checkout origin/master
+	# build bbb-vnc-collaborate, python3-bigbluebutton, freesoft-gnome-desktop, bbb-auth-jwt
+	$(eval BBB_TIMESTAMP := $(shell cd build/bigbluebutton-build; git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S'))
+	cd build/bigbluebutton-build; for pkg in $(BUILD_PACKAGES); do if ! compgen -G ../$$pkg*$(BBB_TIMESTAMP)*.deb > /dev/null; then SOURCE=$(PWD)/build/bigbluebutton PACKAGE=$$pkg ./setup.sh; rm ../$$pkg*.deb; cp /tmp/build/$$pkg/*.deb ..; fi; done
+
+
+vncdotool: build/python3-vncdotool_1.0.0-1_all.deb
+
+build/python3-vncdotool_1.0.0-1_all.deb:
 	# sudo apt install python3-sphinx
 	# sudo apt install python-sphinx
 	# pip3 install pycryptodome
@@ -95,12 +107,16 @@ reprepro: FORCE
 	cd bionic-240; reprepro includedeb bigbluebutton-bionic ../build/*.deb
 	# rsync -avvz --delete /var/www/html/bionic-230-dev ubuntu@ec2.freesoft.org:/var/www
 
-keys:
+keys: bionic-240/bigbluebutton.asc
+
+bionic-240/bigbluebutton.asc:
 	wget "https://ubuntu.bigbluebutton.org/repo/bigbluebutton.asc" -O bionic-240/fred.asc
 	gpg --export --armor --output bionic-240/baccala.asc
 	cat bionic-240/fred.asc bionic-240/baccala.asc > bionic-240/bigbluebutton.asc
 
-tigervnc:
+tigervnc: build/tigervnc-viewer_1.10.1+dfsg-3_amd64.deb build/tigervnc-standalone-server_1.10.1+dfsg-3_amd64.deb
+
+build/tigervnc-viewer_1.10.1+dfsg-3_amd64.deb build/tigervnc-standalone-server_1.10.1+dfsg-3_amd64.deb:
 	mkdir -p build
 	rm -rf build/tigervnc*
 	cd build; wget http://archive.ubuntu.com/ubuntu/pool/universe/t/tigervnc/tigervnc_1.10.1+dfsg-3.dsc
