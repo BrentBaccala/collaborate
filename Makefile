@@ -80,8 +80,8 @@ vncdotool:
 FORCE: ;
 
 reprepro: FORCE
-	mkdir -p bionic-240
-	cp -r reprepro bionic-240/conf
+	mkdir -p bionic-240/conf
+	cp reprepro/* bionic-240/conf/
 	cd bionic-240; http_proxy=http://osito.freesoft.org:3128 reprepro update  # pulls from bigbluebutton.org
 	cd bionic-240; reprepro remove bigbluebutton-bionic bbb-html5   # if I want to overwrite without changing filename
 	cd bionic-240; reprepro includedeb bigbluebutton-bionic ../build/*.deb
