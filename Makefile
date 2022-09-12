@@ -105,7 +105,7 @@ tigervnc:
 	cd build/tigervnc-1.10.1+dfsg; mk-build-deps debian/control
 	# ignore xorg-server-source because it wants a newer version
 	cd build/tigervnc-1.10.1+dfsg; sudo dpkg -i --ignore-depends=xorg-server-source tigervnc-build-deps*.deb
-	sudo apt remove tigervnc-build-deps
+	sudo apt -y remove tigervnc-build-deps
 	# -d to ignore dependency problem with xorg-server-source
 	cd build/tigervnc-1.10.1+dfsg; dpkg-buildpackage -d -b --no-sign
 
