@@ -8,7 +8,12 @@ DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-serv
 
 all: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc reprepro keys
 
-collaborate:
+TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dt%H%M%S')
+PYTHON3_VNC_COLLABORATE_PACKAGE=build/python3-vnc-collaborate_0.0.2+$(TIMESTAMP)-1_all.deb
+
+collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE)
+
+$(PYTHON3_VNC_COLLABORATE_PACKAGE):
 	#apt install $(DEPENDENCIES)
 	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-vnc-collaborate"; exit 1; fi
 	rm -rf deb_dist
@@ -23,6 +28,7 @@ collaborate:
 	# cp debian/* deb_dist/vnc-collaborate-*/debian/
 	cd deb_dist/vnc-collaborate-*; dpkg-buildpackage -rfakeroot -uc -us
 	mkdir -p build
+	rm -f build/python3-vnc-collaborate*.deb
 	cp deb_dist/*.deb build
 
 ssvnc:

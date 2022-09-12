@@ -1,12 +1,17 @@
 #! /usr/bin/python3
 
 import setuptools
-from datetime import datetime
+import subprocess
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-version = "0.0.1.dev" + datetime.now().strftime("%Y%m%d%H%M")
+timestamp = subprocess.check_output("git log -n1 --pretty=format:%cd --date=format:%Y%m%dt%H%M%S".split()).strip().decode()
+
+# sic is used because BigBlueButton's capital letters aren't standard version numbers for python3 (uses lowercase letters)
+# sic doesn't work; just use lowercase 't'
+# version = setuptools.sic("0.0.2+" + timestamp)
+version = setuptools.sic("0.0.2+" + timestamp)
 
 setuptools.setup(
     name="vnc-collaborate",
