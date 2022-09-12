@@ -6,6 +6,8 @@
 
 DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-service-identity python3-vncdotool python3-websockify
 
+all: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc reprepro keys
+
 collaborate:
 	#apt install $(DEPENDENCIES)
 	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-vnc-collaborate"; exit 1; fi
@@ -44,7 +46,7 @@ bigbluebutton:
 	cd build/bigbluebutton; for pkg in $(PACKAGES); do ./build/setup.sh $$pkg; done
 	cp build/bigbluebutton/artifacts/*.deb build/
 
-bigbluebutton-build:
+bigbluebutton-build: bigbluebutton
 	# sudo!?  really?  really.  it creates stuff as root
 	sudo rm -rf build/bigbluebutton-build
 	mkdir -p build/bigbluebutton-build
@@ -106,3 +108,7 @@ tigervnc:
 	sudo apt remove tigervnc-build-deps
 	# -d to ignore dependency problem with xorg-server-source
 	cd build/tigervnc-1.10.1+dfsg; dpkg-buildpackage -d -b --no-sign
+
+clean:
+	# sudo? there's stuff in build/bigbluebutton and build/bigbluebutton-build that's owned by root
+	sudo rm -rf build dist deb_dist bionic-240
