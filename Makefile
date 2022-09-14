@@ -9,7 +9,12 @@ SHELL := /bin/bash
 
 DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-service-identity python3-vncdotool python3-websockify
 
-all: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc reprepro keys
+all: reprepro keys
+
+packages: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc
+
+rsync: all
+	rsync -avvz --delete bionic-240 ubuntu@u20.freesoft.org:/var/www/html/
 
 TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dt%H%M%S')
 PYTHON3_VNC_COLLABORATE_PACKAGE=build/python3-vnc-collaborate_0.0.2+$(TIMESTAMP)-1_all.deb
@@ -42,6 +47,12 @@ build/ssvnc_1.0.29-3build1_amd64.deb:
 	sed -i 's/do_escape = 1/do_escape = 0/' build/ssvnc*/vnc_unixsrc/vncviewer/desktop.c
 	cd build/ssvnc-*; dpkg-buildpackage -b --no-sign
 
+# BigBlueButton PACKAGES that need to be custom built for collaborate
+#    other BigBlueButton packages are used as distributed by BigBlueButton
+#
+# bbb-html5 to get remote desktop support
+# all four need to be changed for private IP address support
+
 PACKAGES=bbb-html5 bbb-config bbb-freeswitch-core bbb-webrtc-sfu
 PLACEHOLDERS=freeswitch bbb-webrtc-sfu
 
@@ -60,6 +71,10 @@ bigbluebutton: build/bigbluebutton
 	cd build/bigbluebutton; for pkg in $(PACKAGES); do if ! compgen -G artifacts/$$pkg*$(BBB_TIMESTAMP)*.deb > /dev/null; then ./build/setup.sh $$pkg; fi; done
 	cp build/bigbluebutton/artifacts/*.deb build/
 
+# BUILD_PACKAGES that I built with the old BigBlueButton build system in a private repository
+
+BUILD_PACKAGES=bbb-vnc-collaborate bbb-auth-jwt python3-bigbluebutton freesoft-gnome-desktop bbb-aws-hibernate
+
 build/bigbluebutton-build: build/bigbluebutton
 	# sudo!?  really?  really.  it creates stuff as root
 	sudo rm -rf build/bigbluebutton-build
@@ -68,8 +83,6 @@ build/bigbluebutton-build: build/bigbluebutton
 	# this is a private repository
 	#cd build/bigbluebutton-build; git remote add origin https://github.com/BrentBaccala/build.git
 	cd build/bigbluebutton-build; git remote add origin git@github.com:BrentBaccala/build.git
-
-BUILD_PACKAGES=bbb-vnc-collaborate bbb-auth-jwt python3-bigbluebutton freesoft-gnome-desktop
 
 bigbluebutton-build: build/bigbluebutton build/bigbluebutton-build
 	cd build/bigbluebutton-build; git fetch --depth 1 origin master
@@ -97,19 +110,17 @@ build/python3-vncdotool_1.0.0-1_all.deb:
 	cd build/vncdotool; python3 setup.py --command-packages=stdeb.command bdist_deb
 	cp build/vncdotool/deb_dist/*.deb build
 
-FORCE: ;
-
-reprepro: FORCE
+reprepro: packages
 	mkdir -p bionic-240/conf
 	cp reprepro/* bionic-240/conf/
 	cd bionic-240; http_proxy=http://osito.freesoft.org:3128 reprepro update  # pulls from bigbluebutton.org
 	cd bionic-240; reprepro remove bigbluebutton-bionic bbb-html5   # if I want to overwrite without changing filename
 	cd bionic-240; reprepro includedeb bigbluebutton-bionic ../build/*.deb
-	# rsync -avvz --delete /var/www/html/bionic-230-dev ubuntu@ec2.freesoft.org:/var/www
 
 keys: bionic-240/bigbluebutton.asc
 
 bionic-240/bigbluebutton.asc:
+	mkdir -p bionic-240
 	wget "https://ubuntu.bigbluebutton.org/repo/bigbluebutton.asc" -O bionic-240/fred.asc
 	gpg --export --armor --output bionic-240/baccala.asc
 	cat bionic-240/fred.asc bionic-240/baccala.asc > bionic-240/bigbluebutton.asc
