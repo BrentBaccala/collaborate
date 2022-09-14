@@ -65,7 +65,7 @@ build/bigbluebutton:
 
 bigbluebutton: build/bigbluebutton
 	cd build/bigbluebutton; git fetch --depth 1 origin v2.4.x-release
-	cd build/bigbluebutton; git checkout v2.4.x-release
+	cd build/bigbluebutton; git checkout origin/v2.4.x-release
 	$(eval BBB_TIMESTAMP := $(shell cd build/bigbluebutton; git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S'))
 	cd build/bigbluebutton; for pkg in $(PLACEHOLDERS); do if [ -r $$pkg.placeholder.sh -a ! -r $$pkg ]; then bash $$pkg.placeholder.sh; fi; done
 	cd build/bigbluebutton; for pkg in $(PACKAGES); do if ! compgen -G artifacts/$$pkg*$(BBB_TIMESTAMP)*.deb > /dev/null; then ./build/setup.sh $$pkg; fi; done
