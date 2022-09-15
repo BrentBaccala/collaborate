@@ -11,8 +11,6 @@ from urllib.parse import urlencode, quote_plus
 import bigbluebutton
 import pymongo
 
-import fnvhash
-
 parser = argparse.ArgumentParser(description='Read and write the shared notes of a Big Blue Button meeting')
 parser.add_argument('-t', '--text', action="store_true",
                     help='output in text format')
