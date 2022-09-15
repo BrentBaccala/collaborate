@@ -484,7 +484,8 @@ def main_loop():
             fvwm = subprocess.Popen(args)
             # we need to wait until the new fvwm has started before we layout windows on the screen,
             # or the vncviewers that go beyond the edges of the old screen geometry will get smashed
-            # into the upper-left hand corner.  The Tk windows don't have this problem, who knows why.
+            # into the upper-left hand corner, along with the "end screenshare" button.
+            # The Tk labels on the desktops don't have this problem, who knows why.
             time.sleep(0.1)
 
         get_VALID_DISPLAYS()
@@ -536,15 +537,11 @@ def teacher_desktop(screenx=None, screeny=None):
     db = client.meteor
     db_vnc = db.vnc
 
-    # When switching to teacher mode, we completely replace the FVWM window manager with a new
-    # instance using a completely different config, then switch back to the original config
-    # (using yet another new FVWM instance) when we're not.  Not ideal, but it works.
-
-    args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print teacher_mode_fvwm_config'", "-r"]
-    global fvwm
-    fvwm = subprocess.Popen(args)
-
-    subprocess.run(["xsetroot", "-solid", "black"])
+    # I've seen a race condition where the xsetroot, and the fvwm that follows in main_loop(),
+    # errors out, unable to open the display.  So retry the xsetroot until it succeeds.
+    retry_attempts = 10
+    while subprocess.run(["xsetroot", "-solid", "black"]).returncode != 0 and retry_attempts > 0:
+        retry_attempts -= 1
     main_loop()
 
     signal.signal(signal.SIGINT, signal_handler)
