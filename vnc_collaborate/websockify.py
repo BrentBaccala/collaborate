@@ -234,12 +234,12 @@ def new_websocket_client(self):
             # It needs to be modified so that it can operate like "inetd".
             socket_fn = tempfile.mktemp()
             env = os.environ
-            env['User-Id'] = userID
-            env['Meeting-Id'] = meetingID
+            env['UserId'] = userID
+            env['MeetingId'] = meetingID
             env['fullName'] = fullName
             env['UNIXuser'] = UNIXuser
             subprocess.Popen(["sudo", "-u", UNIXuser, "-i",
-                              "--preserve-env=User-Id", "--preserve-env=Meeting-Id", "--preserve-env=fullName", "--preserve-env=UNIXuser",
+                              "--preserve-env=UserId", "--preserve-env=MeetingId", "--preserve-env=fullName", "--preserve-env=UNIXuser",
                               "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + homeserver], env=env);
             while not os.path.exists(socket_fn):
                 time.sleep(0.1)
@@ -269,14 +269,14 @@ def new_websocket_client(self):
             # not to allow the students direct accesss to that group.
             socket_fn = tempfile.mktemp()
             env = os.environ
-            env['User-Id'] = userID
-            env['Meeting-Id'] = meetingID
+            env['UserId'] = userID
+            env['MeetingId'] = meetingID
             env['fullName'] = fullName
             # isn't this available as $USER?
             env['UNIXuser'] = UNIXuser
             command = "python3 -m vnc_collaborate tigervncserver -quiet -fg -localhost yes -SecurityTypes None -I-KNOW-THIS-IS-INSECURE -inetd -xstartup python3 -- -m vnc_collaborate {}".format(vnc_function)
             subprocess.Popen(["sudo", "-u", UNIXuser, "-g", "bigbluebutton", "-i",
-                              "--preserve-env=User-Id", "--preserve-env=Meeting-Id", "--preserve-env=fullName", "--preserve-env=UNIXuser",
+                              "--preserve-env=UserId", "--preserve-env=MeetingId", "--preserve-env=fullName", "--preserve-env=UNIXuser",
                               "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + command], env=env);
             while not os.path.exists(socket_fn):
                 time.sleep(0.1)

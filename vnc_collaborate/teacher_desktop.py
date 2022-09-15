@@ -79,7 +79,7 @@ VNCdata_futures = dict()
 
 # myMeetingID: the Big Blue Button meeting identifier
 
-myMeetingID = os.environ.get('Meeting-Id')
+myMeetingID = os.environ.get('MeetingId')
 
 # screen geometry of the display used for the grid view
 SCREENX = 0
