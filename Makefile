@@ -18,12 +18,14 @@ rsync: all
 
 TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dt%H%M%S')
 PYTHON3_VNC_COLLABORATE_PACKAGE=build/python3-vnc-collaborate_0.0.2+$(TIMESTAMP)-1_all.deb
+PYTHON3_BIGBLUEBUTTON_PACKAGE=build/python3-bigbluebutton_2.4.9+$(TIMESTAMP)-1_all.deb
 
-collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE)
+collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE) $(PYTHON3_BIGBLUEBUTTON_PACKAGE) build/python3-pyjavaproperties_0.7-1_all.deb
 
 $(PYTHON3_VNC_COLLABORATE_PACKAGE):
 	#apt install $(DEPENDENCIES)
 	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-vnc-collaborate"; exit 1; fi
+	# have to remove the old deb_dist, or the setup.py errors out
 	rm -rf deb_dist
 	python3 setup.py --command-packages=stdeb.command bdist_deb
 	rm vnc-collaborate-*.tar.gz
@@ -38,6 +40,24 @@ $(PYTHON3_VNC_COLLABORATE_PACKAGE):
 	mkdir -p build
 	rm -f build/python3-vnc-collaborate*.deb
 	cp deb_dist/*.deb build
+
+$(PYTHON3_BIGBLUEBUTTON_PACKAGE):
+	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-bigbluebutton"; exit 1; fi
+	# have to remove the old deb_dist, or the setup.py errors out
+	rm -rf python3-bigbluebutton/deb_dist
+	cd python3-bigbluebutton; python3 setup.py --command-packages=stdeb.command bdist_deb
+	rm -f build/python3-bigbluebutton_*.deb
+	cp python3-bigbluebutton/deb_dist/*.deb build
+
+build/pyjavaproperties-0.7:
+	cd build; wget https://pypi.python.org/packages/source/p/pyjavaproperties/pyjavaproperties-0.7.tar.gz
+	cd build; tar xzf pyjavaproperties-0.7.tar.gz
+
+build/python3-pyjavaproperties_0.7-1_all.deb: build/pyjavaproperties-0.7
+	cd build/pyjavaproperties-0.7; python3 setup.py --command-packages=stdeb.command bdist_deb
+	cp build/pyjavaproperties-0.7/deb_dist/python3-pyjavaproperties_0.7-1_all.deb build
+	# without installing it on the system, python3-bigbluebutton's build won't detect it as a dependency
+	# sudo dpkg -i build/python3-pyjavaproperties_0.7-1_all.deb
 
 ssvnc: build/ssvnc_1.0.29-3build1_amd64.deb
 
@@ -73,7 +93,7 @@ bigbluebutton: build/bigbluebutton
 
 # BUILD_PACKAGES that I built with the old BigBlueButton build system in a private repository
 
-BUILD_PACKAGES=bbb-vnc-collaborate bbb-auth-jwt python3-bigbluebutton freesoft-gnome-desktop bbb-aws-hibernate
+BUILD_PACKAGES=bbb-vnc-collaborate bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate
 
 build/bigbluebutton-build: build/bigbluebutton
 	# sudo!?  really?  really.  it creates stuff as root
