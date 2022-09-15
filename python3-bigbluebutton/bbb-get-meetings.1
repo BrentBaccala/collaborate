@@ -1,0 +1,25 @@
+.TH BBB-GET-MEETINGS 1 "February 22, 2021"
+.\" man page by Jim Van Zandt <jrv@vanzandt.mv.com>         -*- nroff -*-
+.SH NAME
+bbb-get-meetings \- print information about Big Blue Button meetings
+.SH SYNOPSIS
+\fBbbb-get-meetings\fP [\fIoptions\fP]
+.SH DESCRIPTION
+\fBbbb-get-meetings\fP prints information about the running meetings on
+a Big Blue Button video conference system.  The default output consists
+of a list of meetings and the attendees in those meetings, along
+with the role (MODERATOR or VIEWER) of each attendee.
+.P
+Currently only meetings on the local server can be accessed.
+.SH OPTIONS
+.TP
+\fB\-x\fR, \fB\-\-xml\fR
+print raw XML returned from the getMeetings API call
+
+.SH FILES
+.Vb 1
+/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties    Big Blue Button API key
+.Ve
+
+.SH BUGS
+Direct bug reports to the Google group BigBlueButton-dev.

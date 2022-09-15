@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+# We need several packages that aren't in the Ubuntu archive, but are
+# in the PyPI archive, so we install them with pip3.
+#
+# pyjavaproperties - to read bigbluebutton.properties
+# fnvhash - to compute the Etherpad padID when working with Shared Notes
+
+for pkg in pyjavaproperties fnvhash; do
+	if ! pip3 -q show $pkg; then
+		pip3 install $pkg
+	fi
+done
+
+# Automatically added by dh_python3:
+if which py3compile >/dev/null 2>&1; then
+	py3compile -p python3-bigbluebutton 
+fi
+
+# End automatically added section

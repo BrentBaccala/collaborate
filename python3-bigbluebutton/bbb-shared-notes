@@ -1,0 +1,113 @@
+#!/usr/bin/python3
+#
+# Read or write the current contents of Big Blue Button's "Shared
+# Notes" in either text or HTML format.
+
+import sys
+import argparse
+import requests
+from urllib.parse import urlencode, quote_plus
+
+import bigbluebutton
+import pymongo
+
+import fnvhash
+
+parser = argparse.ArgumentParser(description='Read and write the shared notes of a Big Blue Button meeting')
+parser.add_argument('-t', '--text', action="store_true",
+                    help='output in text format')
+parser.add_argument('-r', '--read', '--get', action="store_true", help="read from shared notes")
+parser.add_argument('-w', '--write', '--set', action="store_true", help="write to shared notes")
+parser.add_argument('-m', '--meeting', action='store', help='meeting name (only needed if multiple meetings are running)')
+parser.add_argument('infile', nargs='?', help="file to write to shared notes")
+args = parser.parse_args()
+
+if (args.read and args.write) or (not args.read and not args.write):
+   print("Exactly one of --read (-r) or --write (-w) must be specified\n")
+   parser.print_help()
+   exit()
+
+if args.read and args.infile:
+   print("file not supported with --read option\n")
+   parser.print_help()
+   exit()
+
+# Get the internal meeting ID
+
+xml = bigbluebutton.getMeetings()
+
+if args.meeting:
+   matchingMeetingIDs = xml.xpath('.//meetingName[text()=$name]/../internalMeetingID', name=args.meeting)
+   if len(matchingMeetingIDs) == 0:
+      print("Can't find a Big Blue Button meeting of that name\n")
+      parser.print_help()
+      exit(1)
+   if len(matchingMeetingIDs) > 1:
+      print("Can't find a unique Big Blue Button meeting of that name\n")
+      parser.print_help()
+      exit(1)
+   meetingID = matchingMeetingIDs[0]
+else:
+   allMeetingIDs = xml.xpath('.//internalMeetingID')
+   if len(allMeetingIDs) == 0:
+      print("Can't find a running Big Blue Button meeting\n")
+      parser.print_help()
+      exit(1)
+   if len(allMeetingIDs) != 1:
+      print("Can't find a unique Big Blue Button meeting\n")
+      parser.print_help()
+      exit(1)
+   meetingID = allMeetingIDs[0]
+
+# Lookup the meeting in the Mongo database and retrieve the padID
+
+client = pymongo.MongoClient('mongodb://127.0.1.1/')
+db = client.meteor
+note = db.note
+document = note.find_one({'meetingId' : meetingID.text})
+padID = document['noteId']
+
+# Get the APIKEY used to communicate with the Etherpad server.
+
+with open("/usr/share/etherpad-lite/APIKEY.txt") as f:
+   key = f.read()
+
+# Retrieve the data and print it
+
+if args.read:
+   payload = {'apikey' : key, 'padID' : padID}
+   result = urlencode(payload, quote_via=quote_plus)
+   if args.text:
+      url = "http://localhost:9001/api/1/getText?" + result
+      key = 'text'
+   else:
+      url = "http://localhost:9001/api/1/getHTML?" + result
+      key = 'html'
+   response = requests.get(url)
+   response.raise_for_status()
+   if response.json()['code'] != 0:
+      print(response.json()['message'], file=sys.stderr)
+   else:
+      print(response.json()['data'][key])
+
+# Retrieve the data and send it to the server
+
+if args.write:
+   if args.infile:
+      with open(args.infile) as file:
+         data = file.read()
+   else:
+      data = sys.stdin.read()
+
+   if '<!DOCTYPE HTML>' in data:
+      payload = {'apikey' : key, 'padID' : padID, 'html' : data}
+      url = "http://localhost:9001/api/1/setHTML?"
+   else:
+      payload = {'apikey' : key, 'padID' : padID, 'text' : data}
+      url = "http://localhost:9001/api/1/setText?"
+
+   result = urlencode(payload, quote_via=quote_plus)
+   response = requests.get(url + result)
+   response.raise_for_status()
+   if response.json()['code'] != 0:
+      print(response.json()['message'], file=sys.stderr)

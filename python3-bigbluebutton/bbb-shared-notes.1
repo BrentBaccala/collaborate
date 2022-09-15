@@ -1,0 +1,53 @@
+.TH BBB-SHARED-NOTES 1 "February 22, 2021"
+.\" man page by Jim Van Zandt <jrv@vanzandt.mv.com>         -*- nroff -*-
+.SH NAME
+bbb-shared-notes \- read and write Shared Notes in a Big Blue Button meeting
+.SH SYNOPSIS
+\fBbbb-shared-notes\fP [\fIoptions\fP] [\fIinfile\fP]
+.SH DESCRIPTION
+\fBbbb-shared-notes\fP reads and writes the Etherpad Shared Notes on
+a Big Blue Button video conference meeting in either text or HTML format,
+using both the Big Blue Button REST API and
+the Etherpad REST API.
+.P
+Currently only meetings on the local server can be accessed.
+.P
+Either the read or write option must be specified.
+.P
+If the write option is specified, then an input filename can be specified;
+otherwise standard input is written to the Shared Notes.  If the read
+option is specified, output is always to standard output.
+.P
+Write data is examined for a \fB\<!DOCTYPE HTML\>\fR tag, and HTML mode is used
+if it is detected; otherwise text mode is used.  Data is read in HTML mode
+unless the \fB\-t\fR or \fB\-\-text\fR option is specified.
+.P
+If only a single meeting is running on the server, it is accessed by default.
+If multiple meetings are running, the \fB-m\fP switch must be specified
+to identify which meeting's Shared Notes are to be accessed.
+.SH OPTIONS
+.TP
+\fB\-r\fR, \fB\-\-read\fR, \fB\-\-get\fR
+read from the Shared Notes
+.TP
+\fB\-w\fR, \fB\-\-write\fR, \fB\-\-set\fR
+write to the Shared Notes
+.TP
+\fB\-t\fR, \fB\-\-text\fR
+read from the Shared Notes in text mode (default is HTML)
+
+ignored during writes
+.TP
+\fB\-m\fR \fImeeting\fP, \fB\-\-meeting\fR \fImeeting\fP
+specify name of meeting to operate on
+
+only needs to be specified if multiple meetings are running on the server
+.SH FILES
+.Vb 1
+/usr/share/bbb-web/WEB-INF/classes/bigbluebutton.properties    Big Blue Button API key
+
+/usr/share/etherpad-lite/APIKEY.txt                            Etherpad API key
+.Ve
+
+.SH BUGS
+Direct bug reports to the Google group BigBlueButton-dev.

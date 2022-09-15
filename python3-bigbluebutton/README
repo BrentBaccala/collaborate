@@ -1,0 +1,11 @@
+python3-bigbluebutton is a Python 3 module (and some scripts) to work
+with a Big Blue Button video conferencing system.
+
+Usage of the module:
+
+    import bigbluebutton
+
+Available scripts:
+
+    bbb-get-meetings
+    bbb-shared-notes

@@ -1,0 +1,21 @@
+#!/usr/bin/python3
+
+import argparse
+from lxml import etree
+import bigbluebutton
+
+parser = argparse.ArgumentParser(description='Print information about Big Blue Button meetings')
+parser.add_argument('-x', '--xml', action="store_true", help="output raw XML")
+args = parser.parse_args()
+
+xml = bigbluebutton.getMeetings()
+
+if args.xml:
+    if 'indent' in dir(etree):
+        etree.indent(xml)
+    print(etree.tostring(xml, pretty_print=True).decode())
+else:
+    for meeting in xml.xpath('.//meeting'):
+        print(meeting.xpath('./meetingName')[0].text)
+        for attendee in meeting.xpath('.//attendee'):
+            print('    ', attendee.xpath('./fullName')[0].text, attendee.xpath('./role')[0].text)
