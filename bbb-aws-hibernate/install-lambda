@@ -26,7 +26,7 @@ if [[ $1 == 'delete' ]]; then
     exit
 fi
 
-if [[ $1 == 'add-global] ]]; then
+if [[ $1 == 'add-global' ]]; then
 
     # The IAM policies and roles are global to all AWS regions
 
@@ -40,6 +40,24 @@ if [[ $1 == 'add-global] ]]; then
 
     aws iam attach-role-policy --role-name login --policy-arn $POLICY_ARN
     aws iam attach-role-policy --role-name login --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+fi
+
+if [[ ! -r aws-login/my-deployment-package.zip ]]; then
+
+    mkdir aws-login
+    cd aws-login
+
+    pip3 install --target package pyjwt
+    pip3 install --target package serialization
+    # (last command will show "ERROR: launchpadlib 1.10.13 requires testresources, which is not installed.")
+    pip3 install --target package cryptography
+    pip3 install --target package dnspython
+    unzip -d package cffi-1.15.0-cp39-cp39-manylinux_2_12_x86_64.manylinux2010_x86_64.whl
+
+    cd package; zip -r ../my-deployment-package.zip .; cd ..
+    zip -g -j my-deployment-package.zip ../lambda_function.py
+
+    cd ..
 fi
 
 # I also increased the time limit on the lambda process to 60 sec.  This much time is needed because, when
