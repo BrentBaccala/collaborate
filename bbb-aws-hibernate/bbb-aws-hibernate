@@ -1,0 +1,59 @@
+#!/usr/bin/python3
+#
+# Checks every 60 seconds to see if nobody is logged in, 'swapoff' is
+# not running, and no Big Blue Button meetings are running.  If so,
+# hibernate ourself and, optionally, stop a list of other AWS EC2
+# instances.
+#
+# Currently depends the current instance having a service role with a
+# policy that allows hibernation.  This is not ideal because it allows
+# any user on the system to hibernate it.
+
+import os
+import time
+import boto3
+import psutil
+import datetime
+import requests
+import re
+
+import bigbluebutton
+
+# Special AWS REST API calls to a link-local address to get our instance data.
+
+aws_region = requests.get('http://169.254.169.254/latest/meta-data/placement/region').text
+my_instance_id = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
+
+def ec2():
+    if not hasattr(ec2, 'retval'):
+        session = boto3.Session(region_name = aws_region)
+        ec2.retval = session.client('ec2')
+    return ec2.retval
+
+def is_server_idle():
+    try:
+        if len(psutil.users()) > 0:
+            return False
+        # AWS tech support advised against attempting to hibernate while the
+        # swapoff process from the previous hibernation is still running
+        if any(proc.name() == 'swapoff' for proc in psutil.process_iter()):
+            return False
+        xml = bigbluebutton.getMeetings()
+        return len(xml.xpath('.//meeting')) == 0
+    except:
+        return False
+
+def main():
+    while True:
+        if is_server_idle():
+            print("Hibernating instances at", datetime.datetime.now())
+            if 'ADDITIONAL_STOP_INSTANCES' in os.environ:
+                instance_ids = re.split(r'\s*,\s*', os.environ['ADDITIONAL_STOP_INSTANCES'])
+                print("Stopping", instance_ids, "at", datetime.datetime.now())
+                ec2().stop_instances(InstanceIds = instance_ids)
+            print("Hibernating", my_instance_id, "at", datetime.datetime.now())
+            ec2().stop_instances(InstanceIds=[my_instance_id], Hibernate=True)
+        time.sleep(60)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,89 @@
+#! /usr/bin/python3
+#
+# Generates login links for a BigBlueButton server using the
+# bbb-auth-jwt service for authentication.
+
+import os
+import sys
+import jwt
+import socket
+from datetime import datetime
+import dateutil.parser
+import argparse
+import cryptography.hazmat.backends.openssl.backend
+from cryptography.hazmat.primitives import serialization
+
+CONF_FILE='/etc/bigbluebutton/bbb-auth-jwt'
+
+local_timezone = datetime.now().astimezone().tzinfo
+
+parser = argparse.ArgumentParser(description='Generate login URL for a Big Blue Button server')
+parser.add_argument('-e', '--expiration-time', type=str, required=True,
+                    help='expiration time of tokens (defaults to midnight in local timezone if only date is given)')
+parser.add_argument('-m', '--moderator', action="store_true",
+                    help='generate moderator tokens')
+parser.add_argument('-M', '--meeting', action='store', help='meeting name (default is default meeting)')
+parser.add_argument('-d', '--debug', action="store_true", help="print exact JWT being encoded")
+parser.add_argument('-r', '--rsa', action="store_true", help="sign JWT with current user's RSA key")
+parser.add_argument('-i', '--identity', type=str, default="~/.ssh/id_rsa", help="filename with RSA key")
+parser.add_argument('-u', '--url', type=str, help="endpoint URL")
+parser.add_argument('-n', '--dns-name', type=str, help="DNS name of server")
+parser.add_argument('name')
+args = parser.parse_args()
+
+try:
+    exp = dateutil.parser.parse(args.expiration_time)
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo = local_timezone)
+except:
+    raise Exception("Can't parse expiration time")
+
+# If the CONF_FILE exists, read parameters, most importantly JWT_KEY
+# and LOGIN_URL from it.  Otherwise, use the local machine's FQDN to
+# generate LOGIN_URL and read JWT_KEY from the local Big Blue Button
+# properties file.
+#
+# This allows us to configure this script to generate keys for a
+# remote server while falling back to the local server by default.
+#
+# The 'bigbluebutton' package only needs to be installed if we
+# don't have configuration info in CONF_FILE.
+
+if args.rsa:
+    with open(os.path.expanduser(args.identity)) as key_file:
+        JWT_KEY = serialization.load_pem_private_key(key_file.read().encode(), password=None, backend=cryptography.hazmat.backends.openssl.backend)
+        algorithm = 'RS512'
+        LOGIN_URL = 'https://' + socket.getfqdn() + '/login/'
+elif os.path.isfile(CONF_FILE):
+    exec(open(CONF_FILE).read())
+else:
+    import bigbluebutton
+    JWT_KEY = bigbluebutton.securitySalt()
+    algorithm = None
+    LOGIN_URL = bigbluebutton.serverURL() + '/login/'
+
+if args.url:
+    LOGIN_URL = args.url + '?'
+
+if args.moderator:
+    role = 'm'
+else:
+    role = 'v'
+
+message = {'sub' : args.name, 'role' : role, 'exp' : exp}
+
+if args.meeting:
+    message['mtg'] = args.meeting
+if args.dns_name:
+    message['dns'] = args.dns_name
+
+if args.debug:
+    print('Expiration time:', exp.strftime('%c %Z'))
+    print(message)
+
+if algorithm:
+    JWT = jwt.encode(message, JWT_KEY, algorithm=algorithm)
+else:
+    JWT = jwt.encode(message, JWT_KEY)
+
+print(LOGIN_URL + JWT.decode())

@@ -1,0 +1,13 @@
+[Unit]
+Description=Automatically hibernate AWS instances when this Big Blue Button server is idle
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/bbb-aws-hibernate
+ExecStart=/usr/share/bbb-aws-hibernate/bbb-aws-hibernate
+
+User=nobody
+Group=nogroup
+
+[Install]
+WantedBy=multi-user.target

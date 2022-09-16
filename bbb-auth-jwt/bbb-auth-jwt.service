@@ -1,0 +1,21 @@
+[Unit]
+Description=JSON web token based authentication service for BigBlueButton
+
+[Service]
+Type=simple
+ExecStart=/usr/share/bbb-auth-jwt/bbb-auth-jwt
+
+RuntimeDirectory=bbb-auth-jwt
+
+# User=www-data because the web server needs to make FastCGI calls to
+# our UNIX domain socket.
+
+# Group=bigbluebutton in anticipation of one day needing to be in this
+# group to get access to the API key, even though
+# bigbluebutton.properties is currently world-readable.
+
+User=www-data
+Group=bigbluebutton
+
+[Install]
+WantedBy=multi-user.target

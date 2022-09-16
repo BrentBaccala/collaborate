@@ -1,0 +1,6 @@
+
+# Specify additional instances to stop when the Big Blue Button server hibernates.
+#
+# Ex: ADDITIONAL_STOP_INSTANCES="i-046861ce5d597be6b, i-0e997d8963457c7fa, i-0fb2d7c26fca38e06"
+#
+# ADDITIONAL_STOP_INSTANCES=""
