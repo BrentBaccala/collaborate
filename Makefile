@@ -11,7 +11,7 @@ DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-serv
 
 all: reprepro keys
 
-packages: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc bbb-aws-hibernate
+packages: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc bbb-aws-hibernate bbb-auth-jwt
 
 rsync: all
 	rsync -avvz --delete bionic-240 ubuntu@u20.freesoft.org:/var/www/html/
@@ -93,7 +93,7 @@ bigbluebutton: build/bigbluebutton
 
 # BUILD_PACKAGES that I built with the old BigBlueButton build system in a private repository
 
-BUILD_PACKAGES=bbb-vnc-collaborate bbb-auth-jwt freesoft-gnome-desktop
+BUILD_PACKAGES=bbb-vnc-collaborate freesoft-gnome-desktop
 
 build/bigbluebutton-build: build/bigbluebutton
 	# sudo!?  really?  really.  it creates stuff as root
@@ -187,6 +187,35 @@ build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  --deb-no-default-config-files \
 	  -d python3-bigbluebutton,python3-boto3 -t deb
+
+bbb-auth-jwt: build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb
+
+build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
+	rm -rf build/staging build/staging2
+
+	mkdir -p build/staging/etc/bigbluebutton/nginx
+	cp bbb-auth-jwt/auth-jwt.nginx build/staging/etc/bigbluebutton/nginx
+
+	mkdir -p build/staging/usr/lib/systemd/system
+	cp bbb-auth-jwt/bbb-auth-jwt.service build/staging/usr/lib/systemd/system
+
+	mkdir -p build/staging/usr/share/bbb-auth-jwt
+	cp bbb-auth-jwt/bbb-auth-jwt build/staging/usr/share/bbb-auth-jwt
+
+	mkdir -p build/staging/usr/bin
+	cp bbb-auth-jwt/bbb-mklogin build/staging/usr/bin
+
+	mkdir -p build/staging2
+	cat build/bigbluebutton/build/deb-helper.sh bbb-auth-jwt/after-install.sh > build/staging2/after-install.sh
+	cat build/bigbluebutton/build/deb-helper.sh bbb-auth-jwt/before-remove.sh > build/staging2/before-remove.sh
+
+	rm -f build/bbb-auth-jwt*.deb
+	fpm -s dir -p build/ -C build/staging -n bbb-auth-jwt --version 2.4.9+$(TIMESTAMP) --iteration 1 --epoch 3 \
+	  --after-install build/staging2/after-install.sh --before-remove build/staging2/before-remove.sh \
+	  --description "JSON web token based authentication service for BigBlueButton" \
+	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
+	  --deb-no-default-config-files \
+	  -d python3-jwt,python3-dateutil,python3-bigbluebutton,python3-pip -t deb
 
 clean:
 	# sudo? there's stuff in build/bigbluebutton and build/bigbluebutton-build that's owned by root
