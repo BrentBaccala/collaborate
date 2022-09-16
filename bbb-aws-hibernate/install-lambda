@@ -2,7 +2,10 @@
 #
 # Use AWS command line to install a lambda function to autostart an instance
 
-export AWS_PROFILE=bruce
+if [[ -z "${AWS_PROFILE}" ]];
+    echo 'Specify an AWS profile name in the AWS_PROFILE environment variable'
+    exit 1
+fi
 
 if [[ $1 == 'delete' ]]; then
     API_IDS=$(aws apigatewayv2 get-apis --output=json | jq -r '.Items[] | select(.Name=="login").ApiId')
@@ -23,21 +26,28 @@ if [[ $1 == 'delete' ]]; then
     exit
 fi
 
-# THIS DOESN'T WORK:
-#aws iam create-role --role-name login --assume-role-policy-document "$(cat lambda-role-policy)"
+if [[ $1 == 'add-global] ]]; then
 
-aws iam create-policy --policy-name login --policy-document "$(cat login-role-policy)"
+    # The IAM policies and roles are global to all AWS regions
 
-POLICY_ARN=$(aws iam list-policies --scope=Local --output=json | jq -r '.Policies[] | select (.PolicyName == "login").Arn')
+    # THIS DOESN'T WORK:
+    #aws iam create-role --role-name login --assume-role-policy-document "$(cat lambda-role-policy)"
 
-aws iam attach-role-policy --role-name login --policy-arn $POLICY_ARN
-aws iam attach-role-policy --role-name login --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    aws iam create-policy --policy-name login --policy-document "$(cat login-role-policy)"
+
+    # this appears to be global to all AWS regions
+    POLICY_ARN=$(aws iam list-policies --scope=Local --output=json | jq -r '.Policies[] | select (.PolicyName == "login").Arn')
+
+    aws iam attach-role-policy --role-name login --policy-arn $POLICY_ARN
+    aws iam attach-role-policy --role-name login --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+fi
 
 # I also increased the time limit on the lambda process to 60 sec.  This much time is needed because, when
 # called from 'waitpage', we wait for the collaborate server to start and register its DNS, which can be slow.
 
 aws lambda create-function --function-name login --role $(aws iam list-roles --output=json | jq -r '.Roles[] | select (.RoleName=="login").Arn') --runtime=python3.9 --zip-file=fileb://aws-login/my-deployment-package.zip --handler=lambda_function.lambda_handler --timeout=60
 
+# local to an AWS region
 FUNCTION_ARN=$(aws lambda list-functions --output=json | jq -r '.Functions[] | select(.FunctionName == "login").FunctionArn')
 
 aws apigatewayv2 create-api --name login --protocol-type HTTP --target $FUNCTION_ARN --route-key 'ANY /login'
@@ -55,6 +65,11 @@ ACCOUNT_ID=$(aws sts get-caller-identity --output=json | jq -r .Account)
 
 aws lambda add-permission --function-name login --statement-id apigateway-get --action lambda:InvokeFunction \
     --principal apigateway.amazonaws.com --source-arn "arn:aws:execute-api:us-east-1:$ACCOUNT_ID:$API_ID/*/*/login"
+
+# This adds another permission for us-west-1:
+
+aws lambda add-permission --function-name login --statement-id apigateway-get-us-west-1 --action lambda:InvokeFunction \
+    --principal apigateway.amazonaws.com --source-arn "arn:aws:execute-api:us-west-1:$ACCOUNT_ID:$API_ID/*/*/login"
 
 #aws lambda add-permission --function-name login --statement-id apigateway-get --action lambda:InvokeFunction \
 #    --principal apigateway.amazonaws.com --source-arn $INTEGRATION_URI
