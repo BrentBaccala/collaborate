@@ -2,7 +2,7 @@
 #
 # Use AWS command line to install a lambda function to autostart an instance
 
-if [[ -z "${AWS_PROFILE}" ]];
+if [[ -z "${AWS_PROFILE}" ]]; then
     echo 'Specify an AWS profile name in the AWS_PROFILE environment variable'
     exit 1
 fi
