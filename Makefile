@@ -165,6 +165,8 @@ build/tigervnc-viewer_1.10.1+dfsg-3_amd64.deb build/tigervnc-standalone-server_1
 bbb-aws-hibernate: build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb
 
 build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
+	if ! which fpm >/dev/null; then echo "ERROR: fpm is required to build bbb-aws-hibernate"; exit 1; fi
+
 	rm -rf build/staging build/staging2
 
 	mkdir -p build/staging/usr/lib/systemd/system
@@ -191,6 +193,8 @@ build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
 bbb-auth-jwt: build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb
 
 build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
+	if ! which fpm >/dev/null; then echo "ERROR: fpm is required to build bbb-auth-jwt"; exit 1; fi
+
 	rm -rf build/staging build/staging2
 
 	mkdir -p build/staging/etc/bigbluebutton/nginx
