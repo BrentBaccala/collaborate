@@ -35,6 +35,7 @@ setuptools.setup(
         'psutil',
         'importlib_resources; python_version < "3.7"',
         'vncdotool',
+        'pymongo',
         'service_identity'   # this is just here so twisted doesn't print warning messages
     ],
     scripts=[
