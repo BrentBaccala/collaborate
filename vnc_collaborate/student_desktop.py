@@ -164,7 +164,7 @@ def student_desktop(screenx=None, screeny=None):
 
     global current_screen
 
-    meetingID = os.environ['Meeting-Id']
+    meetingID = os.environ['MeetingId']
     try:
         current_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
         viewonly = (current_screenshare != UNIXname)
