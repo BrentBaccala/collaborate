@@ -11,7 +11,7 @@ DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-serv
 
 all: reprepro keys
 
-packages: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc
+packages: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc bbb-aws-hibernate
 
 rsync: all
 	rsync -avvz --delete bionic-240 ubuntu@u20.freesoft.org:/var/www/html/
@@ -93,7 +93,7 @@ bigbluebutton: build/bigbluebutton
 
 # BUILD_PACKAGES that I built with the old BigBlueButton build system in a private repository
 
-BUILD_PACKAGES=bbb-vnc-collaborate bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate
+BUILD_PACKAGES=bbb-vnc-collaborate bbb-auth-jwt freesoft-gnome-desktop
 
 build/bigbluebutton-build: build/bigbluebutton
 	# sudo!?  really?  really.  it creates stuff as root
@@ -161,6 +161,32 @@ build/tigervnc-viewer_1.10.1+dfsg-3_amd64.deb build/tigervnc-standalone-server_1
 	sudo apt -y remove tigervnc-build-deps
 	# -d to ignore dependency problem with xorg-server-source
 	cd build/tigervnc-1.10.1+dfsg; dpkg-buildpackage -d -b --no-sign
+
+bbb-aws-hibernate: build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb
+
+build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
+	rm -rf build/staging build/staging2
+
+	mkdir -p build/staging/usr/lib/systemd/system
+	cp bbb-aws-hibernate/bbb-aws-hibernate.service build/staging/usr/lib/systemd/system
+
+	mkdir -p build/staging/etc/default
+	cp bbb-aws-hibernate/bbb-aws-hibernate.default build/staging/etc/default/bbb-aws-hibernate
+
+	mkdir -p build/staging/usr/share/bbb-aws-hibernate
+	cp bbb-aws-hibernate/bbb-aws-hibernate build/staging/usr/share/bbb-aws-hibernate
+
+	mkdir -p build/staging2
+	cat build/bigbluebutton/build/deb-helper.sh bbb-aws-hibernate/after-install.sh > build/staging2/after-install.sh
+	cat build/bigbluebutton/build/deb-helper.sh bbb-aws-hibernate/before-remove.sh > build/staging2/before-remove.sh
+
+	rm -f build/bbb-aws-hibernate*.deb
+	fpm -s dir -p build/ -C build/staging -n bbb-aws-hibernate --version 2.4.9+$(TIMESTAMP) --iteration 1 --epoch 3 \
+	  --after-install build/staging2/after-install.sh --before-remove build/staging2/before-remove.sh \
+	  --description "Automatic hibernation service" \
+	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
+	  --deb-no-default-config-files \
+	  -d python3-bigbluebutton,python3-boto3 -t deb
 
 clean:
 	# sudo? there's stuff in build/bigbluebutton and build/bigbluebutton-build that's owned by root
