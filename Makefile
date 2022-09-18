@@ -136,6 +136,9 @@ reprepro: packages
 	cd bionic-240; http_proxy=http://osito.freesoft.org:3128 reprepro update  # pulls from bigbluebutton.org
 	cd bionic-240; reprepro remove bigbluebutton-bionic bbb-html5   # if I want to overwrite without changing filename
 	cd bionic-240; reprepro includedeb bigbluebutton-bionic ../build/*.deb
+	# Don't cache the package lists, but cache the packages themselves (which are in bionic-240/pool)
+	# Requires the webserver to be configured to allow overrides in .htaccess files
+	echo Header set Cache-Control no-cache > bionic-240/dists/.htaccess
 
 keys: bionic-240/bigbluebutton.asc
 
