@@ -42,15 +42,21 @@ if [[ $1 == 'add-global' ]]; then
     aws iam attach-role-policy --role-name login --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 fi
 
+UPDATE_FUNCTION=no
+
 if [[ ! -r aws-login/my-deployment-package.zip ]]; then
 
-    mkdir aws-login
+    mkdir -p aws-login
     cd aws-login
 
-    pip3 install --target package pyjwt
+    pip3 install --target package requests
+    # Need version 1.7.1 because newer ones require an 'algorithms' argument to jwt.decode() even if verify=False
+    pip3 install --target package pyjwt==1.7.1
     pip3 install --target package serialization
     # (last command will show "ERROR: launchpadlib 1.10.13 requires testresources, which is not installed.")
-    pip3 install --target package cryptography
+    # cryptography uses a binary shared object, and can be quite tricky to get working on lambda
+    # See https://aws.amazon.com/premiumsupport/knowledge-center/lambda-python-package-compatible/
+    pip3 install --target package --platform manylinux2014_x86_64 --python-version=3.9 --implementation cp --only-binary=:all: --upgrade cryptography
     pip3 install --target package dnspython
     unzip -d package cffi-1.15.0-cp39-cp39-manylinux_2_12_x86_64.manylinux2010_x86_64.whl
 
@@ -58,41 +64,59 @@ if [[ ! -r aws-login/my-deployment-package.zip ]]; then
     zip -g -j my-deployment-package.zip ../lambda_function.py
 
     cd ..
+
+    UPDATE_FUNCTION=yes
 fi
 
-# I also increased the time limit on the lambda process to 60 sec.  This much time is needed because, when
-# called from 'waitpage', we wait for the collaborate server to start and register its DNS, which can be slow.
+# If deployment package has already been built, but python code has been updated, update the deployment package
 
-aws lambda create-function --function-name login --role $(aws iam list-roles --output=json | jq -r '.Roles[] | select (.RoleName=="login").Arn') --runtime=python3.9 --zip-file=fileb://aws-login/my-deployment-package.zip --handler=lambda_function.lambda_handler --timeout=60
+if [[ lambda_function.py -nt aws-login/my-deployment-package.zip ]]; then
+    cd aws-login
+    echo zip -g -j my-deployment-package.zip ../lambda_function.py
+    zip -g -j my-deployment-package.zip ../lambda_function.py
+    cd ..
+    UPDATE_FUNCTION=yes
+fi
 
-# local to an AWS region
-FUNCTION_ARN=$(aws lambda list-functions --output=json | jq -r '.Functions[] | select(.FunctionName == "login").FunctionArn')
+URL=$(aws apigatewayv2 get-apis --output=json | jq -r '.Items[] | select(.Name == "login") | .ApiEndpoint')
 
-aws apigatewayv2 create-api --name login --protocol-type HTTP --target $FUNCTION_ARN --route-key 'ANY /login'
+if [[ -z $URL ]]; then
 
-API_ID=$(aws apigatewayv2 get-apis --output=json | jq -r '.Items[] | select(.Name=="login").ApiId')
+    # A lambda function is local to an AWS region
 
-# aws apigatewayv2 create-integration --api-id=$API_ID --integration-type=AWS_PROXY --integration-method=POST --integration-uri=$FUNCTION_ARN --payload-format-version=2.0
+    # I also increased the time limit on the lambda process to 60 sec.  This much time is needed because, when
+    # called from 'waitpage', we wait for the collaborate server to start and register its DNS, which can be slow.
 
-# INTEGRATION_ID=$(aws apigatewayv2 get-integrations --api-id $API_ID --output=json | jq -r '.Items[0].IntegrationId')
-INTEGRATION_URI=$(aws apigatewayv2 get-integrations --api-id $API_ID --output=json | jq -r '.Items[0].IntegrationUri')
+    aws lambda create-function --function-name login --role $(aws iam list-roles --output=json | jq -r '.Roles[] | select (.RoleName=="login").Arn') --runtime=python3.9 --zip-file=fileb://aws-login/my-deployment-package.zip --handler=lambda_function.lambda_handler --timeout=60
 
-# aws apigatewayv2 create-route --api-id=$API_ID --route-key='ANY /login' --target=integrations/$INTEGRATION_ID
+    # local to an AWS region
+    FUNCTION_ARN=$(aws lambda list-functions --output=json | jq -r '.Functions[] | select(.FunctionName == "login").FunctionArn')
 
-ACCOUNT_ID=$(aws sts get-caller-identity --output=json | jq -r .Account)
+    aws apigatewayv2 create-api --name login --protocol-type HTTP --target $FUNCTION_ARN --route-key 'ANY /login'
 
-aws lambda add-permission --function-name login --statement-id apigateway-get --action lambda:InvokeFunction \
-    --principal apigateway.amazonaws.com --source-arn "arn:aws:execute-api:us-east-1:$ACCOUNT_ID:$API_ID/*/*/login"
+    API_ID=$(aws apigatewayv2 get-apis --output=json | jq -r '.Items[] | select(.Name=="login").ApiId')
 
-# This adds another permission for us-west-1:
+    # aws apigatewayv2 create-integration --api-id=$API_ID --integration-type=AWS_PROXY --integration-method=POST --integration-uri=$FUNCTION_ARN --payload-format-version=2.0
 
-aws lambda add-permission --function-name login --statement-id apigateway-get-us-west-1 --action lambda:InvokeFunction \
-    --principal apigateway.amazonaws.com --source-arn "arn:aws:execute-api:us-west-1:$ACCOUNT_ID:$API_ID/*/*/login"
+    # INTEGRATION_ID=$(aws apigatewayv2 get-integrations --api-id $API_ID --output=json | jq -r '.Items[0].IntegrationId')
+    INTEGRATION_URI=$(aws apigatewayv2 get-integrations --api-id $API_ID --output=json | jq -r '.Items[0].IntegrationUri')
 
-#aws lambda add-permission --function-name login --statement-id apigateway-get --action lambda:InvokeFunction \
-#    --principal apigateway.amazonaws.com --source-arn $INTEGRATION_URI
+    # aws apigatewayv2 create-route --api-id=$API_ID --route-key='ANY /login' --target=integrations/$INTEGRATION_ID
 
+    ACCOUNT_ID=$(aws sts get-caller-identity --output=json | jq -r .Account)
 
-URL=$(aws apigatewayv2 get-apis --output=json | jq -r '.Items[0].ApiEndpoint')
+    aws lambda add-permission --function-name login --statement-id apigateway-get --action lambda:InvokeFunction \
+        --principal apigateway.amazonaws.com --source-arn "arn:aws:execute-api:us-east-1:$ACCOUNT_ID:$API_ID/*/*/login"
+
+    # This adds another permission for us-west-1:
+
+    aws lambda add-permission --function-name login --statement-id apigateway-get-us-west-1 --action lambda:InvokeFunction \
+        --principal apigateway.amazonaws.com --source-arn "arn:aws:execute-api:us-west-1:$ACCOUNT_ID:$API_ID/*/*/login"
+
+    #aws lambda add-permission --function-name login --statement-id apigateway-get --action lambda:InvokeFunction \
+    #    --principal apigateway.amazonaws.com --source-arn $INTEGRATION_URI
+
+    URL=$(aws apigatewayv2 get-apis --output=json | jq -r '.Items[] | select(.Name == "login") | .ApiEndpoint')
+fi
 
 echo $URL
