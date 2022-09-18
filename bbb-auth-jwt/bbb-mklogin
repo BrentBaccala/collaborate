@@ -27,7 +27,7 @@ parser.add_argument('-d', '--debug', action="store_true", help="print exact JWT 
 parser.add_argument('-r', '--rsa', action="store_true", help="sign JWT with current user's RSA key")
 parser.add_argument('-i', '--identity', type=str, default="~/.ssh/id_rsa", help="filename with RSA key")
 parser.add_argument('-u', '--url', type=str, help="endpoint URL")
-parser.add_argument('-n', '--dns-name', type=str, help="DNS name of server")
+parser.add_argument('-n', '--server-name', type=str, help="name of server (only used to start a hibernated AWS server)")
 parser.add_argument('name')
 args = parser.parse_args()
 
@@ -74,8 +74,8 @@ message = {'sub' : args.name, 'role' : role, 'exp' : exp}
 
 if args.meeting:
     message['mtg'] = args.meeting
-if args.dns_name:
-    message['dns'] = args.dns_name
+if args.server_name:
+    message['nam'] = args.server_name
 
 if args.debug:
     print('Expiration time:', exp.strftime('%c %Z'))

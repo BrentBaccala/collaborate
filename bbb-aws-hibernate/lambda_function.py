@@ -1,7 +1,7 @@
 #
 # URL will look like: https://abcdef123.execute-api.us-east-2.amazonaws.com/my-function
 #
-# we'll use: https://abcdef123.execute-api.us-east-2.amazonaws.com/login/USER_JWT
+# we'll use: https://abcdef123.execute-api.us-east-2.amazonaws.com/login?USER_JWT
 #
 # To redirect from https://login.freesoft.org/login/USER_JWT, we'll need some kind of static AWS content
 # served from S3.
@@ -28,36 +28,54 @@
 #
 # To watch the output, pip3 install awslogs and then:
 #    awslogs get /aws/lambda/login --profile=cosine
+#
+# Running the lambda function for the first time creates the log group.
 
 import os
 import jwt
 import time
+import json
 import boto3
 import requests
 import dns.resolver
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
 
 region = os.environ['AWS_REGION']
-instances = ['i-037fed505747bcc6c']
 ec2 = boto3.client('ec2', region_name=region)
 
-authorized_keys_txt = [b'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDT6kS1/ZnYXOM5QTDu4RY0mGaVWrz53LpjW9stK+E73JUFQh+FNGUWObab0m+TJzOpaAPMFVor1GaN/RdMPgNW537mGBH7H2LnQhSv3A3Sw5GvxZw11sy4ek6T2m2NVsemSvMgeUi/nPkt7vhgZdjktMkRS0MoErv0FsaZaqHTfnXqZ2saOqIy9FWusWZMQe60hvYAmAPZFB7AUE1Yj6ZyvcI+lZeHCtylvQUJrX1zwvhYPuwMd25ZCWAHLyQfTxpuS5Wv2aPDTwIsl9bSdbqv1myvEnkG/nGKrP1fH47GwnqfQZCl4Kzht/DaH1Q7uwIFdP4hpjce1kphJZBPexDJ ubuntu@ts2lclassroom']
+# Environment variable CONFIG is a JSON dictionary mapping server names ('nam' in the JWT)
+# to dictionaries with entries 'fqdn' (a string), 'instances' (a list of strings, each an AWS instance ID),
+# and 'keys' (a list of strings, each an openssh RSA public key)
 
+config = json.loads(os.environ['CONFIG'])
 
-# This map has to be converted to a list because the global state of AWS lambda functions
-# persists between invocations.  With only a map and not a list, it will only work once.
+# Parse all of the SSH public keys once, when the lambda function loads.
 
-authorized_keys = list(map(load_ssh_public_key, authorized_keys_txt))
+for server in config:
+    config[server]['keys'] = [load_ssh_public_key(key.encode()) for key in config[server]['keys']]
 
 def authenticate(token):
-    for key in authorized_keys:
-        try:
-            return jwt.decode(token, key = key, algorithms = ['RS512'])
-        except:
-            pass
+    token_dict = jwt.decode(token, verify=False)
+    name = token_dict.get('nam')
+    if name in config:
+        for key in config[name]['keys']:
+            try:
+                return jwt.decode(token, key = key, algorithms = ['RS512'])
+            except:
+                pass
     return None
 
 # HTML spinner, from https://www.w3schools.com/howto/howto_css_loader.asp
+#
+# Before sending this to the client, the lambda function will replace {token} with the JWT,
+# {nam} with the server name, and {dns} with the FQDN of the server.
+#
+# Upon loading, the spinner page will immediately call back to the lambda function using
+# 'waitpage-{nam}' as its "token".  This special case is detected by the lambda function
+# and causes it to wait for that instance to be running, and for a lookup on its DNS name
+# to return the instance's public IP address.  Or it will timeout after 29 seconds.
+# If it timeouts, the spinner page keeps retrying.  Once it returns success, the
+# spinner page redirects to https://{dns}/login/{token} to login to the collaborate server.
 
 wait_page=r"""<html>
 <head>
@@ -113,7 +131,7 @@ function fn() {
                 window.location.replace('https://{dns}/login/{token}');
             else if (xmlHttp.status == 503) {
                 /* AWS API gateway has a hard timeout of 29 seconds and returns 503.  Retry. */
-                xmlHttp.open("GET", "/login?waitpage-{dns}", true);
+                xmlHttp.open("GET", "/login?waitpage-{nam}", true);
                 xmlHttp.send();
             } else {
                 for (element of document.getElementsByClassName('loader')) {
@@ -136,7 +154,7 @@ function fn() {
         }
         document.getElementById('greeting2').innerHTML = 'Timeout!';
     }
-    xmlHttp.open("GET", '/login?waitpage-{dns}', true); // true for asynchronous
+    xmlHttp.open("GET", '/login?waitpage-{nam}', true); // true for asynchronous
     xmlHttp.send();
 }
 /* setTimeout(fn, 3000); */
@@ -178,8 +196,10 @@ error_page=r"""<html>
 def lambda_handler(event, context):
     token = event['rawQueryString']
     if token.startswith('waitpage-'):
-        dnsname = token[9:]
+        name = token[9:]
         print('waiting for instance to run')
+        instances = config[name]['instances']
+        # XXX - make this check all the instances in the list, not just the first one
         while ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
             time.sleep(1)
         print('instance running')
@@ -189,6 +209,7 @@ def lambda_handler(event, context):
         # I put this here to make sure we're querying the domain's authoritative server, but
         # hardwiring it like this only works for Google Domains
         # my_resolver.nameservers = ['216.239.32.108']    # ns-cloud-c1.googledomains.com
+        dnsname = config[name]['fqdn']
         while my_resolver.resolve(dnsname)[0].address != public_ip_addr:
             time.sleep(1)
         print('dns right')
@@ -203,13 +224,14 @@ def lambda_handler(event, context):
     else:
         jwt = authenticate(token)
         if jwt:
+            instances = config[jwt['nam']]['instances']
             if ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
                 ec2.start_instances(InstanceIds=instances)
                 print('started your instances: ' + str(instances))
             # redirect to a URL
             #    return {'statusCode': 302, 'headers': {'Location': 'https://freesoft.org/'}}
             # or just return the spinner page here and it redirects to our goal
-            wait_page_formatted = wait_page.replace('{token}', token).replace('{dns}', jwt['dns'])
+            wait_page_formatted = wait_page.replace('{token}', token).replace('{nam}', jwt['nam']).replace('{dns}', config[jwt['nam']]['fqdn'])
             return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': wait_page_formatted }
         else:
             return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page }
