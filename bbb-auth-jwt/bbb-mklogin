@@ -19,7 +19,7 @@ local_timezone = datetime.now().astimezone().tzinfo
 
 parser = argparse.ArgumentParser(description='Generate login URL for a Big Blue Button server')
 parser.add_argument('-e', '--expiration-time', type=str, required=True,
-                    help='expiration time of tokens (defaults to midnight in local timezone if only date is given)')
+                    help="expiration time of tokens (or 'never'; defaults to midnight in local timezone if only date is given)")
 parser.add_argument('-m', '--moderator', action="store_true",
                     help='generate moderator tokens')
 parser.add_argument('-M', '--meeting', action='store', help='meeting name (default is default meeting)')
@@ -31,12 +31,15 @@ parser.add_argument('-n', '--server-name', type=str, help="name of server (only 
 parser.add_argument('name')
 args = parser.parse_args()
 
-try:
-    exp = dateutil.parser.parse(args.expiration_time)
-    if exp.tzinfo is None:
-        exp = exp.replace(tzinfo = local_timezone)
-except:
-    raise Exception("Can't parse expiration time")
+if args.expiration_time == 'never':
+    exp = None
+else:
+    try:
+        exp = dateutil.parser.parse(args.expiration_time)
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo = local_timezone)
+    except:
+        raise Exception("Can't parse expiration time")
 
 # If the CONF_FILE exists, read parameters, most importantly JWT_KEY
 # and LOGIN_URL from it.  Otherwise, use the local machine's FQDN to
@@ -70,7 +73,10 @@ if args.moderator:
 else:
     role = 'v'
 
-message = {'sub' : args.name, 'role' : role, 'exp' : exp}
+if exp:
+    message = {'sub' : args.name, 'role' : role, 'exp' : exp}
+else:
+    message = {'sub' : args.name, 'role' : role}
 
 if args.meeting:
     message['mtg'] = args.meeting
@@ -78,7 +84,7 @@ if args.server_name:
     message['nam'] = args.server_name
 
 if args.debug:
-    print('Expiration time:', exp.strftime('%c %Z'))
+    print('Expiration time:', exp.strftime('%c %Z') if exp else 'never')
     print(message)
 
 if algorithm:
