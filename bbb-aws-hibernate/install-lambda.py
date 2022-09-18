@@ -38,43 +38,6 @@ l = boto3.client('lambda')
 ACCOUNT = sts.get_caller_identity()['Account']
 #print('Account', ACCOUNT)
 
-if 'delete-api' in sys.argv:
-    try:
-        API_ID = next(item['ApiId'] for item in apigw.get_apis()['Items'] if item['Name'] == 'login')
-    except StopIteration:
-        print("API 'login' not found in this region")
-        sys.exit(1)
-
-    for ROUTE_ID in (item['RouteId'] for item in apigw.get_routes(ApiId=API_ID)['Items']):
-        print('Deleting route', ROUTE_ID)
-        apigw.delete_route(ApiId=API_ID, RouteId=ROUTE_ID)
-
-    # Doesn't seem to be needed; throws an exception claiming that the route hasn't been deleted
-    #for INTEGRATION_ID in (item['IntegrationId'] for item in apigw.get_integrations(ApiId=API_ID)['Items']):
-    #    print('Deleting integration', INTEGRATION_ID)
-    #    apigw.delete_integration(ApiId=API_ID, IntegrationId=INTEGRATION_ID)
-
-    #print(ROUTE_ID)
-    #apigw.delete_route(ApiId=API_ID, RouteId=ROUTE_ID)
-    #apigw.delete_integration(ApiId=API_ID, IntegrationId=INTEGRATION_ID)
-    print('Deleting API', API_ID)
-    apigw.delete_api(ApiId=API_ID)
-
-    #aws lambda delete-function --function-name login
-    #POLICY_ARN=$(aws iam list-policies --scope=Local --output=json | jq -r '.Policies[] | select (.PolicyName == "login").Arn')
-    #aws iam detach-role-policy --role-name login --policy-arn $POLICY_ARN
-    #aws iam delete-policy --policy-arn $POLICY_ARN
-
-if len(sys.argv) > 1 and sys.argv[1] == 'add-global':
-    pass
-    #aws iam create-policy --policy-name login --policy-document "$(cat login-role-policy)"
-
-    # this appears to be global to all AWS regions
-    #POLICY_ARN=$(aws iam list-policies --scope=Local --output=json | jq -r '.Policies[] | select (.PolicyName == "login").Arn')
-
-    #aws iam attach-role-policy --role-name login --policy-arn $POLICY_ARN
-    #aws iam attach-role-policy --role-name login --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-
 login_role_policy = {
     "Version": "2012-10-17",
     "Statement": [
@@ -145,6 +108,25 @@ current_AWS_environment = l.get_function_configuration(FunctionName='login')['En
 if current_AWS_environment != environment:
     print('updating login function environment')
     l.update_function_configuration(FunctionName = 'login', Environment = environment)
+
+if 'delete-api' in sys.argv:
+    try:
+        API_ID = next(item['ApiId'] for item in apigw.get_apis()['Items'] if item['Name'] == 'login')
+    except StopIteration:
+        print("API 'login' not found in this region")
+        sys.exit(1)
+
+    for ROUTE_ID in (item['RouteId'] for item in apigw.get_routes(ApiId=API_ID)['Items']):
+        print('Deleting route', ROUTE_ID)
+        apigw.delete_route(ApiId=API_ID, RouteId=ROUTE_ID)
+
+    # Doesn't seem to be needed; throws an exception claiming that the route hasn't been deleted
+    #for INTEGRATION_ID in (item['IntegrationId'] for item in apigw.get_integrations(ApiId=API_ID)['Items']):
+    #    print('Deleting integration', INTEGRATION_ID)
+    #    apigw.delete_integration(ApiId=API_ID, IntegrationId=INTEGRATION_ID)
+
+    print('Deleting API', API_ID)
+    apigw.delete_api(ApiId=API_ID)
 
 try:
     URL = next(item['ApiEndpoint'] for item in apigw.get_apis()['Items'] if item['Name'] == 'login')
