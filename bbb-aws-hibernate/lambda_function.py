@@ -188,7 +188,7 @@ error_page=r"""<html>
 </head>
 <body>
 <div class="greeting">Sorry!</div>
-<div class="greeting2">Your authentication key was not accepted.</div>
+<div class="greeting2">{error}</div>
 </body>
 </html>
 """
@@ -226,7 +226,11 @@ def lambda_handler(event, context):
         if jwt:
             instances = config[jwt['nam']]['instances']
             if ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
-                ec2.start_instances(InstanceIds=instances)
+                try:
+                    ec2.start_instances(InstanceIds=instances)
+                except Exception as ex:
+                    error_page_formatted = error_page.replace('{error}', str(ex))
+                    return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
                 print('started your instances: ' + str(instances))
             # redirect to a URL
             #    return {'statusCode': 302, 'headers': {'Location': 'https://freesoft.org/'}}
@@ -234,4 +238,5 @@ def lambda_handler(event, context):
             wait_page_formatted = wait_page.replace('{token}', token).replace('{nam}', jwt['nam']).replace('{dns}', config[jwt['nam']]['fqdn'])
             return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': wait_page_formatted }
         else:
-            return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page }
+            error_page_formatted = error_page.replace('{error}', 'Your authentication key was not accepted')
+            return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
