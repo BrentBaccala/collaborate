@@ -1,5 +1,6 @@
 
 aws: aws-login/my-deployment-package.zip
+	./install-lambda.py
 
 # depends on /dev/null so it will only get built if it doesn't already exist
 aws-login/my-deployment-package.zip:: /dev/null

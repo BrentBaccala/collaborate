@@ -6,6 +6,8 @@ import os
 import sys
 import boto3
 import json
+import base64
+import hashlib
 
 if 'AWS_PROFILE' not in os.environ:
     print('Specify an AWS profile name in the AWS_PROFILE environment variable')
@@ -34,7 +36,7 @@ iam = boto3.client('iam')
 l = boto3.client('lambda')
 
 ACCOUNT = sts.get_caller_identity()['Account']
-print('Account', ACCOUNT)
+#print('Account', ACCOUNT)
 
 if 'delete-api' in sys.argv:
     try:
@@ -119,22 +121,35 @@ except iam.exceptions.NoSuchEntityException:
 if 'delete-function' in sys.argv:
     l.delete_function(FunctionName='login')
 
-try:
-    URL = next(item['ApiEndpoint'] for item in apigw.get_apis()['Items'] if item['Name'] == 'login')
-    with open('aws-login/my-deployment-package.zip', 'rb') as f:
-        zipfile = f.read()
-    l.update_function_code(FunctionName = 'login', ZipFile=zipfile)
-    l.update_function_configuration(FunctionName = 'login', Environment = environment)
+with open('aws-login/my-deployment-package.zip', 'rb') as f:
+    zipfile = f.read()
 
-except StopIteration:
-    with open('aws-login/my-deployment-package.zip', 'rb') as f:
-        zipfile = f.read()
+try:
+    lambda_function = l.get_function(FunctionName='login')['Configuration']
+    current_AWS_sha256 = lambda_function['CodeSha256']
+    m = hashlib.sha256()
+    m.update(zipfile)
+    local_code_sha256 = base64.b64encode(m.digest()).decode()
+    if current_AWS_sha256 != local_code_sha256:
+        print('Updating function login')
+        l.update_function_code(FunctionName = 'login', ZipFile=zipfile)
+    FUNCTION_ARN = lambda_function['FunctionArn']
+except l.exceptions.ResourceNotFoundException:
+    print('Creating function login')
     FUNCTION_ARN = l.create_function(FunctionName='login', Role=ROLE, Runtime='python3.9',
                                      PackageType='Zip', Code={'ZipFile': zipfile},
                                      Environment=environment,
                                      Handler='lambda_function.lambda_handler', Timeout=60)['FunctionArn']
-    #print(FUNCTION_ARN)
 
+current_AWS_environment = l.get_function_configuration(FunctionName='login')['Environment']
+if current_AWS_environment != environment:
+    print('updating login function environment')
+    l.update_function_configuration(FunctionName = 'login', Environment = environment)
+
+try:
+    URL = next(item['ApiEndpoint'] for item in apigw.get_apis()['Items'] if item['Name'] == 'login')
+except StopIteration:
+    print('Creating API login')
     API = apigw.create_api(Name='login', ProtocolType='HTTP', Target=FUNCTION_ARN, RouteKey='ANY /login')
     API_ID = API['ApiId']
     URL = API['ApiEndpoint']
