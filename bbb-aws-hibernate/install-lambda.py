@@ -29,12 +29,14 @@ assert len(json.dumps(CONFIG)) <= 4096
 environment = { "Variables" : {"CONFIG" : json.dumps(CONFIG)} }
 
 sts = boto3.client('sts')
+apigw = boto3.client('apigatewayv2')
+iam = boto3.client('iam')
+l = boto3.client('lambda')
+
 ACCOUNT = sts.get_caller_identity()['Account']
 print('Account', ACCOUNT)
 
-apigw = boto3.client('apigatewayv2')
-
-if len(sys.argv) > 1 and sys.argv[1] == 'delete-api':
+if 'delete-api' in sys.argv:
     try:
         API_ID = next(item['ApiId'] for item in apigw.get_apis()['Items'] if item['Name'] == 'login')
     except StopIteration:
@@ -71,11 +73,51 @@ if len(sys.argv) > 1 and sys.argv[1] == 'add-global':
     #aws iam attach-role-policy --role-name login --policy-arn $POLICY_ARN
     #aws iam attach-role-policy --role-name login --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
-iam = boto3.client('iam')
-ROLE=next(item['Arn'] for item in iam.list_roles()['Roles'] if item['RoleName'] == 'login')
-#print('Role', ROLE)
+login_role_policy = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": ["ec2:DescribeInstances", "ec2:StartInstances"],
+            "Resource": "*"
+        }
+    ]
+}
 
-l = boto3.client('lambda')
+if 'delete-policy' in sys.argv:
+    POLICY_ARN = next(policy['Arn'] for policy in iam.list_policies(Scope='Local')['Policies'] if policy['PolicyName'] == 'login')
+    iam.delete_policy(PolicyArn = POLICY_ARN)
+
+try:
+    POLICY_ARN = next(policy['Arn'] for policy in iam.list_policies(Scope='Local')['Policies'] if policy['PolicyName'] == 'login')
+except StopIteration:
+    print('Creating policy login')
+    POLICY_ARN = iam.create_policy(PolicyName = 'login', PolicyDocument = json.dumps(login_role_policy))['Policy']['Arn']
+
+if 'delete-role' in sys.argv:
+    iam.delete_role(RoleName = 'login')
+
+lambda_role_policy = {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+
+try:
+    ROLE = iam.get_role(RoleName = 'login')['Role']['Arn']
+except iam.exceptions.NoSuchEntityException:
+    print('Creating role login')
+    ROLE = iam.create_role(RoleName = 'login', AssumeRolePolicyDocument = json.dumps(lambda_role_policy))['Role']['Arn']
+
+if 'delete-function' in sys.argv:
+    l.delete_function(FunctionName='login')
 
 try:
     URL = next(item['ApiEndpoint'] for item in apigw.get_apis()['Items'] if item['Name'] == 'login')
@@ -85,7 +127,6 @@ try:
     l.update_function_configuration(FunctionName = 'login', Environment = environment)
 
 except StopIteration:
-    l.delete_function(FunctionName='login')
     with open('aws-login/my-deployment-package.zip', 'rb') as f:
         zipfile = f.read()
     FUNCTION_ARN = l.create_function(FunctionName='login', Role=ROLE, Runtime='python3.9',
