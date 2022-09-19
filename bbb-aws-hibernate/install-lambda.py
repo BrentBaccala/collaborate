@@ -9,22 +9,11 @@ import json
 import base64
 import hashlib
 
+exec(open('configuration.py').read())
+
 if 'AWS_PROFILE' not in os.environ:
     print('Specify an AWS profile name in the AWS_PROFILE environment variable')
     exit()
-
-CONFIG = {
-    'ts2l': {
-        'fqdn': 'ts2lclassroom.org',
-        'instances': ['i-037fed505747bcc6c'],
-        'keys': ['ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDT6kS1/ZnYXOM5QTDu4RY0mGaVWrz53LpjW9stK+E73JUFQh+FNGUWObab0m+TJzOpaAPMFVor1GaN/RdMPgNW537mGBH7H2LnQhSv3A3Sw5GvxZw11sy4ek6T2m2NVsemSvMgeUi/nPkt7vhgZdjktMkRS0MoErv0FsaZaqHTfnXqZ2saOqIy9FWusWZMQe60hvYAmAPZFB7AUE1Yj6ZyvcI+lZeHCtylvQUJrX1zwvhYPuwMd25ZCWAHLyQfTxpuS5Wv2aPDTwIsl9bSdbqv1myvEnkG/nGKrP1fH47GwnqfQZCl4Kzht/DaH1Q7uwIFdP4hpjce1kphJZBPexDJ ubuntu@ts2lclassroom']
-    },
-    'collaborate': {
-        'fqdn': 'collaborate.freesoft.org',
-        'instances': ['i-0d7982250b4e835d7'],
-        'keys': ['ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCzuN81Hcxd5wpfT8JFzhFXG0JoyOpLAOGl6r0bb4iTt86VJMfvByJorKHVWi/Wp1qRqzAAeAnlSKRTm7CeIy744Y1/iaWQwDMkS+Sjwhib104sqM8EIFVVeiorvwPa8GbpdgxS6H6s5zO4mlnW5MdiV67jlyd0xWc3jDWCqwGLJBgYrJEuztQ5hlLDfliDSs8ZpSijgkROII2yORuU+YuVkHgFcmRDXnIKq7iL5xKW89KGSU8yOi6v1iW9xccs0m5hB35B3zX8Kha25dhBpVXrLlvP8Xf2y8MYIoYVaYurLLqSVmRoGMXOnaXxw3iX9ERMvuhj0PIPNPOK7ZJvN3en baccala@samsung']
-    },
-}
 
 assert len(json.dumps(CONFIG)) <= 4096
 
