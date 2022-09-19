@@ -206,12 +206,22 @@ def lambda_handler(event, context):
         public_ip_addr = ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['PublicIpAddress']
         print('instance running on', public_ip_addr)
         my_resolver = dns.resolver.Resolver()
-        # I put this here to make sure we're querying the domain's authoritative server, but
-        # hardwiring it like this only works for Google Domains
-        # my_resolver.nameservers = ['216.239.32.108']    # ns-cloud-c1.googledomains.com
         dnsname = config[name]['fqdn']
-        while my_resolver.resolve(dnsname)[0].address != public_ip_addr:
-            time.sleep(1)
+
+        # I put this here to make sure we're querying the domain's authoritative server,
+        # to avoid caching an old response for 60 seconds
+        domain = dns.name.from_text(dnsname).parent()
+        my_resolver.nameservers = [a.address for ns in my_resolver.query(domain, rdtype='NS').rrset for a in my_resolver.query(str(ns.target)).rrset]
+
+        last_dns_IP = None
+        dns_IP = None
+        while dns_IP != public_ip_addr:
+            dns_IP = my_resolver.resolve(dnsname)[0].address
+            if dns_IP != public_ip_addr:
+                if dns_IP != last_dns_IP:
+                    print('dns resolves wrong:', dns_IP)
+                    last_dns_IP = dns_IP
+                time.sleep(1)
         print('dns right')
         url = 'https://{}/bigbluebutton/api'.format(dnsname)
         ans = requests.get(url)
