@@ -38,7 +38,7 @@ login_role_policy = {
     ]
 }
 
-if 'delete-api' in sys.argv or 'delete-everything' in sys.argv:
+if 'delete-api' in sys.argv or 'delete-region' in sys.argv or 'delete-everything' in sys.argv:
     try:
         API_ID = next(item['ApiId'] for item in apigw.get_apis()['Items'] if item['Name'] == 'login')
     except StopIteration:
@@ -57,7 +57,7 @@ if 'delete-api' in sys.argv or 'delete-everything' in sys.argv:
     print('Deleting API', API_ID)
     apigw.delete_api(ApiId=API_ID)
 
-if 'delete-function' in sys.argv or 'delete-everything' in sys.argv:
+if 'delete-function' in sys.argv or 'delete-region' in sys.argv or 'delete-everything' in sys.argv:
     print('Deleting function login')
     l.delete_function(FunctionName='login')
 
@@ -70,7 +70,7 @@ if 'delete-role' in sys.argv or 'delete-everything' in sys.argv:
     print('Deleting role login')
     iam.delete_role(RoleName = 'login')
 
-if 'delete-everything' in sys.argv:
+if 'delete-region' in sys.argv or 'delete-everything' in sys.argv:
     exit(0)
 
 try:
