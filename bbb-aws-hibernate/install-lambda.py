@@ -74,14 +74,18 @@ if 'delete-function' in sys.argv or 'delete-region' in sys.argv or 'delete-every
     print('Deleting lambda function', FUNCTION_NAME)
     l.delete_function(FunctionName=FUNCTION_NAME)
 
+if 'delete-role' in sys.argv or 'delete-everything' in sys.argv:
+    print('Detaching role policies')
+    POLICY_ARN = next(policy['Arn'] for policy in iam.list_policies(Scope='Local')['Policies'] if policy['PolicyName'] == POLICY_NAME)
+    iam.detach_role_policy(RoleName = ROLE_NAME, PolicyArn = POLICY_ARN)
+    iam.detach_role_policy(RoleName = ROLE_NAME, PolicyArn = 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
+    print('Deleting role', ROLE_NAME)
+    iam.delete_role(RoleName = ROLE_NAME)
+
 if 'delete-policy' in sys.argv or 'delete-everything' in sys.argv:
     print('Deleting policy', POLICY_NAME)
     POLICY_ARN = next(policy['Arn'] for policy in iam.list_policies(Scope='Local')['Policies'] if policy['PolicyName'] == POLICY_NAME)
     iam.delete_policy(PolicyArn = POLICY_ARN)
-
-if 'delete-role' in sys.argv or 'delete-everything' in sys.argv:
-    print('Deleting role', ROLE_NAME)
-    iam.delete_role(RoleName = ROLE_NAME)
 
 if 'delete-region' in sys.argv or 'delete-everything' in sys.argv:
     exit(0)
@@ -110,6 +114,8 @@ try:
 except iam.exceptions.NoSuchEntityException:
     print('Creating role', ROLE_NAME)
     ROLE = iam.create_role(RoleName = ROLE_NAME, AssumeRolePolicyDocument = json.dumps(lambda_role_policy))['Role']['Arn']
+    iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = POLICY_ARN)
+    iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
 
 with open('aws-login/my-deployment-package.zip', 'rb') as f:
     zipfile = f.read()
