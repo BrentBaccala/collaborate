@@ -9,15 +9,9 @@ import json
 import base64
 import hashlib
 
-exec(open('configuration.py').read())
-
 if 'AWS_PROFILE' not in os.environ:
     print('Specify an AWS profile name in the AWS_PROFILE environment variable')
     exit()
-
-assert len(json.dumps(CONFIG)) <= 4096
-
-environment = { "Variables" : {"CONFIG" : json.dumps(CONFIG)} }
 
 # name of the API gateway endpoint (the part that is tied to a URL)
 API_NAME = 'login'
@@ -30,6 +24,12 @@ POLICY_NAME = 'login'
 
 # name of the role that the lambda function will run as
 ROLE_NAME = 'login'
+
+exec(open('configuration.py').read())
+
+assert len(json.dumps(CONFIG)) <= 4096
+
+environment = { "Variables" : {"CONFIG" : json.dumps(CONFIG)} }
 
 sts = boto3.client('sts')
 apigw = boto3.client('apigatewayv2')
