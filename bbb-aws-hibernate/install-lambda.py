@@ -106,6 +106,30 @@ if 'delete-policy' in sys.argv or 'delete-everything' in sys.argv:
 if 'delete-region' in sys.argv or 'delete-everything' in sys.argv:
     exit(0)
 
+if 'status' in sys.argv:
+    try:
+       next(policy['Arn'] for policy in iam.list_policies(Scope='Local')['Policies'] if policy['PolicyName'] == POLICY_NAME)
+       print('Policy', POLICY_NAME, 'exists')
+    except StopIteration:
+       print('Policy', POLICY_NAME, 'does not exist')
+    try:
+        ROLE = iam.get_role(RoleName = ROLE_NAME)['Role']['Arn']
+        print('Role', ROLE_NAME, 'exists')
+    except iam.exceptions.NoSuchEntityException:
+        print('Role', ROLE_NAME, 'does not exist')
+    try:
+        lambda_function = l.get_function(FunctionName=FUNCTION_NAME)['Configuration']
+        print('Lambda function', FUNCTION_NAME, 'exists')
+    except l.exceptions.ResourceNotFoundException:
+        print('Lambda function', FUNCTION_NAME, 'does not exist')
+    try:
+        URL = next(item['ApiEndpoint'] for item in apigw.get_apis()['Items'] if item['Name'] == API_NAME)
+        print('API', API_NAME, 'exists')
+        print('URL', URL + '/login')
+    except StopIteration:
+        print('API', API_NAME, 'does not exist')
+    exit(0)
+
 try:
     POLICY_ARN = next(policy['Arn'] for policy in iam.list_policies(Scope='Local')['Policies'] if policy['PolicyName'] == POLICY_NAME)
 except StopIteration:
