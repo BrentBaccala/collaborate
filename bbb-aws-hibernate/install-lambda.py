@@ -37,9 +37,10 @@ iam = boto3.client('iam')
 l = boto3.client('lambda')
 
 ACCOUNT = sts.get_caller_identity()['Account']
-#print('Account', ACCOUNT)
 
-login_role_policy = {
+# Policy that specifies permissions given to the role ROLE_NAME, and by extension to the lambda function
+
+role_policy = {
     "Version": "2012-10-17",
     "Statement": [
         {
@@ -48,6 +49,21 @@ login_role_policy = {
             "Resource": "*"
         }
     ]
+}
+
+# Policy that lets lambda functions assume the role ROLE_NAME
+
+assume_role_policy = {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
 }
 
 if 'delete-api' in sys.argv or 'delete-region' in sys.argv or 'delete-everything' in sys.argv:
@@ -94,26 +110,13 @@ try:
     POLICY_ARN = next(policy['Arn'] for policy in iam.list_policies(Scope='Local')['Policies'] if policy['PolicyName'] == POLICY_NAME)
 except StopIteration:
     print('Creating policy', POLICY_NAME)
-    POLICY_ARN = iam.create_policy(PolicyName = POLICY_NAME, PolicyDocument = json.dumps(login_role_policy))['Policy']['Arn']
-
-lambda_role_policy = {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "lambda.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
+    POLICY_ARN = iam.create_policy(PolicyName = POLICY_NAME, PolicyDocument = json.dumps(role_policy))['Policy']['Arn']
 
 try:
     ROLE = iam.get_role(RoleName = ROLE_NAME)['Role']['Arn']
 except iam.exceptions.NoSuchEntityException:
     print('Creating role', ROLE_NAME)
-    ROLE = iam.create_role(RoleName = ROLE_NAME, AssumeRolePolicyDocument = json.dumps(lambda_role_policy))['Role']['Arn']
+    ROLE = iam.create_role(RoleName = ROLE_NAME, AssumeRolePolicyDocument = json.dumps(assume_role_policy))['Role']['Arn']
     iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = POLICY_ARN)
     iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
 
