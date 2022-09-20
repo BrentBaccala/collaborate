@@ -13,6 +13,9 @@ if 'AWS_PROFILE' not in os.environ:
     print('Specify an AWS profile name in the AWS_PROFILE environment variable')
     exit()
 
+# the filename of the zip file containing the AWS deployment package
+DEPLOYMENT_PACKAGE = 'build/deployment-package.zip'
+
 # name of the API gateway endpoint (the part that is tied to a URL)
 API_NAME = 'login'
 
@@ -144,7 +147,7 @@ except iam.exceptions.NoSuchEntityException:
     iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = POLICY_ARN)
     iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
 
-with open('aws-login/my-deployment-package.zip', 'rb') as f:
+with open(DEPLOYMENT_PACKAGE, 'rb') as f:
     zipfile = f.read()
 
 try:
