@@ -55,7 +55,10 @@ for server in config:
     config[server]['keys'] = [load_ssh_public_key(key.encode()) for key in config[server]['keys']]
 
 def authenticate(token):
-    token_dict = jwt.decode(token, verify=False)
+    try:
+        token_dict = jwt.decode(token, verify=False)
+    except:
+        return None
     name = token_dict.get('nam')
     if name in config:
         for key in config[name]['keys']:
