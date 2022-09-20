@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 #
 # Use AWS boto3 library to install a lambda function to autostart an instance
+#
+# Needs to be run on an account with an AWS access key with suitable permission.
+#
+# Creates a policy giving permission to describe and start EC2 instances,
+# creates a role with that policy as its primary permission, creates
+# a lambda function that runs with that role, and creates an API gateway
+# that runs that lambda function when a certain URL is requested.
 
 import os
 import sys
