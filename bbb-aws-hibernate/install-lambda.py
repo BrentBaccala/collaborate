@@ -151,8 +151,18 @@ try:
 except iam.exceptions.NoSuchEntityException:
     print('Creating role', ROLE_NAME)
     ROLE = iam.create_role(RoleName = ROLE_NAME, AssumeRolePolicyDocument = json.dumps(assume_role_policy))['Role']['Arn']
-    iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = POLICY_ARN)
-    iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole')
+
+role_policies = iam.list_attached_role_policies(RoleName = ROLE_NAME)
+role_policy_arns = [p['PolicyArn'] for p in role_policies['AttachedPolicies']]
+
+LAMBDA_POLICY_ARN = 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+
+if POLICY_ARN not in role_policy_arns:
+   print('Attaching policy', POLICY_ARN, "to role", ROLE_NAME)
+   iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = POLICY_ARN)
+if LAMBDA_POLICY_ARN not in role_policy_arns:
+   print('Attaching policy', LAMBDA_POLICY_ARN, "to role", ROLE_NAME)
+   iam.attach_role_policy(RoleName = ROLE_NAME, PolicyArn = LAMBDA_POLICY_ARN)
 
 with open(DEPLOYMENT_PACKAGE, 'rb') as f:
     zipfile = f.read()
