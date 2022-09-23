@@ -238,7 +238,13 @@ def lambda_handler(event, context):
         jwt = authenticate(token)
         if jwt:
             instances = config[jwt['nam']]['instances']
-            if ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
+            try:
+                instance_statuses = ec2.describe_instance_status(InstanceIds=instances, IncludeAllInstances=True)['InstanceStatuses']
+                instances_to_start = [instance['InstanceId'] for instance in instance_statuses if instance['InstanceState']['Name'] != 'running']
+            except Exception:
+                if ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
+                    instances_to_start = instances
+            if len(instances_to_start) > 0:
                 try:
                     ec2.start_instances(InstanceIds=instances)
                 except Exception as ex:
