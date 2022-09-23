@@ -190,7 +190,6 @@ build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
 	  --after-install build/staging2/after-install.sh --before-remove build/staging2/before-remove.sh \
 	  --description "Automatic hibernation service" \
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
-	  --deb-no-default-config-files \
 	  -d python3-bigbluebutton,python3-boto3 -t deb
 
 bbb-auth-jwt: build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb
