@@ -197,6 +197,7 @@ error_page=r"""<html>
 """
 
 def lambda_handler(event, context):
+  try:
     token = event['rawQueryString']
     if token.startswith('waitpage-'):
         name = token[9:]
@@ -259,3 +260,6 @@ def lambda_handler(event, context):
         else:
             error_page_formatted = error_page.replace('{error}', 'Your authentication key was not accepted')
             return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
+  except Exception as ex:
+    error_page_formatted = error_page.replace('{error}', str(ex))
+    return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
