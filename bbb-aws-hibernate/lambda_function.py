@@ -245,6 +245,8 @@ def lambda_handler(event, context):
             except Exception:
                 if ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
                     instances_to_start = instances
+                else:
+                    instances_to_start = []
             if len(instances_to_start) > 0:
                 try:
                     ec2.start_instances(InstanceIds=instances)
