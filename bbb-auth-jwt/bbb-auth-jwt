@@ -92,7 +92,7 @@ def login():
         for key in authorized_keys():
             try:
                 decoded = jwt.decode(jwt = JWT, key = key, algorithms = ['RS512'])
-            except (jwt.InvalidSignatureError, TypeError):
+            except:
                 pass
 
         # The server's API key is the last key we'll try.  If it
