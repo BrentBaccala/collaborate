@@ -36,6 +36,7 @@ import jwt
 import time
 import json
 import boto3
+import botocore
 import requests
 import dns.resolver
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
@@ -249,7 +250,18 @@ def lambda_handler(event, context):
                     instances_to_start = []
             if len(instances_to_start) > 0:
                 try:
-                    ec2.start_instances(InstanceIds=instances)
+                    try:
+                        ec2.start_instances(InstanceIds=instances_to_start)
+                    except botocore.exceptions.ClientError:
+                        # If we couldn't start all of the instances, make sure we
+                        # start the first one (presumably the videoconference server),
+                        # then optionally try to start the rest
+                        ec2.start_instances(InstanceIds=instances_to_start[0:1])
+                        for instance in instances_to_start[1:]:
+                            try:
+                                ec2.start_instances(InstanceIds=[instance])
+                            except botocore.exceptions.ClientError:
+                                pass
                 except Exception as ex:
                     error_page_formatted = error_page.replace('{error}', str(ex))
                     return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
