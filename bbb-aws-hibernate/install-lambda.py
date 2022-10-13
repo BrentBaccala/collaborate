@@ -16,12 +16,17 @@ import json
 import base64
 import hashlib
 
+import sqlite3
+
 if 'AWS_PROFILE' not in os.environ:
     print('Specify an AWS profile name in the AWS_PROFILE environment variable')
     exit()
 
 # the filename of the zip file containing the AWS deployment package
 DEPLOYMENT_PACKAGE = 'build/deployment-package.zip'
+
+# the filename of the SQLite3 database used to relay the API gateway URLs to bbb-mklogin
+SQLITE3_DATABASE = '../bbb-auth.sqlite'
 
 # name of the API gateway endpoint (the part that is tied to a URL)
 API_NAME = 'login'
@@ -209,3 +214,13 @@ except StopIteration:
         Principal='apigateway.amazonaws.com', SourceArn=SOURCE_ARN)
 
 print('URL', URL + '/login')
+
+# Update a SQLite3 database used by bbb-mklogin to obtain the API gateway's url
+
+conn = sqlite3.connect(SQLITE3_DATABASE)
+c = conn.cursor()
+c.execute("CREATE TABLE IF NOT EXISTS servers (name text NOT NULL PRIMARY KEY, url text);")
+for server in CONFIG.keys():
+    c.execute("INSERT INTO servers (name, url) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET url = excluded.url",
+              (server, URL + '/login'))
+conn.commit()

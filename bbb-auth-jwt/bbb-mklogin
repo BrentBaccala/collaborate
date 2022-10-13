@@ -7,6 +7,7 @@ import os
 import sys
 import jwt
 import socket
+import sqlite3
 from datetime import datetime
 import dateutil.parser
 import argparse
@@ -14,6 +15,12 @@ import cryptography.hazmat.backends.openssl.backend
 from cryptography.hazmat.primitives import serialization
 
 CONF_FILE='/etc/bigbluebutton/bbb-auth-jwt'
+
+# The filename of the SQLite3 database used to obtain the API gateway URLs
+#    (how to open files in the same directory as the script, from https://stackoverflow.com/a/4060259/1493790)
+
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+SQLITE3_DATABASE = os.path.join(__location__, '../bbb-auth.sqlite')
 
 local_timezone = datetime.now().astimezone().tzinfo
 
@@ -42,31 +49,52 @@ else:
         raise Exception("Can't parse expiration time")
 
 # If the CONF_FILE exists, read parameters, most importantly JWT_KEY
-# and LOGIN_URL from it.  Otherwise, use the local machine's FQDN to
-# generate LOGIN_URL and read JWT_KEY from the local Big Blue Button
-# properties file.
+# and LOGIN_URL from it, that can override everything below.
+
+if os.path.isfile(CONF_FILE):
+    exec(open(CONF_FILE).read())
+
+# If rsa encryption wasn't specified and JWT_KEY wasn't set in
+# the CONF_FILE, try to use the local Big Blue Button's
+# shared secret as a key.
 #
 # This allows us to configure this script to generate keys for a
 # remote server while falling back to the local server by default.
 #
-# The 'bigbluebutton' package only needs to be installed if we
-# don't have configuration info in CONF_FILE.
+# The 'bigbluebutton' package only needs to be installed if we're
+# not using RSA and we don't have configuration info in CONF_FILE.
 
 if args.rsa:
     with open(os.path.expanduser(args.identity)) as key_file:
         JWT_KEY = serialization.load_pem_private_key(key_file.read().encode(), password=None, backend=cryptography.hazmat.backends.openssl.backend)
         algorithm = 'RS512'
-        LOGIN_URL = 'https://' + socket.getfqdn() + '/login/'
-elif os.path.isfile(CONF_FILE):
-    exec(open(CONF_FILE).read())
-else:
+elif 'JWT_KEY' not in vars():
     import bigbluebutton
     JWT_KEY = bigbluebutton.securitySalt()
     algorithm = None
-    LOGIN_URL = bigbluebutton.serverURL() + '/login/'
+
+# If url wasn't specified as an argument and wasn't specified
+# in CONF_FILE, try to read it from a SQL database that contains
+# server-to-url mappings.  If that doesn't work, use the local
+# machines's Fully Qualified Domain Name (FQDN).
+#
+# If we're running this script on the BigBlueButton server,
+# we only need to override the FQDN if we want this user
+# to connect through an AWS lambda function to start the
+# server when it's stopped.
 
 if args.url:
     LOGIN_URL = args.url + '?'
+elif 'LOGIN_URL' not in vars():
+    try:
+        conn = sqlite3.connect(SQLITE3_DATABASE)
+        c = conn.cursor()
+        c.execute("SELECT url FROM servers WHERE name = ?", (args.server_name,))
+        url = c.fetchone()[0]
+        LOGIN_URL = url + '?'
+    except:
+        LOGIN_URL = 'https://' + socket.getfqdn() + '/login/'
+
 
 if args.moderator:
     role = 'm'
