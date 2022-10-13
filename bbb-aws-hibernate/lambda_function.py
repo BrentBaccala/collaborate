@@ -167,7 +167,7 @@ fn()
 </head>
 <body>
 <div id="greeting" class="greeting">Welcome!</div>
-<div id="greeting2" class="greeting2">Please wait for your collaborate server to start</div>
+<div id="greeting2" class="greeting2">{message}</div>
 <div class="loader"></div>
 </body>
 </html>
@@ -196,6 +196,15 @@ error_page=r"""<html>
 </body>
 </html>
 """
+
+# I use curly braces so much in the Javascript, I don't want to double
+# them all up to escape them, so I used a "limited_format" function
+# that only replaces the strings specified in the keyword arguments.
+
+def limited_format(string, **kwargs):
+    for k,v in kwargs.items():
+        string = string.replace('{' + k + '}', v)
+    return string
 
 def lambda_handler(event, context):
   try:
@@ -230,7 +239,6 @@ def lambda_handler(event, context):
         print('dns right')
         url = 'https://{}/bigbluebutton/api'.format(dnsname)
         ans = requests.get(url)
-        print(ans)
         while not ans.headers['Content-Type'].startswith('text/xml'):
             time.sleep(1)
             ans = requests.get(url)
@@ -240,15 +248,28 @@ def lambda_handler(event, context):
         jwt = authenticate(token)
         if jwt:
             instances = config[jwt['nam']]['instances']
+            instances_to_start = []
+            # Depending on our AWS permissions, we might be able to perform either
+            # a DescribeInstanceStatus or a DescribeInstances, but not the other
             try:
                 instance_statuses = ec2.describe_instance_status(InstanceIds=instances, IncludeAllInstances=True)['InstanceStatuses']
                 instances_to_start = [instance['InstanceId'] for instance in instance_statuses if instance['InstanceState']['Name'] != 'running']
+
             except Exception:
                 if ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
                     instances_to_start = instances
+
+
+            if not instances_to_start:
+                    wait_message = "Please wait"
+            else:
+                if jwt['role'] == 'm' or jwt['role'] == 'M':
+                    wait_message = "Please wait for your collaborate server to start"
                 else:
                     instances_to_start = []
-            if len(instances_to_start) > 0:
+                    wait_message = "Please wait for a moderator to start your meeting"
+
+            if instances_to_start:
                 try:
                     try:
                         ec2.start_instances(InstanceIds=instances_to_start)
@@ -263,17 +284,21 @@ def lambda_handler(event, context):
                             except botocore.exceptions.ClientError:
                                 pass
                 except Exception as ex:
-                    error_page_formatted = error_page.replace('{error}', str(ex))
+                    error_page_formatted = limited_format(error_page, error=str(ex))
                     return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
                 print('started your instances: ' + str(instances))
             # redirect to a URL
             #    return {'statusCode': 302, 'headers': {'Location': 'https://freesoft.org/'}}
             # or just return the spinner page here and it redirects to our goal
-            wait_page_formatted = wait_page.replace('{token}', token).replace('{nam}', jwt['nam']).replace('{dns}', config[jwt['nam']]['fqdn'])
+            wait_page_formatted = limited_format(wait_page,
+                                                 message = wait_message,
+                                                 token = token,
+                                                 nam = jwt['nam'],
+                                                 dns = config[jwt['nam']]['fqdn'])
             return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': wait_page_formatted }
         else:
-            error_page_formatted = error_page.replace('{error}', 'Your authentication key was not accepted')
+            error_page_formatted = limited_format(error_page, error='Your authentication key was not accepted')
             return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
   except Exception as ex:
-    error_page_formatted = error_page.replace('{error}', str(ex))
+    error_page_formatted = limited_format(error_page, error=str(ex))
     return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
