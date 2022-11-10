@@ -33,7 +33,7 @@ parser.add_argument('-M', '--meeting', action='store', help='meeting name (defau
 parser.add_argument('-d', '--debug', action="store_true", help="print exact JWT being encoded")
 parser.add_argument('-i', '--identity', type=str, default="~/.ssh/id_rsa", help="filename with RSA key")
 parser.add_argument('-u', '--url', type=str, help="endpoint URL")
-parser.add_argument('-n', '--server-name', type=str, help="name of server (only used to start a hibernated AWS server)")
+parser.add_argument('-n', '--server-name', type=str, help="name of server (only used to start a hibernated AWS server)", required=True)
 parser.add_argument('name')
 args = parser.parse_args()
 
