@@ -88,14 +88,11 @@ elif 'JWT_KEY' not in vars():
 if args.url:
     LOGIN_URL = args.url + '?'
 elif 'LOGIN_URL' not in vars():
-    try:
-        conn = sqlite3.connect(SQLITE3_DATABASE)
-        c = conn.cursor()
-        c.execute("SELECT url FROM servers WHERE name = ?", (args.server_name,))
-        url = c.fetchone()[0]
-        LOGIN_URL = url + '?'
-    except:
-        LOGIN_URL = 'https://' + socket.getfqdn() + '/login/'
+    conn = sqlite3.connect(SQLITE3_DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT url FROM servers WHERE name = ?", (args.server_name,))
+    url = c.fetchone()[0]
+    LOGIN_URL = url + '?'
 
 
 if args.moderator:
