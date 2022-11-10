@@ -31,12 +31,14 @@ parser.add_argument('-m', '--moderator', action="store_true",
                     help='generate moderator tokens')
 parser.add_argument('-M', '--meeting', action='store', help='meeting name (default is default meeting)')
 parser.add_argument('-d', '--debug', action="store_true", help="print exact JWT being encoded")
-parser.add_argument('-r', '--rsa', action="store_true", help="sign JWT with current user's RSA key")
 parser.add_argument('-i', '--identity', type=str, default="~/.ssh/id_rsa", help="filename with RSA key")
 parser.add_argument('-u', '--url', type=str, help="endpoint URL")
 parser.add_argument('-n', '--server-name', type=str, help="name of server (only used to start a hibernated AWS server)")
 parser.add_argument('name')
 args = parser.parse_args()
+
+# always use RSA keys now
+args.rsa = True
 
 if args.expiration_time == 'never':
     exp = None
