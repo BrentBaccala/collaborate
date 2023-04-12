@@ -3,6 +3,10 @@ This is a extension to the
 system to facilitate virtual classrooms by allowing VNC remote
 desktops to be shared in a video conference.
 
+**WARNING**: There is no real security isolation between the remote
+desktops.  Anybody with access to one desktop can access all desktops.
+The system is suitable for limited use but is not fully production-ready.
+
 This extension itself is housed in the
 [BrentBaccala/bigbluebutton](https://github.com/BrentBaccala/bigbluebutton)
 repository.  This repository contains Python support code,
