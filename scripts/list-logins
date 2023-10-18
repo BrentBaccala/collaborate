@@ -1,21 +1,38 @@
 #!/usr/bin/python3
 #
-# Usage: ./list-logins < /var/log/bigbluebutton/bbb-web.2020-05-06.log
+# Scan one or more BigBlueButton log files, printing the messages when users join or leave a conference.
+#
+# Usage: list-logins /var/log/bigbluebutton/bbb-web.*.log
 
 import sys
 import re
 import json
+import argparse
 import dateutil.parser
 import datetime
 from dateutil import tz
 
+parser = argparse.ArgumentParser()
+
+parser.add_argument('files', nargs='*', help='files to process')
+
+args = parser.parse_args()
+
 re_line = re.compile('^(\S*).*data=(.*user_.*)$')
 
-for line in sys.stdin:
-    m = re.match(re_line, line)
-    if m:
-        j = json.loads(m.group(2))
-        if j['logCode'] in ('user_left_message', 'user_joined_message'):
-            timestamp = dateutil.parser.parse(m.group(1))
-            timestr = timestamp.astimezone(tz.tzlocal()).strftime("%b %d %I:%M:%S %p %Z")
-            print('{:20} {:30} {}'.format(timestr, j['logCode'], j['username']))
+def process_file(file):
+    for line in file:
+        m = re.match(re_line, line)
+        if m:
+            j = json.loads(m.group(2))
+            if j['logCode'] in ('user_left_message', 'user_joined_message'):
+                timestamp = dateutil.parser.parse(m.group(1))
+                timestr = timestamp.astimezone(tz.tzlocal()).strftime("%b %d %I:%M:%S %p %Z")
+                print('{:20} {:30} {}'.format(timestr, j['logCode'], j['username']))
+
+if not args.files:
+    process_file(sys.stdin)
+else:
+    for filename in args.files:
+        with open(filename, 'r') as file:
+            process_file(file)
