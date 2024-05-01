@@ -1,11 +1,37 @@
+# Makefile for the collaborate scripts
+#
+# Author: Brent Baccala
+# Last updated: May 2024
+#
+# This makefile builds:
+#    - the four BigBlueButton packages that need to be changed from a stock 2.4 BigBlueButton system
+#       - bbb-html5 is needed for remote desktop support
+#       - all four need to be changed for private IP address support, if we're running on a subnetted
+#         private network (it works out of the box for a non-subnetted private network)
+#       - it checks out my fork of the bigbluebutton repository and calls build/setup.sh for the four packages
+#    - two BigBlueButton packages (bbb-vnc-collaborate and freesoft-gnome-desktop) that I build with the old BBB build system
+#       - it checks out my private copy of the bigbluebutton-build repository to call setup.sh for each of them
+#    - the python3-vnc-collaborate package, built using python setuptools with the stdeb extension
+#    - the bbb-vnc-collaborate package, which depends on python3-vnc-collaborate and calls it from systemd scripts
+#    - something with pyjavaproperties
+#    - a modified ssvnc package; the only change is to disable the escape sequence in the viewer
+#    - vncdotool; build from github repository; I think it might be available on PyPi for pip install,
+#      but I need a dpkg version to install it as an apt dependency
+#    - tigervnc; I think we need 1.10.1 for something and bionic only comes with 1.7.0
+#    - bbb-aws-hibernate; optional; only needed to hibernate an AWS system when the server is not in use; built with fpm
+#    - bbb-auth-jwt; built with fpm; currently my standard way of authenticating into a collaborate server
+#
+# Finally, it uses reprepro to pull from the standard bigbluebutton repo, replaces the packages that need to
+# be changed, package everything up with reprepro, and export my public key, combined with Fred's to bigbluebutton.asc.
+
+# bash so we can use compgen
+SHELL := /bin/bash
+
 # Chicken-and-egg situation here
 #
 # We need to install these dependencies because stdeb's algorithm for
 # converting python dependencies to dpkg dependencies only works if
 # the package is already installed.
-
-# bash so we can use compgen
-SHELL := /bin/bash
 
 DEPENDENCIES=python3-bigbluebutton python3-posix-ipc python3-psutil python3-service-identity python3-vncdotool python3-websockify
 
