@@ -57,7 +57,6 @@ VALID_DISPLAYS = []
 # We need:
 #   - the VNC_SOCKET when showing this desktop somewhere, and to
 #     query the desktop and get its geometry (for showing it somewhere)
-#   - the X11_DISPLAY when showing something on this desktop
 #   - the UNIXUSER when showing something (a screenshare) on this desktop (to get the .Xauthority file)
 #   - the LABELS to label the desktop in teacher mode
 #   - the (Big Blue Button) IDS to deaf and undeaf students
@@ -73,7 +72,6 @@ LABELS = dict()
 IDS = dict()
 UNIXUSER = dict()
 VNC_SOCKET = dict()
-X11_DISPLAY = dict()
 VNCdata = dict()
 VNCdata_futures = dict()
 
@@ -179,40 +177,16 @@ def get_VALID_DISPLAYS():
 
             VALID_DISPLAYS.append(display)
 
+        # We now want to obtain VNC information, currently just width and height so we can figure what
+        # scaling and geometry we need to put it in the grid.  get_VNC_info() used the vncdotool
+        # package, which either waits for a response from the VNC server (return_future=False) or
+        # returns a future without waiting (return_future=True).  We use the future version, so
+        # the code can't hang here, and check later for the result.
+        #
         # XXX should we only do this for the displays we're working on (to optimize this)
+
         if display not in VNCdata_futures:
             VNCdata_futures[display] = get_VNC_info(VNC_SOCKET[display], return_future=True)
-
-    # Having obtained a list of VNC sockets, we now wish to obtain
-    # their X11 display names.
-    #
-    # Let us first note that they may not have X11 display names, if,
-    # for example, they are VNC consoles on a virtual machine running
-    # in GNS3 (or qemu, or VirtualBox).  Such displays will can not,
-    # in our present implementation, support screensharing, since we
-    # screenshare by putting a VNC viewer on the X11 desktop and
-    # configuring the window manager to overlay it on top of all other
-    # windows.
-    #
-    # Furthermore, our tigervnc servers, by default, do not accept X11
-    # protocol TCP connections (they do accept VNC protocol TCP
-    # connections), but the display names they present in their VNC
-    # desktop name strings use TCP protocol syntax, like this:
-    #
-    #     max.fios-router.home:2 (alex)
-    #
-    # which we convert to UNIX socket syntax by striping off
-    # everything except the ":2"
-
-    X11_DISPLAY.clear()
-
-    # Don't do this anymore here; wait until the VNCdata future has resolved
-    #
-    # for display in VALID_DISPLAYS:
-    #     try:
-    #         X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
-    #     except:
-    #         pass
 
 # 'processes' maps display names to a list of processes associated
 # with them.  Each one will have a vncviewer and a Tk label.
@@ -265,7 +239,6 @@ def calculate_grid_dimensions():
         if display in VNCdata_futures and display not in VNCdata:
             if VNCdata_futures[display].done():
                 VNCdata[display] = VNCdata_futures[display].result()
-                X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
         if display in VNCdata:
             max_width = max(max_width, int(VNCdata[display]['width']))
             max_height = max(max_height, int(VNCdata[display]['height']))
@@ -351,7 +324,6 @@ def main_loop_grid(reset_display):
             if display in VNCdata_futures and display not in VNCdata:
                 if VNCdata_futures[display].done():
                     VNCdata[display] = VNCdata_futures[display].result()
-                    X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
             # if we haven't started a viewer for this display (display not in processes)
             # and we've got valid VNCdata for it, add it to the grid
             if display not in locations and display in VNCdata:
