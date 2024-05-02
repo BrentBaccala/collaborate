@@ -48,6 +48,10 @@ AddToMenu DisplayMode   "Display Mode"			Title
 +			"All Desktops"			Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode all
 +			"Current Meeting"		Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode current_meeting
 
+AddToMenu PageNumber    "Page Number"			Title
++			"Page 1"			Exec xprop -root -f page_number 8s -set page_number 0
++			"Page 2"			Exec xprop -root -f page_number 8s -set page_number 1
+
 AddToMenu SetGeometry   "Set Geometry"			Title
 +			"3840x2160"			Exec xrandr --fb 3840x2160 --output VNC-0 --off
 +			"3584x2016"			Exec xrandr --fb 3584x2016 --output VNC-0 --off
@@ -64,8 +68,11 @@ AddToMenu TeacherMenu	"Overview Menu"			Title
 +			""				Nop
 +			"Display Mode"			Popup DisplayMode
 +			"Set Geometry"			Popup SetGeometry
++			"Page Number"			Popup PageNumber
 +			""				Nop
 +			"Refresh Screen"		Refresh
+
+# This version of the pull-down menu is used when hovering over a student desktop, and adds a screenshare option
 
 AddToMenu TeacherMenuOnStudentDesktop	"Overview Menu"			Title
 +			""				Nop
@@ -76,6 +83,7 @@ AddToMenu TeacherMenuOnStudentDesktop	"Overview Menu"			Title
 +			""				Nop
 +			"Display Mode"			Popup DisplayMode
 +			"Set Geometry"			Popup SetGeometry
++			"Page Number"			Popup PageNumber
 +			""				Nop
 +			"Refresh Screen"		Refresh
 

@@ -85,6 +85,15 @@ myMeetingID = os.environ.get('MeetingId')
 SCREENX = 0
 SCREENY = 0
 
+# get_xprop works for the string data type only
+def get_xprop(name, default=None):
+    xprop = subprocess.Popen(["xprop", "-root"], stdout=subprocess.PIPE)
+    (stdoutdata, stderrdata) = xprop.communicate()
+    for l in stdoutdata.decode().split('\n'):
+        if l.startswith(name):
+            return l.split('"')[1]
+    return default
+
 def get_VALID_DISPLAYS():
     r"""
     This function relies on the desktops having UNIX domain sockets in /run/vnc.
@@ -95,16 +104,13 @@ def get_VALID_DISPLAYS():
     #
     # Default is to show all desktops running on the system.
     #
+    # Currently works by running xprop every time we query.
+    # main_loop() is called once every second.
+    #
     # Would be more efficient to do this by leaving an "xprop -spy"
     # running in the background
 
-    collaborate_display_mode = 'all'
-
-    xprop = subprocess.Popen(["xprop", "-root"], stdout=subprocess.PIPE)
-    (stdoutdata, stderrdata) = xprop.communicate()
-    for l in stdoutdata.decode().split('\n'):
-        if l.startswith('collaborate_display_mode'):
-            collaborate_display_mode = l.split('"')[1]
+    collaborate_display_mode = get_xprop('collaborate_display_mode', default='all')
 
     # If collaborate_display_mode is 'current_meeting' we limit the display to
     # only those users in the specified meeting.
@@ -234,6 +240,9 @@ def kill_processes(list_of_procs):
 num_cols = 0
 num_rows = 0
 
+max_rows = 2
+max_cols = 2
+
 def calculate_grid_dimensions():
     r"""
     Calculate number of rows and columns in grid.
@@ -276,10 +285,12 @@ def calculate_grid_dimensions():
         nextscalex = NEXTGRIDX/max_width
         nextscaley = NEXTGRIDY/max_height
 
-        if nextscalex < nextscaley:
+        if (nextscalex < nextscaley) and (rows < max_rows):
             rows += 1
-        else:
+        elif cols < max_cols:
             cols += 1
+        else:
+            break
 
     return (rows, cols)
 
@@ -300,6 +311,14 @@ def main_loop_grid(reset_display):
     # have enough display slots available for the VALID_DISPLAYS,
     # which would trigger an exception a little later.
 
+    global page_number, grid_size
+
+    page_number = int(get_xprop('page_number', '0'))
+    print('page_number', page_number, file=sys.stderr)
+    grid_size = num_rows * num_cols
+    starting_location = page_number * num_rows * num_cols
+    ending_location = starting_location + num_rows * num_cols - 1
+
     if reset_display:
         for procs in processes.values():
             kill_processes(procs)
@@ -311,6 +330,12 @@ def main_loop_grid(reset_display):
             kill_processes(processes[disp])
             processes.pop(disp)
             locations.pop(disp)
+        OFF_SCREEN_DISPLAYS = [disp for disp in locations.keys()
+                               if locations[disp] < starting_location or locations[disp] > ending_location]
+        for disp in OFF_SCREEN_DISPLAYS:
+            if disp in processes.keys():
+                kill_processes(processes[disp])
+                processes.pop(disp)
 
     if num_cols > 0 and num_rows > 0:
 
@@ -329,14 +354,16 @@ def main_loop_grid(reset_display):
                     X11_DISPLAY[display] = ':' + VNCdata[display]['name'].decode().split()[0].split(':')[1]
             # if we haven't started a viewer for this display (display not in processes)
             # and we've got valid VNCdata for it, add it to the grid
-            if display not in processes and display in VNCdata:
+            if display not in locations and display in VNCdata:
                 # pick the first screen location not already claimed in locations
                 i = [i for i in range(len(VALID_DISPLAYS)) if i not in locations.values()][0]
                 locations[display] = i
 
+            if display in locations and display not in processes and (locations[display] // grid_size) == page_number:
+                location = locations[display] % grid_size
                 processes[display] = []
-                row = int(i/num_cols)
-                col = i%num_cols
+                row = location // num_cols
+                col = location % num_cols
                 nativex = VNCdata[display]['width']
                 nativey = VNCdata[display]['height']
                 geometry = str(nativex) + 'x' + str(nativey)
@@ -390,6 +417,8 @@ def main_loop_screenshare(reset_display):
     global current_screenshare_window
     global current_screenshare_button
 
+    global page_number, grid_size
+
     new_screenshare = get_current_screenshare()
     if current_screenshare != new_screenshare or reset_display:
         if current_screenshare_window:
@@ -397,9 +426,9 @@ def main_loop_screenshare(reset_display):
             # commented out because I'm afraid of this deadlocking us
             #current_screenshare_window.wait()
             current_screenshare_window = None
-        if new_screenshare in locations:
-            location = locations[new_screenshare]
-            row = int(location / num_cols)
+        if new_screenshare in locations and (locations[new_screenshare] // grid_size) == page_number:
+            location = locations[new_screenshare] % grid_size
+            row = location // num_cols
             col = location % num_cols
             geox = int(col * SCREENX/num_cols)
             geoy = int(row * SCREENY/num_rows)
