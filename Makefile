@@ -48,12 +48,16 @@ PYTHON3_BIGBLUEBUTTON_PACKAGE=build/python3-bigbluebutton_2.4.9+$(TIMESTAMP)-1_a
 
 collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE) $(PYTHON3_BIGBLUEBUTTON_PACKAGE) build/python3-pyjavaproperties_0.7-1_all.deb
 
-$(PYTHON3_VNC_COLLABORATE_PACKAGE):
+python3-vnc-collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE)
+$(PYTHON3_VNC_COLLABORATE_PACKAGE): vnc_collaborate/*.py vnc_collaborate/fvwm_configs/*
 	#apt install $(DEPENDENCIES)
 	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-vnc-collaborate"; exit 1; fi
 	# have to remove the old deb_dist, or the setup.py errors out
 	rm -rf deb_dist
-	python3 setup.py --command-packages=stdeb.command bdist_deb
+	# this is here because the underscore gets changed to a comma and the setup script will error out if it can't rm the file
+	touch vnc-collaborate-dummy.tar.gz
+	# the environment variable is a kludge; it comes from here: https://stackoverflow.com/a/76474591/1493790
+	env SETUPTOOLS_USE_DISTUTILS=stdlib python3 setup.py --command-packages=stdeb.command bdist_deb
 	rm vnc-collaborate-*.tar.gz
 	rm -r vnc_collaborate.egg-info
 	rm -r deb_dist/vnc-collaborate-*/vnc_collaborate.egg-info
@@ -62,7 +66,7 @@ $(PYTHON3_VNC_COLLABORATE_PACKAGE):
 	#
 	# See https://github.com/astraw/stdeb/issues/132
 	# cp debian/* deb_dist/vnc-collaborate-*/debian/
-	cd deb_dist/vnc-collaborate-*; dpkg-buildpackage -rfakeroot -uc -us
+	cd deb_dist/vnc-collaborate-*; env SETUPTOOLS_USE_DISTUTILS=stdlib dpkg-buildpackage -rfakeroot -uc -us
 	mkdir -p build
 	rm -f build/python3-vnc-collaborate*.deb
 	cp deb_dist/*.deb build
