@@ -217,6 +217,8 @@ num_rows = 0
 max_rows = 2
 max_cols = 2
 
+page_number = 0
+
 def calculate_grid_dimensions():
     r"""
     Calculate number of rows and columns in grid.
@@ -284,11 +286,6 @@ def main_loop_grid(reset_display):
     # have enough display slots available for the VALID_DISPLAYS,
     # which would trigger an exception a little later.
 
-    global page_number, grid_size
-
-    page_number = int(get_xprop('page_number', '0'))
-    print('page_number', page_number, file=sys.stderr)
-    grid_size = num_rows * num_cols
     starting_location = page_number * num_rows * num_cols
     ending_location = starting_location + num_rows * num_cols - 1
 
@@ -437,12 +434,21 @@ def main_loop():
             time.sleep(0.1)
 
         get_VALID_DISPLAYS()
-        global num_rows, num_cols
+
+        global num_rows, num_cols, grid_size
         (old_rows, old_cols) = (num_rows, num_cols)
         (num_rows, num_cols) = calculate_grid_dimensions()
         grid_changed = ((old_rows, old_cols) != (num_rows, num_cols))
+        grid_size = num_rows * num_cols
+
+        global page_number
+        old_page_number = page_number
+        page_number = int(get_xprop('page_number', '0'))
+        page_changed = (old_page_number != page_number)
+
+        # we don't need to pass page_changed to main_loop_grid, because it will already kill all off-screen viewers
         main_loop_grid(geometry_changed or grid_changed)
-        main_loop_screenshare(geometry_changed or grid_changed)
+        main_loop_screenshare(geometry_changed or grid_changed or page_changed)
 
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
@@ -461,6 +467,9 @@ def get_global_display_geometry():
     r"""
     Get the display geometry of the "master" display and return True if
     that geometry changed since the last time this function was called.
+
+    This would typically happen because the user clicked on the Set Geometry
+    option from the pull-down menu in grid mode, and that runs xrandr.
     """
 
     global SCREENX, SCREENY
