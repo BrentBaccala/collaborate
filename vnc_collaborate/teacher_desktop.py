@@ -156,10 +156,10 @@ def get_VALID_DISPLAYS():
 
         vnc_socket_stat = os.stat(vnc_socket)
         if not stat.S_ISSOCK(vnc_socket_stat.st_mode):
-            break
+            continue
 
         if not os.access(vnc_socket, os.R_OK):
-            break
+            continue
 
         if (include_default_display and UNIXuser == myMeetingID) or \
            ((UNIXuser != myMeetingID) and (all_displays or UNIXuser in IDS.keys())):
