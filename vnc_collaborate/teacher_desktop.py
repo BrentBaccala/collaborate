@@ -30,6 +30,7 @@ from .users import fullName_to_UNIX_username, fullName_to_rfbport
 
 def debug(*args, **kwargs):
     kwargs['file'] = sys.stderr
+    kwargs['flush'] = True
     print(*args, **kwargs)
 
 # My user name.  Typically the UNIX user name of the user running the display in grid mode.
@@ -88,7 +89,9 @@ def get_xprop(name, default=None):
     (stdoutdata, stderrdata) = xprop.communicate()
     for l in stdoutdata.decode().split('\n'):
         if l.startswith(name):
+            debug('xprop', name, l.split('"')[1])
             return l.split('"')[1]
+    debug('xprop', name, 'default', default)
     return default
 
 def get_VALID_DISPLAYS():
@@ -295,6 +298,7 @@ def main_loop_grid(reset_display):
     ending_location = starting_location + num_rows * num_cols - 1
 
     if reset_display:
+        debug('killing all processes')
         for procs in processes.values():
             kill_processes(procs)
         processes.clear()
@@ -302,6 +306,7 @@ def main_loop_grid(reset_display):
     else:
         DEAD_DISPLAYS = [disp for disp in processes.keys() if disp not in VALID_DISPLAYS]
         for disp in DEAD_DISPLAYS:
+            debug('killing DEAD_DISPLAY', disp)
             kill_processes(processes[disp])
             processes.pop(disp)
             locations.pop(disp)
@@ -309,6 +314,7 @@ def main_loop_grid(reset_display):
                                if locations[disp] < starting_location or locations[disp] > ending_location]
         for disp in OFF_SCREEN_DISPLAYS:
             if disp in processes.keys():
+                debug('killing OFF_SCREEN_DISPLAY', disp)
                 kill_processes(processes[disp])
                 processes.pop(disp)
 
@@ -513,6 +519,7 @@ def teacher_desktop(screenx=None, screeny=None):
     retry_attempts = 10
     while subprocess.run(["xsetroot", "-solid", "black"]).returncode != 0 and retry_attempts > 0:
         retry_attempts -= 1
+    debug('initial call to main_loop')
     main_loop()
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -525,8 +532,10 @@ def teacher_desktop(screenx=None, screeny=None):
     while True:
         try:
             fvwm.wait(timeout=1)
+            debug('fvwm exited')
             break
         except subprocess.TimeoutExpired:
+            debug('fvwm.wait TimeoutExpired')
             main_loop()
 
     restore_original_state()
