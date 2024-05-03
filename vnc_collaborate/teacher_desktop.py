@@ -310,13 +310,6 @@ def main_loop_grid(reset_display):
             kill_processes(processes[disp])
             processes.pop(disp)
             locations.pop(disp)
-        OFF_SCREEN_DISPLAYS = [disp for disp in locations.keys()
-                               if locations[disp] < starting_location or locations[disp] > ending_location]
-        for disp in OFF_SCREEN_DISPLAYS:
-            if disp in processes.keys():
-                debug('killing OFF_SCREEN_DISPLAY', disp)
-                kill_processes(processes[disp])
-                processes.pop(disp)
 
     if num_cols > 0 and num_rows > 0:
 
@@ -366,6 +359,12 @@ def main_loop_grid(reset_display):
                     # so just move it and its label (these are regular expressions matching the window name)
                     move_window(f';{display};', geox+offsetx, geoy+offsety)
                     move_window(f'^{display}$', geox+SCREENX/num_cols/2, geoy)
+
+            if display in processes and page != page_number:
+                # it moved off the page
+                debug('killing off screen display', display)
+                kill_processes(processes[display])
+                processes.pop(display)
 
             if display not in processes and page == page_number:
                 # we haven't started a viewer for this display, but we should
