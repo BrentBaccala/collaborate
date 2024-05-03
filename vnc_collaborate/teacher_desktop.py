@@ -317,52 +317,65 @@ def main_loop_grid(reset_display):
 
         SCALE = str(SCALEX) + "x" + str(SCALEY)
 
-        for display in VALID_DISPLAYS:
+        next_location = 0
+
+        for display in sorted(VALID_DISPLAYS):
+            # skip any displays that we don't have VNCdata for
             if display in VNCdata_futures and display not in VNCdata:
                 if VNCdata_futures[display].done():
                     VNCdata[display] = VNCdata_futures[display].result()
-            # if we haven't started a viewer for this display (display not in processes)
-            # and we've got valid VNCdata for it, add it to the grid
-            if display not in locations and display in VNCdata:
-                # pick the first screen location not already claimed in locations
-                i = [i for i in range(len(VALID_DISPLAYS)) if i not in locations.values()][0]
-                locations[display] = i
+            if display not in VNCdata:
+                continue
 
-            if display in locations and display not in processes and (locations[display] // grid_size) == page_number:
-                location = locations[display] % grid_size
+            # we've got valid VNCdata (so it answers VNC requests and we know its geometry),
+            # place it in the grid at next_location
+
+            page = next_location // grid_size
+            row = (next_location % grid_size) // num_cols
+            col = next_location % num_cols
+            nativex = VNCdata[display]['width']
+            nativey = VNCdata[display]['height']
+            geometry = str(nativex) + 'x' + str(nativey)
+            scalex = SCALEX/nativex
+            scaley = SCALEY/nativey
+            scale = min(scalex, scaley)
+            geox = int(col * SCREENX/num_cols + .005*SCREENX)
+            geoy = int(row * SCREENY/num_rows + .005*SCREENY)
+            offsetx = int((SCALEX - scale*nativex)/2)
+            offsety = int((SCALEY - scale*nativey)/2)
+            # Use the title of the window to identify these windows to the FVWM config,
+            # and to pass information (their userID and display name) to teacher_zoom.
+            # The title won't be displayed with our default FVWM config for teacher mode.
+            title = ";".join(["TeacherViewVNC", IDS[display], display, geometry, VNC_SOCKET[display]])
+
+            if display in locations and locations[display] != next_location:
+                # it moved in the grid
+                if display in processes and page == page_number:
+                    # it moved in the grid, and it's already being displayed, and it's on the current page,
+                    # so just move it and its label (these are regular expressions matching the window name)
+                    move_window(f';{display};', geox+offsetx, geoy+offsety)
+                    move_window(f'^{display}$', geox+SCREENX/num_cols/2, geoy)
+
+            if display not in processes and page == page_number:
+                # we haven't started a viewer for this display, but we should
                 processes[display] = []
-                row = location // num_cols
-                col = location % num_cols
-                nativex = VNCdata[display]['width']
-                nativey = VNCdata[display]['height']
-                geometry = str(nativex) + 'x' + str(nativey)
-                scalex = SCALEX/nativex
-                scaley = SCALEY/nativey
-                scale = min(scalex, scaley)
-                geox = int(col * SCREENX/num_cols + .005*SCREENX)
-                geoy = int(row * SCREENY/num_rows + .005*SCREENY)
-                offsetx = int((SCALEX - scale*nativex)/2)
-                offsety = int((SCALEY - scale*nativey)/2)
-                # Use the title of the window to identify these windows to the FVWM config,
-                # and to pass information (their userID and display name) to teacher_zoom.
-                # The title won't be displayed with our default FVWM config for teacher mode.
-                title = ";".join(["TeacherViewVNC", IDS[display], display, geometry, VNC_SOCKET[display]])
                 args = [VIEWONLY_VIEWER, '-viewonly', '-geometry', '+'+str(geox+offsetx)+'+'+str(geoy+offsety),
                         '-escape', 'never',
                         '-scale', str(scale),
                         '-title', title, 'unix=' + VNC_SOCKET[display]]
                 processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
 
-                #print(args, file=sys.stderr)
-                #sys.stderr.flush()
-
-                # The default user is special - use the label for BBB users that
+                # Put a label on the window.  The default user is special - use the label for BBB users that
                 # mapped to no UNIX user
+
                 if display == myMeetingID:
                     label = LABELS[None]
                 else:
                     label = LABELS[display]
                 processes[display].append(simple_text(label, geox + SCREENX/num_cols/2, geoy))
+
+            locations[display] = next_location
+            next_location += 1
 
 def get_current_screenshare():
     global db_vnc
