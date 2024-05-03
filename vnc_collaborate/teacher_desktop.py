@@ -28,14 +28,13 @@ from .simple_text import simple_text
 from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
 
-myUNIXname = getpass.getuser()
+def debug(*args, **kwargs):
+    kwargs['file'] = sys.stderr
+    print(*args, **kwargs)
 
-# Next, select teacher mode if user is in the 'bigbluebutton' group
-try:
-    # in a try/except block just in case the bigbluebutton group doesn't exist
-    teacher_mode = myUNIXname in grp.getgrnam('bigbluebutton').gr_mem
-except:
-    teacher_mode = False
+# My user name.  Typically the UNIX user name of the user running the display in grid mode.
+
+myUNIXname = getpass.getuser()
 
 # ssvncviewer is preferred over other VNC viewers due to its ability to scale the remote
 # desktop to fit in the window geometry, an essential feature for our miniaturized
@@ -269,10 +268,16 @@ def calculate_grid_dimensions():
 
     return (rows, cols)
 
+def move_window(name_regex, x, y):
+    debug(["xdotool", "search", "--name", name_regex, "windowmove", str(x), str(y)], file=sys.stderr)
+    subprocess.run(["xdotool", "search", "--name", name_regex, "windowmove", str(x), str(y)])
+
 def main_loop_grid(reset_display):
     r"""
     The portion of the main loop that draws the grid.
     """
+
+    debug("main_loop_grid", reset_display)
 
     global processes
     global locations
@@ -431,12 +436,7 @@ def main_loop():
     try:
         geometry_changed = get_global_display_geometry()
         if geometry_changed:
-            # teacher_mode is currently always true, since teacher_desktop is only
-            # called by websockify when the user is in group bigbluebutton
-            if teacher_mode:
-                fvwm_config = 'teacher_mode_fvwm_config'
-            else:
-                fvwm_config = 'student_grid_fvwm_config'
+            fvwm_config = 'teacher_mode_fvwm_config'
             args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print %s'" % fvwm_config, "-r"]
             global fvwm
             fvwm = subprocess.Popen(args)
@@ -447,6 +447,7 @@ def main_loop():
             time.sleep(0.1)
 
         get_VALID_DISPLAYS()
+        debug('VALID_DISPLAYS', VALID_DISPLAYS)
 
         global num_rows, num_cols, grid_size
         (old_rows, old_cols) = (num_rows, num_cols)
