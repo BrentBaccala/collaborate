@@ -45,8 +45,6 @@ if len(sys.argv) > 1:
             print(pkg_resources.read_text(fvwm_configs, 'teacher-mode'))
         elif sys.argv[2] =='student_mode_fvwm_config':
             print(pkg_resources.read_text(fvwm_configs, 'student-mode'))
-        elif sys.argv[2] =='teacher_fvwm_config':
-            print(pkg_resources.read_text(fvwm_configs, 'teacher'))
         elif sys.argv[2] =='student_fvwm_config':
             print(pkg_resources.read_text(fvwm_configs, 'student'))
         elif sys.argv[2] =='student_grid_fvwm_config':
