@@ -216,8 +216,8 @@ def kill_processes(list_of_procs):
 num_cols = 0
 num_rows = 0
 
-max_rows = 2
-max_cols = 2
+# max_rows = 2
+# max_cols = 2
 
 page_number = 0
 
@@ -252,6 +252,9 @@ def calculate_grid_dimensions():
 
     rows = 1
     cols = 1
+
+    max_rows = int(get_xprop('max_rows', '5'))
+    max_cols = int(get_xprop('max_cols', '5'))
 
     # increase the number of rows and cols (separately) until the grid is big enough,
     # always trying to maximum the scaling factor

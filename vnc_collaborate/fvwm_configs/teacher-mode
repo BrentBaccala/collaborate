@@ -48,6 +48,32 @@ AddToMenu DisplayMode   "Display Mode"			Title
 +			"All Desktops"			Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode all
 +			"Current Meeting"		Exec xprop -root -f collaborate_display_mode 8s -set collaborate_display_mode current_meeting
 
+DestroyFunc Grid2x2
+AddToFunc Grid2x2
+ + I Exec xprop -root -f max_rows 8s -set max_rows 2
+ + I Exec xprop -root -f max_cols 8s -set max_cols 2
+
+DestroyFunc Grid3x3
+AddToFunc Grid3x3
+ + I Exec xprop -root -f max_rows 8s -set max_rows 3
+ + I Exec xprop -root -f max_cols 8s -set max_cols 3
+
+DestroyFunc Grid4x4
+AddToFunc Grid4x4
+ + I Exec xprop -root -f max_rows 8s -set max_rows 4
+ + I Exec xprop -root -f max_cols 8s -set max_cols 4
+
+DestroyFunc Grid5x5
+AddToFunc Grid5x5
+ + I Exec xprop -root -f max_rows 8s -set max_rows 5
+ + I Exec xprop -root -f max_cols 8s -set max_cols 5
+
+AddToMenu SetGridSize	"Maximum Grid Size"		Title
++			"2x2"				Grid2x2
++			"3x3"				Grid3x3
++			"4x4"				Grid4x4
++			"5x5"				Grid5x5
+
 AddToMenu PageNumber    "Page Number"			Title
 +			"Page 1"			Exec xprop -root -f page_number 8s -set page_number 0
 +			"Page 2"			Exec xprop -root -f page_number 8s -set page_number 1
@@ -68,6 +94,7 @@ AddToMenu TeacherMenu	"Overview Menu"			Title
 +			""				Nop
 +			"Display Mode"			Popup DisplayMode
 +			"Set Geometry"			Popup SetGeometry
++			"Maximum Grid Size"		Popup SetGridSize
 +			"Page Number"			Popup PageNumber
 +			""				Nop
 +			"Refresh Screen"		Refresh
@@ -83,6 +110,7 @@ AddToMenu TeacherMenuOnStudentDesktop	"Overview Menu"			Title
 +			""				Nop
 +			"Display Mode"			Popup DisplayMode
 +			"Set Geometry"			Popup SetGeometry
++			"Maximum Grid Size"		Popup SetGridSize
 +			"Page Number"			Popup PageNumber
 +			""				Nop
 +			"Refresh Screen"		Refresh
