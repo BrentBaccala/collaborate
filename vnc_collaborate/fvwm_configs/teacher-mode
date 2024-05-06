@@ -77,6 +77,9 @@ AddToMenu SetGridSize	"Maximum Grid Size"		Title
 AddToMenu PageNumber    "Page Number"			Title
 +			"Page 1"			Exec xprop -root -f page_number 8s -set page_number 0
 +			"Page 2"			Exec xprop -root -f page_number 8s -set page_number 1
++			"Page 3"			Exec xprop -root -f page_number 8s -set page_number 2
++			"Page 4"			Exec xprop -root -f page_number 8s -set page_number 3
++			"Page 5"			Exec xprop -root -f page_number 8s -set page_number 4
 
 AddToMenu SetGeometry   "Set Geometry"			Title
 +			"3840x2160"			Exec xrandr --fb 3840x2160 --output VNC-0 --off
