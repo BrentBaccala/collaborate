@@ -118,26 +118,25 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
             # I had done it with sudo on Ubuntu 18, but had problems with sudo
             # on Ubuntu 20; gnome-shell kept failing with "Unset XDG_SESSION_ID".
 
-            #args = ['sudo', 'machinectl', 'shell', UNIXuser+'@.host',
-            args = ['sudo', 'systemd-run', '--machine', UNIXuser+'@.host',
+            args = ['sudo', 'machinectl', 'shell', UNIXuser+'@.host',
                     '/usr/bin/python3', '-m', 'vnc_collaborate', 'tigervncserver',
                     '-localhost', 'yes',
                     '-SendPrimary=0', '-SetPrimary=0',
                     '-rfbunixpath', rfbpath,
                     '-SecurityTypes', 'None',
                     '-BlacklistThreshold', '1000000',
-#                    '-fg',
+                    '-fg',
             ]
 
             if (viewOnly):
                 args.extend(['-AcceptPointerEvents=0', '-AcceptKeyEvents=0'])
 
             # runs it and waits for it to return
-            subprocess.run(args, start_new_session=True)
+            # subprocess.run(args, start_new_session=True, env=env)
 
             # runs it and never waits to join it when it's done; it becomes a zombie (probably not the best design)
             # It isn't going to exit until the X server exits, because of the -fg switch above
-            # subprocess.Popen(args, start_new_session=True)
+            subprocess.Popen(args, start_new_session=True)
 
     else:
 
