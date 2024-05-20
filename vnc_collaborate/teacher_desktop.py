@@ -1,5 +1,7 @@
 #
 # Usage: teacher-desktop(MAX-DIMENSION, MIN-DIMENSION)
+#
+# This code displays the grid view.
 
 import subprocess
 import multiprocessing
@@ -29,6 +31,12 @@ from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
 
 def debug(*args, **kwargs):
+    pass
+    #kwargs['file'] = sys.stderr
+    #kwargs['flush'] = True
+    #print(*args, **kwargs)
+
+def error(*args, **kwargs):
     kwargs['file'] = sys.stderr
     kwargs['flush'] = True
     print(*args, **kwargs)
@@ -86,6 +94,7 @@ SCREENY = 0
 # get_xprop works for the string data type only
 def get_xprop(name, default=None):
     xprop = subprocess.Popen(["xprop", "-root"], stdout=subprocess.PIPE)
+    # communicate() waits for the subprocess to exit
     (stdoutdata, stderrdata) = xprop.communicate()
     for l in stdoutdata.decode().split('\n'):
         if l.startswith(name):
@@ -314,6 +323,23 @@ def main_loop_grid(reset_display):
             processes.pop(disp)
             locations.pop(disp)
 
+    delete_pkeys = []
+    for pkey, plist in processes.items():
+        for p in plist:
+            # These lists contain both subprocess.Popen's and multiprocessing.Process's
+            if isinstance(p, subprocess.Popen) and p.poll():
+                # do something more than just log the error, but for now, just log the error
+                error('display process died')
+                (stdoutdata, stderrdata) = p.communicate()
+                error(stdoutdata)
+                error(stderrdata)
+                delete_pkeys.append(pkey)
+
+    for disp in delete_pkeys:
+        kill_processes(processes[disp])
+        processes.pop(disp)
+        locations.pop(disp)
+
     if num_cols > 0 and num_rows > 0:
 
         # each pane has a .005 margin around it on all four sides
@@ -376,7 +402,7 @@ def main_loop_grid(reset_display):
                         '-escape', 'never',
                         '-scale', str(scale),
                         '-title', title, 'unix=' + VNC_SOCKET[display]]
-                processes[display].append(subprocess.Popen(args, stderr=subprocess.DEVNULL))
+                processes[display].append(subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE))
 
                 # Put a label on the window.  The default user is special - use the label for BBB users that
                 # mapped to no UNIX user
@@ -442,6 +468,7 @@ def main_loop_screenshare(reset_display):
 
 def main_loop():
     try:
+        # If the geometry of the grid view changed (user selected "Set Geometry" from menu), we need to restart fvwm
         geometry_changed = get_global_display_geometry()
         if geometry_changed:
             fvwm_config = 'teacher_mode_fvwm_config'
