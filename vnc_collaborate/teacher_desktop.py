@@ -5,6 +5,7 @@
 
 import subprocess
 import multiprocessing
+import threading
 
 import sys
 import math
@@ -90,6 +91,9 @@ myMeetingID = os.environ.get('MeetingId')
 # screen geometry of the display used for the grid view
 SCREENX = 0
 SCREENY = 0
+
+# The Mongo database (None if it doesn't exist) where screenshare notifications are posted
+db_vnc = None
 
 # get_xprop works for the string data type only
 def get_xprop(name, default=None):
@@ -417,12 +421,11 @@ def main_loop_grid(reset_display):
             next_location += 1
 
 def get_current_screenshare():
-    global db_vnc
-    mongo_doc = db_vnc.find_one({'screenshare': {'$exists': True}, 'meetingID': myMeetingID})
-    if mongo_doc:
-        return mongo_doc['screenshare']
-    else:
-        return None
+    if db_vnc:
+        mongo_doc = db_vnc.find_one({'screenshare': {'$exists': True}, 'meetingID': myMeetingID})
+        if mongo_doc:
+            return mongo_doc['screenshare']
+    return None
 
 current_screenshare = None
 current_screenshare_window = None
@@ -534,14 +537,24 @@ def get_global_display_geometry():
     else:
         return False
 
+# Open the mongo database so we can watch for screenshare notifications
+
+def open_mongo_database():
+    try:
+        client = pymongo.MongoClient('mongodb://127.0.1.1/')
+        db = client.meteor
+        # Post it in global variable db_vnc
+        db_vnc = db.vnc
+    except:
+        # pymongo.errors.ServerSelectionTimeoutError if we don't have a local mongo database
+        pass
+
 def teacher_desktop(screenx=None, screeny=None):
 
-    # open the mongo database so we can watch for screenshare notifications
-
-    global db_vnc
-    client = pymongo.MongoClient('mongodb://127.0.1.1/')
-    db = client.meteor
-    db_vnc = db.vnc
+    # open the mongo database in background so it doesn't hang us if the database doesn't exist
+    thread = threading.Thread(target=open_mongo_database)
+    thread.start()
+    # at some point, should do thread.join()
 
     # I've seen a race condition where the xsetroot, and the fvwm that follows in main_loop(),
     # errors out, unable to open the display.  So retry the xsetroot until it succeeds.
@@ -672,7 +685,6 @@ def project_to_students(screenx, screeny, student_window_name = None):
     # both the actual screenshares on the student desktops and the
     # outline indicator and close button on the teacher desktops
 
-    client = pymongo.MongoClient('mongodb://127.0.1.1/')
-    db = client.meteor
-    db_vnc = db.vnc
-    db_vnc.insert({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
+    open_mongo_database()
+    if db_vnc:
+        db_vnc.insert({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
