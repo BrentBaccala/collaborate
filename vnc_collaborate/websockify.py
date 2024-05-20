@@ -113,23 +113,30 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
             # that waits for the server to be listening on a TCP port even
             # if you requested a UNIX domain socket via "-rfbunixpath"
 
-            # This environment variables seems to be required to get gnome-session
+            # GPT-4o suggested machinectl shell as a way to get gnome-session
             # to start properly (i.e, to start at all).
-            env = os.environ
-            env['XDG_SESSION_TYPE'] = 'x11'
+            # I had done it with sudo on Ubuntu 18, but had problems with sudo
+            # on Ubuntu 20; gnome-shell kept failing with "Unset XDG_SESSION_ID".
 
-            args = ['sudo', '-u', UNIXuser, '-i', '--preserve-env=XDG_SESSION_TYPE',
-                    'python3', '-m', 'vnc_collaborate', 'tigervncserver',
+            args = ['sudo', 'machinectl', 'shell', UNIXuser+'@.host',
+                    '/usr/bin/python3', '-m', 'vnc_collaborate', 'tigervncserver',
                     '-localhost', 'yes',
                     '-SendPrimary=0', '-SetPrimary=0',
                     '-rfbunixpath', rfbpath,
                     '-SecurityTypes', 'None',
-                    '-BlacklistThreshold', '1000000']
+                    '-BlacklistThreshold', '1000000',
+                    '-fg',
+            ]
 
             if (viewOnly):
                 args.extend(['-AcceptPointerEvents=0', '-AcceptKeyEvents=0'])
 
-            subprocess.run(args, start_new_session=True, env=env)
+            # runs it and waits for it to return
+            # subprocess.run(args, start_new_session=True, env=env)
+
+            # runs it and never waits to join it when it's done; it becomes a zombie (probably not the best design)
+            # It isn't going to exit until the X server exits, because of the -fg switch above
+            subprocess.Popen(args, start_new_session=True)
 
     else:
 
@@ -247,8 +254,12 @@ def new_websocket_client(self):
         else:
             # default if no .vncserver or .vncsocket exists
             # First, start a standard user desktop if none exists
+            # XXX - race condition here if this code runs twice quickly, it will start two VNC servers
             if not os.path.exists(rfbpath):
                 start_VNC_server(UNIXuser, rfbpath)
+
+            while not os.path.exists(rfbpath):
+                time.sleep(0.1)
 
             # Next, select teacher mode if user can access more than one desktop in /run/vnc
             # XXX this isn't working right because this script runs as root
