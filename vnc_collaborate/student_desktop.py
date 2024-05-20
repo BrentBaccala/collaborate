@@ -124,6 +124,50 @@ def get_current_screenshare(db_vnc, meetingID, default):
     else:
         return default
 
+def listen_forever_for_mongo_screenshare_events(UNIXname):
+    # We're interested in the 'screenshare' documents in the 'vnc' collection, which look like this:
+    #
+    # { 'screenshare': USER_TO_PROJECT, 'meetingID': BBB_MEETINGID }
+    #
+    # There should be no more than one of these documents per meeting.
+
+    client = pymongo.MongoClient('mongodb://127.0.1.1/')
+    db = client.meteor
+    db_vnc = db.vnc
+
+    cursor = db_vnc.watch()
+    # This filter will pick up insert operations, but deletes don't have a fullDocument.
+    # I could get the documentKey from the insert and use it to build a new change stream watching for a matching delete.
+    # cursor = db_vnc.watch([{'$match' : {'fullDocument.meetingID': JWT['bbb-meetingID']}}])
+
+    global current_screen, current_screenshare
+
+    meetingID = os.environ['MeetingId']
+    try:
+        new_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
+        if new_screenshare != current_screenshare:
+            current_screenshare = new_screenshare
+            old_screen = current_screen
+            viewonly = (current_screenshare != UNIXname)
+            current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
+            old_screen.terminate()
+        for document in cursor:
+            print(document, file=sys.stderr)
+            sys.stderr.flush()
+            new_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
+            if new_screenshare != current_screenshare:
+                current_screenshare = new_screenshare
+                old_screen = current_screen
+                viewonly = (current_screenshare != UNIXname)
+                current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
+                old_screen.terminate()
+
+    except KeyboardInterrupt:
+        # We'll get KeyboardInterrupt from the os.kill() in terminate_this_script
+        # when the user disconnects.
+        sys.exit(0)
+
+
 def student_desktop(screenx=None, screeny=None):
 
     get_global_display_geometry(screenx, screeny)
@@ -147,42 +191,20 @@ def student_desktop(screenx=None, screeny=None):
     #signal.signal(signal.SIGINT, terminate_this_script)
     #signal.signal(signal.SIGTERM, terminate_this_script)
 
-    # We're interested in the 'screenshare' documents in the 'vnc' collection, which look like this:
-    #
-    # { 'screenshare': USER_TO_PROJECT, 'meetingID': BBB_MEETINGID }
-    #
-    # There should be no more than one of these documents per meeting.
+    # Do we show the current screen, or check for a screenshare first?
+    # Checking for a screenshare might take a while to timeout if mongo isn't available, so I do the current screen first
+    global current_screen, current_screenshare
+    current_screenshare = UNIXname
+    current_screen = add_full_screen(UNIXname)
 
-    client = pymongo.MongoClient('mongodb://127.0.1.1/')
-    db = client.meteor
-    db_vnc = db.vnc
-
-    cursor = db_vnc.watch()
-    # This filter will pick up insert operations, but deletes don't have a fullDocument.
-    # I could get the documentKey from the insert and use it to build a new change stream watching for a matching delete.
-    # cursor = db_vnc.watch([{'$match' : {'fullDocument.meetingID': JWT['bbb-meetingID']}}])
-
-    global current_screen
-
-    meetingID = os.environ['MeetingId']
     try:
-        current_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
-        viewonly = (current_screenshare != UNIXname)
-        current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
-        for document in cursor:
-            print(document, file=sys.stderr)
-            sys.stderr.flush()
-            new_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
-            if new_screenshare != current_screenshare:
-                current_screenshare = new_screenshare
-                old_screen = current_screen
-                viewonly = (current_screenshare != UNIXname)
-                current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
-                old_screen.terminate()
-
-    except KeyboardInterrupt:
-        # We'll get KeyboardInterrupt from the os.kill() in terminate_this_script
-        # when the user disconnects.
-        sys.exit(0)
+        listen_forever_for_mongo_screenshare_events(UNIXname)
+    except:
+        # pymongo.errors.ServerSelectionTimeoutError is a common culprit
+        try:
+            while True:
+                time.sleep(100000)
+        except KeyboardInterrupt:
+            pass
 
     terminate_this_script()
