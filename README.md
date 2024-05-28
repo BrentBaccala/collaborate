@@ -37,3 +37,5 @@ among the participants in a video conference.
 
 For more information, see the [Wiki](../../wiki), in particular the
 [installation instructions](../../wiki/Install).
+
+Collaborate is covered under an [open patent license](../../wiki/Patent).
