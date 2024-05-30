@@ -366,20 +366,19 @@ sub checkTCPPortUsed {
 
 #
 # checkDisplayNumberUsed checks if the given display number is used by vnc.
-# A display number n is used if something is listening on the VNC server port
-# (5900+n).
+# A display number n is used if something is listening on the X server port
+# (6000+n).
 #
 
 sub checkDisplayNumberUsed {
   my ($n) = @_;
-  return &checkTCPPortUsed( 5900 + $n ) ||
-	 &checkTCPPortUsed( 6000 + $n );
+  return &checkTCPPortUsed( 6000 + $n );
 }
 
 #
 # checkDisplayNumberAvailable checks if the given display number is available.
-# A display number n is taken if something is listening on the VNC server port
-# (5900+n) or the X server port (6000+n).
+# A display number n is taken if something is listening on the X server port
+# (6000+n), or if X lock files exist in /tmp.
 #
 
 sub checkDisplayNumberAvailable {
@@ -403,8 +402,7 @@ sub checkDisplayNumberAvailable {
 
 #
 # getDisplayNumber gets the lowest available display number.  A display number
-# n is taken if something is listening on the VNC server port (5900+n) or the
-# X server port (6000+n).
+# n is taken if something is listening on the X server port (6000+n).
 #
 
 sub getDisplayNumber {
@@ -806,6 +804,7 @@ sub startXvncServer {
   # Wait for Xtigervnc to start up
   {
     my $i = 300;
+    # Check for port (5900+n) to be listening unless a UNIX socket was requested
     if (! "-inetd" ~~ @ARGV && ! "-rfbunixpath" ~~ @ARGV) {
       for (; $i >= 0; $i = $i-1) {
         last if &checkTCPPortUsed(5900 + $options->{'displayNumber'});
