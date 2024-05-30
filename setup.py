@@ -31,7 +31,8 @@ setuptools.setup(
     install_requires=[
         'bigbluebutton',
         'websockify',
-        'posix_ipc',
+        'posix-ipc',
+        'lxml',
         'psutil',
         'importlib_resources; python_version < "3.7"',
         'vncdotool',
