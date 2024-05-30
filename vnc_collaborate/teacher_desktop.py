@@ -137,7 +137,7 @@ def get_VALID_DISPLAYS():
     # Would be more efficient to do this using Big Blue Button webhooks
     # that by querying the API every time through this function.
 
-    if myMeetingID:
+    if myMeetingID and not all_displays:
         # some kind of problem with this API call
         # meetingInfo = bigbluebutton.getMeetingInfo(meetingID = myMeetingID)
         meetingInfo = bigbluebutton.getMeetings().xpath('.//internalMeetingID[text()=$meetingID]/..', meetingID= myMeetingID)[0]
