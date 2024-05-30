@@ -49,7 +49,7 @@ PYTHON3_BIGBLUEBUTTON_PACKAGE=build/python3-bigbluebutton_2.4.9+$(TIMESTAMP)-1_a
 collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE) $(PYTHON3_BIGBLUEBUTTON_PACKAGE) build/python3-pyjavaproperties_0.7-1_all.deb
 
 python3-vnc-collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE)
-$(PYTHON3_VNC_COLLABORATE_PACKAGE): vnc_collaborate/*.py vnc_collaborate/fvwm_configs/*
+$(PYTHON3_VNC_COLLABORATE_PACKAGE): setup.py vnc_collaborate/*.py vnc_collaborate/fvwm_configs/*
 	#apt install $(DEPENDENCIES)
 	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-vnc-collaborate"; exit 1; fi
 	# have to remove the old deb_dist, or the setup.py errors out
