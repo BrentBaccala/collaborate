@@ -1,0 +1,11 @@
+# Specify additional JWT keys that are authorized to connect to the VNC service.
+#
+# These will typically be shared secrets on other Big Blue Button servers whose
+# users are authorized to use our VNC service just like it was their own.
+#
+# Currently, these are shared secrets, not public keys, because BBB servers don't
+# have associated RSA keys.
+#
+# Ex: AUTHORIZED_JWT_KEYS="abcdefghijklmnopqrstuvwxyz, zyxwvutsrqopnmlkjihgfedcba"
+#
+# AUTHORIZED_JWT_KEYS=""

@@ -1,0 +1,27 @@
+[Unit]
+Description=WebSocket proxy for BigBlueButton VNC collaborate service
+Requires=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/bbb-vnc-collaborate
+ExecStart=/usr/bin/python3 -m vnc_collaborate websockify localhost:6102 localhost:0
+
+# When we restart this process, we don't want to kill every remote desktop,
+# just the main process.
+
+KillMode=process
+
+# Every process on every remote desktop will be in our control group,
+# so we expect a lot of tasks and don't want to limit their number.
+
+TasksMax=infinity
+
+# We need User=root because the VNC server can start a remote desktop
+# for any user on the system and will even create new user accounts if
+# needed.
+
+User=root
+
+[Install]
+WantedBy=multi-user.target
