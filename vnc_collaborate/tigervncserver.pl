@@ -407,7 +407,7 @@ sub checkDisplayNumberAvailable {
 
 sub getDisplayNumber {
   my ( $options ) = @_;
-  foreach my $n (1..99) {
+  foreach my $n (1..199) {
     return $n if &checkDisplayNumberAvailable($n, $options);
   }
   
