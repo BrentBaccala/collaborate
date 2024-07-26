@@ -18,8 +18,14 @@
 # (because importlib_resources doesn't have a corresponding Debian package)
 # so it does nothing with it.
 
-pip3 install importlib-resources
+if ! python3  -c $'import sys\nexit(sys.version_info.minor < 7)'; then
+    pip3 install importlib-resources
+fi
 
 startService bbb-vnc-collaborate || echo "bbb-vnc-collaborate service could not be registered or started"
 
-reloadService nginx
+# The bbb-vnc-collaborate package does not depend on nginx, so it might not be installed.
+
+if [ -r /usr/sbin/nginx ]; then
+    reloadService nginx
+fi
