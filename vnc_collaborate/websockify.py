@@ -40,7 +40,6 @@ import time
 import tempfile
 import pwd
 import grp
-import posix_ipc
 import requests
 
 import bigbluebutton
@@ -75,8 +74,15 @@ def get_or_add_user(UNIXuser):
         passwd_struct = pwd.getpwnam(UNIXuser)
     except KeyError:
         print(f'User {UNIXuser} does not exist; creating them')
-        # There's a race condition in the system adduser script, so protect this code with a semaphore
-        with posix_ipc.Semaphore('/etc.passwd', posix_ipc.O_CREAT, initial_value=1):
+        # There's was race condition in the system adduser script, so protect this code with a semaphore
+        # We don't need it (and might not have posix_ipc installed) if adduser is new enough
+        proc = subprocess.run(['adduser', '--version'], stdout=subprocess.PIPE)
+        adduser_version = float(re.search('[0-9.]+', [l for l in proc.stdout.decode().split('\n') if 'adduser version' in l][0])[0])
+        if adduser_version < 3.137:
+            import posix_ipc
+            with posix_ipc.Semaphore('/etc.passwd', posix_ipc.O_CREAT, initial_value=1):
+                subprocess.run(['sudo', 'adduser', '--force-badname', '--disabled-password', '--gecos', '', UNIXuser])
+        else:
             subprocess.run(['sudo', 'adduser', '--force-badname', '--disabled-password', '--gecos', '', UNIXuser])
         passwd_struct = pwd.getpwnam(UNIXuser)
     return passwd_struct
