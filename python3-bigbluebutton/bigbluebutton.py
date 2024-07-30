@@ -46,8 +46,11 @@ def properties():
     if not hasattr(properties, 'retval'):
         properties.retval = pyjavaproperties.Properties()
         for filename in [BBB_WEB_CONFIG, BBB_WEB_ETC_CONFIG]:
-            with open(filename) as file:
-                properties.retval.load(file)
+            try:
+                with open(filename) as file:
+                    properties.retval.load(file)
+            except:
+                pass
     return properties.retval
 
 def securitySalt():
