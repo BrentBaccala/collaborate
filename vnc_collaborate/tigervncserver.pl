@@ -760,7 +760,8 @@ sub startXvncServer {
     push @cmd, '-geometry', $options->{'geometry'} if $options->{'geometry'};
     push @cmd, '-depth', $options->{'depth'} if $options->{'depth'};
     push @cmd, '-pixelformat', $options->{'pixelformat'} if $options->{'pixelformat'};
-    push @cmd, '-rfbwait', $options->{'rfbwait'};
+    # The rfbwait option no longer exists (tigervnc 1.12)
+    # push @cmd, '-rfbwait', $options->{'rfbwait'};
     push @cmd, '-rfbauth', $options->{'vncPasswdFile'} if $options->{'vncAuthEnabled'};
     push @cmd, '-rfbport', $vncPort;
     push @cmd, '-pn';
