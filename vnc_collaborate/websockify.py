@@ -269,9 +269,14 @@ def new_websocket_client(self):
                 time.sleep(0.1)
 
             # Next, select teacher mode if user can access more than one desktop in /run/vnc
-            # XXX this isn't working right because this script runs as root
-            # teacher_mode = list(map(lambda fn: os.access(fn, os.W_OK), glob.glob('/run/vnc/*'))).count(True) > 1
-            teacher_mode = UNIXuser in grp.getgrnam('bigbluebutton').gr_mem
+            # This way doesn't work right because this script runs as root:
+            #    teacher_mode = list(map(lambda fn: os.access(fn, os.W_OK), glob.glob('/run/vnc/*'))).count(True) > 1
+            try:
+                teacher_mode = UNIXuser in grp.getgrnam('bigbluebutton').gr_mem
+                bigbluebutton_group_exists = True
+            except KeyError:
+                teacher_mode = False
+                bigbluebutton_group_exists = False
 
             # Finally, start a dynamic VNC server running 'vnc_function'
 
@@ -293,9 +298,12 @@ def new_websocket_client(self):
             # isn't this available as $USER?
             env['UNIXuser'] = UNIXuser
             command = "python3 -m vnc_collaborate tigervncserver -quiet -fg -localhost yes -SecurityTypes None -I-KNOW-THIS-IS-INSECURE -inetd -xstartup python3 -- -m vnc_collaborate {}".format(vnc_function)
-            subprocess.Popen(["sudo", "-u", UNIXuser, "-g", "bigbluebutton", "-i",
-                              "--preserve-env=UserId", "--preserve-env=MeetingId", "--preserve-env=fullName", "--preserve-env=UNIXuser",
-                              "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + command], env=env);
+            sudo_command = ["sudo", "-u", UNIXuser]
+            if bigbluebutton_group_exists:
+                sudo_command.extend(["-g", "bigbluebutton"])
+            sudo_command.extend(["-i", "--preserve-env=UserId", "--preserve-env=MeetingId", "--preserve-env=fullName", "--preserve-env=UNIXuser",
+                                 "socat", "UNIX-LISTEN:" + socket_fn + ",mode=666", "EXEC:" + command])
+            subprocess.Popen(sudo_command, env=env)
             while not os.path.exists(socket_fn):
                 time.sleep(0.1)
             self.server.unix_target = socket_fn
