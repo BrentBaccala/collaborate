@@ -1,0 +1,2 @@
+[org/gnome/desktop/session]
+idle-delay=uint32 0
