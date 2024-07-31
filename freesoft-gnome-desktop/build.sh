@@ -38,6 +38,15 @@ cp gnome-initial-setup-done staging/etc/skel/.config
 
 # Also install gnome-shell-extensions and gnome-shell-extension-dash-to-panel
 
+# Ubuntu 24 has dropped gnome-shell-extension-dash-to-panel
+#    https://askubuntu.com/questions/1511881/shell-extension-manager-errors-on-ubuntu-24-04
+# This code assumes that we're building on the same release that we're distributing for
+
+DEPENDS=ubuntu-desktop,gnome-shell-extensions
+if [ $(lsb_release -r | cut -f2) != 24.04 ]; then
+    DEPENDS=$DEPENDS,gnome-shell-extension-dash-to-panel
+fi
+
 #
 # Build RPM package
 fpm -s dir -C ./staging -n $PACKAGE \
@@ -45,4 +54,4 @@ fpm -s dir -C ./staging -n $PACKAGE \
     --after-install after-install.sh \
     --description "The freesoft.org desktop system" \
     --vendor freesoft.org -m cosine@freesoft.org --url https://www.github.com/BrentBaccala/collaborate/ \
-    -t deb --deb-use-file-permissions --depends ubuntu-desktop,gnome-shell-extensions,gnome-shell-extension-dash-to-panel
+    -t deb --deb-use-file-permissions --depends $DEPENDS
