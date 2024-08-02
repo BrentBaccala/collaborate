@@ -331,6 +331,11 @@ def websockify():
     if sys.argv[0] != 'websockify':
         sys.argv.pop(0)
 
+    # BigBlueButton 2.7 (or maybe 2.6) introduced the use of haproxy with a 60 second timeout.
+    # Fortunately, the Python websockify library has a --heartbeat option that will keep the connection alive
+    #    by sending something every 30 seconds.
+    sys.argv.extend(['--heartbeat', '30'])
+
     # This will call WebSocketProxy; its default RequestHandlerClass
     # is ProxyRequestHandler, but we can't override
     # RequestHandlerClass at this point, so we settle for changing the
