@@ -119,4 +119,6 @@ if algorithm:
 else:
     JWT = jwt.encode(message, JWT_KEY)
 
-print(LOGIN_URL + JWT.decode())
+# don't ask me why it used to require JWT.decode(), but now (Ubuntu 24 on my laptop) does not
+# print(LOGIN_URL + JWT.decode())
+print(LOGIN_URL + JWT)

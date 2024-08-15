@@ -5,8 +5,7 @@ aws: build/deployment-package.zip
 logs:
 	awslogs get /aws/lambda/login
 
-# depends on /dev/null so it will only get built if it doesn't already exist
-build/deployment-package.zip:: /dev/null
+build/deployment-package.zip: lambda_function.py
 	mkdir -p build
 
 	pip3 install --target build/package requests
@@ -21,5 +20,4 @@ build/deployment-package.zip:: /dev/null
 
 	cd build/package; zip -r ../deployment-package.zip .
 
-build/deployment-package.zip:: lambda_function.py
 	zip -g -j build/deployment-package.zip lambda_function.py

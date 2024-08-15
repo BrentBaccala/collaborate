@@ -1,0 +1,32 @@
+The bbb-aws-hibernate package has two components, one to stop the system and the other to start it.
+
+Stopping the system
+===================
+
+Install the bbb-aws-hibernate package.  We don't have a make target to build it.  The 'fpm' command is
+currently in the repository for the old build system (~/src/bigbluebutton-build/packages-template/bbb-aws-hibernate).
+
+An AWS policy needs to be installed to give the instance permission to hibernate itself.  You don't want a role
+attached to the instance, because that would allow any user on the instance to hibernate it.  Instead, create
+a role and give an access key pair to the bbb-aws-hibernate service.  Not sure exactly how I'm doing that currently.
+Check the configuration on collaborate.freesoft.org or itpietraining.com; both work.
+
+Starting the system
+===================
+
+This is done using a signed JWT key, created using an SSH RSA key by the bbb-mklogin program.
+
+In the configuration.py file, set the CONFIG dictionary as explained in the documentation at the top of the file:
+   - the name to give to the bbb-mklogin '-n' switch
+   - the FQDN of the server
+   - the AWS instance ID of the server, and any associated instances to started with it
+   - the SSH RSA public keys that can be used to sign the JWT keys
+
+Run 'make'.  It might error out with the message "An update is in progress".  If so, just run it again and it should work the second time.
+
+The AWS URL will be stored in the bbb-auth.sqlite file in the parent directory (collaborate), so that it can be accessed by
+both the make command and the bbb-mklogin command.
+
+Once that's done, you can run bbb-mklogin with the -n option to create a URL that can auto-start the server.
+
+IMPORTANT: You need to put the RSA key's public key in /etc/bigbluebutton/authorized_keys on the server.
