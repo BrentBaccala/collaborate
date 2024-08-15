@@ -33,7 +33,9 @@ def ec2():
 
 def is_server_idle():
     try:
-        if len(psutil.users()) > 0:
+        # Virtual desktops will have user.terminal = None; ssh sessions will have user.terminal = 'pts/0' or something like it.
+        # So this code reports the server idle only if there are no SSH users, but virtual desktop users are OK.
+        if len([user for user in psutil.users() if user.terminal]) > 0:
             return False
         # AWS tech support advised against attempting to hibernate while the
         # swapoff process from the previous hibernation is still running

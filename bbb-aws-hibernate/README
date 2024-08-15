@@ -11,6 +11,14 @@ attached to the instance, because that would allow any user on the instance to h
 a role and give an access key pair to the bbb-aws-hibernate service.  Not sure exactly how I'm doing that currently.
 Check the configuration on collaborate.freesoft.org or itpietraining.com; both work.
 
+I assign the "StopSelf" IAM role to the instance.  Not sure if this allows anyone on the instance to hibernate it.
+Looking at the JSON policy for "StopSelf"; it lets the instance stop any instance, not just itself.
+Probably lets anybody on the instance stop any instance on the account.  That needs to be fixed.
+
+The new (version 2.7) code that uses machinectl to create virtual desktops requires a change to the bbb-aws-hibernate
+script that I've committed to the git repository, but haven't built an updated bbb-aws-hibernate package.
+bbb-aws-hibernate-2.4.9+20221012t170210 is the old code that won't hibernate if virtual desktops are running.
+
 Starting the system
 ===================
 
