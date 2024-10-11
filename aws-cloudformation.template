@@ -1,4 +1,11 @@
 {
+    "Metadata" : {
+        "Comment" : [
+            "AWS CloudFormation template to create a collaborate instance",
+            "Getting a list of allowed instance types programatically is an open cloudformation issue",
+            "https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/425"
+        ]
+    },
     "Parameters": {
         "KeyName": {
             "Description": "Name of an existing EC2 key pair to enable SSH access to the instance.",
@@ -8,6 +15,11 @@
             "Description": "Name of a Parameter Store parameter that stores the ID of the Amazon Machine Image (AMI).",
             "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
             "Default": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+        },
+        "InstanceType": {
+            "Type" : "String",
+            "Default" : "m1.small",
+            "AllowedValues" : ["t2.micro", "m1.small", "m1.large", "m5.large", "m5.2xlarge"]
         }
     },
     "Resources": {
@@ -30,6 +42,7 @@
             "Properties": {
                 "KeyName": { "Ref": "KeyName" },
                 "ImageId": { "Ref": "AMIId" },
+                "InstanceType" : { "Ref": "InstanceType" },
                 "SecurityGroups": [ { "Ref": "InstanceSecurityGroup" } ],
             }
         }
@@ -37,6 +50,9 @@
     "Outputs": {
         "InstanceId": {
             "Value": { "Ref": "Ec2Instance" }
+        },
+        "IPAddress": {
+            "Value": { "Fn::GetAtt": [ "Ec2Instance", "PublicIp" ] }
         }
     }
 }
