@@ -2,6 +2,7 @@
     "Metadata" : {
         "Comment" : [
             "AWS CloudFormation template to create a collaborate instance",
+            "",
             "Getting a list of allowed instance types programatically is an open cloudformation issue",
             "https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/425"
         ]
@@ -14,7 +15,7 @@
         "AMIId": {
             "Description": "Name of a Parameter Store parameter that stores the ID of the Amazon Machine Image (AMI).",
             "Type": "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>",
-            "Default": "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+            "Default": "/aws/service/canonical/ubuntu/server/focal/stable/current/amd64/hvm/ebs-gp2/ami-id"
         },
         "InstanceType": {
             "Type" : "String",
