@@ -45,6 +45,7 @@
                 "ImageId": { "Ref": "AMIId" },
                 "InstanceType" : { "Ref": "InstanceType" },
                 "SecurityGroups": [ { "Ref": "InstanceSecurityGroup" } ],
+                "UserData" : { "Fn::Base64" : "#cloud-config\npackages:\n- nginx\n" }
             }
         }
     },
