@@ -140,7 +140,7 @@
                     "      systemctl enable ddclient",
                     "      systemctl stop ddclient",
                     "      systemctl start ddclient",
-                    "      wget -qO- https://raw.githubusercontent.com/bigbluebutton/bbb-install/v2.7.x-release/bbb-install.sh | bash -s -- -w -v focal-270 -r www.freesoft.org -s qJw3FsJuSn4IACSJ5nmW.freesoft.org -e cosine@freesoft.org",
+                    "      wget -qO- https://raw.githubusercontent.com/bigbluebutton/bbb-install/v2.7.x-release/bbb-install.sh | bash -s -- -w -v focal-270 -r www.freesoft.org -s qjw3fsjusn4iacsj5nmw.freesoft.org -e cosine@freesoft.org",
                     "    owner: 'root:root'",
                     "    permissions: '0755'",
                     "  - path: /etc/ddclient.conf",
