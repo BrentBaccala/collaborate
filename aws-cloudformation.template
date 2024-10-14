@@ -4,9 +4,14 @@
             "AWS CloudFormation template to create a collaborate instance",
             "",
             "Getting a list of allowed instance types programatically is an open cloudformation issue",
-            "https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/425"
+            "https://github.com/aws-cloudformation/cloudformation-coverage-roadmap/issues/425",
+            "",
+            "BigBlueButton requires a minimum of 4 CPUs (or it won't install), so m5.large (for example) won't work",
+            "",
+            "We use AWS::LanguageExtensions to get Fn::ToJsonString"
         ]
     },
+    "Transform": "AWS::LanguageExtensions",
     "Parameters": {
         "KeyName": {
             "Description": "Name of an existing EC2 key pair to enable SSH access to the instance.",
@@ -19,8 +24,8 @@
         },
         "InstanceType": {
             "Type" : "String",
-            "Default" : "m5.large",
-            "AllowedValues" : ["t2.micro", "m1.small", "m1.large", "m5.large", "m5.2xlarge"]
+            "Default" : "m5.xlarge",
+            "AllowedValues" : ["m5.xlarge", "m5.2xlarge", "m5.4xlarge", "m5.8xlarge"]
         }
     },
     "Resources": {
@@ -34,6 +39,18 @@
                         "FromPort": 22,
                         "ToPort": 22,
                         "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "CidrIp": "0.0.0.0/0"
                     }
                 ]
             }
@@ -45,6 +62,19 @@
                 "ImageId": { "Ref": "AMIId" },
                 "InstanceType" : { "Ref": "InstanceType" },
                 "SecurityGroups": [ { "Ref": "InstanceSecurityGroup" } ],
+                "BlockDeviceMappings": [
+                    {
+                      "DeviceName": "/dev/sda1",
+                      "Ebs": {
+                        "VolumeType": "io1",
+                        "Iops": "300",
+                        "DeleteOnTermination": "false",
+                        "VolumeSize": "32",
+                        "Encrypted": true
+                      }
+                    }
+                ],
+                "HibernationOptions" : { "Configured" : true },
                 "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "\n", [
                     "#cloud-config",
                     "apt:",
@@ -110,6 +140,7 @@
                     "      systemctl enable ddclient",
                     "      systemctl stop ddclient",
                     "      systemctl start ddclient",
+                    "      wget -qO- https://raw.githubusercontent.com/bigbluebutton/bbb-install/v2.7.x-release/bbb-install.sh | bash -s -- -w -v focal-270 -r www.freesoft.org -s qJw3FsJuSn4IACSJ5nmW.freesoft.org -e cosine@freesoft.org",
                     "    owner: 'root:root'",
                     "    permissions: '0755'",
                     "  - path: /etc/ddclient.conf",
@@ -175,7 +206,15 @@
                 "Timeout": 60,
                 "Environment": {
                     "Variables": {
-                        "CONFIG": '{"ts2l": {"fqdn": "ts2lclassroom.org", "instances": ["i-037fed505747bcc6c"], "keys": ["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDT6kS1/ZnYXOM5QTDu4RY0mGaVWrz53LpjW9stK+E73JUFQh+FNGUWObab0m+TJzOpaAPMFVor1GaN/RdMPgNW537mGBH7H2LnQhSv3A3Sw5GvxZw11sy4ek6T2m2NVsemSvMgeUi/nPkt7vhgZdjktMkRS0MoErv0FsaZaqHTfnXqZ2saOqIy9FWusWZMQe60hvYAmAPZFB7AUE1Yj6ZyvcI+lZeHCtylvQUJrX1zwvhYPuwMd25ZCWAHLyQfTxpuS5Wv2aPDTwIsl9bSdbqv1myvEnkG/nGKrP1fH47GwnqfQZCl4Kzht/DaH1Q7uwIFdP4hpjce1kphJZBPexDJ ubuntu@ts2lclassroom"]}}'
+                        "CONFIG": {
+                            "Fn::ToJsonString" : {
+                                "ts2l": {
+                                    "fqdn": "qJw3FsJuSn4IACSJ5nmW.freesoft.org",
+                                    "instances": [ { "Fn::GetAtt" : ["Ec2Instance", "InstanceId" ] } ],
+                                    "keys": ["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDT6kS1/ZnYXOM5QTDu4RY0mGaVWrz53LpjW9stK+E73JUFQh+FNGUWObab0m+TJzOpaAPMFVor1GaN/RdMPgNW537mGBH7H2LnQhSv3A3Sw5GvxZw11sy4ek6T2m2NVsemSvMgeUi/nPkt7vhgZdjktMkRS0MoErv0FsaZaqHTfnXqZ2saOqIy9FWusWZMQe60hvYAmAPZFB7AUE1Yj6ZyvcI+lZeHCtylvQUJrX1zwvhYPuwMd25ZCWAHLyQfTxpuS5Wv2aPDTwIsl9bSdbqv1myvEnkG/nGKrP1fH47GwnqfQZCl4Kzht/DaH1Q7uwIFdP4hpjce1kphJZBPexDJ ubuntu@ts2lclassroom"]
+                                }
+                            }
+                        }
                     }
                 }
             }
