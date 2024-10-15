@@ -165,20 +165,21 @@
                     "  - nsupdate-aws",
                     "  - ddclient",
                     "  - awscli",
+                    "  - bbb-auth-jwt",
                     "write_files:",
                     "  - path: /var/lib/cloud/scripts/per-once/configure-ddclient",
                     "    content: |",
                     "      #!/bin/sh",
                     "      cat > /etc/default/ddclient <<EOF",
-                    "      export AWS_ACCESS_KEY_ID=AKIAY662P6OVROZ5W5MP",
-                    "      export AWS_SECRET_ACCESS_KEY=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",
-                    "      run_daemon=\"true\"",
+                    "      export AWS_ACCESS_KEY_ID=AKIAY662P6OVTVCJ73P2",
+                    "      export AWS_SECRET_ACCESS_KEY=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",
+                    "      run_daemon=true",
                     "      EOF",
                     "      chmod 0400 /etc/default/ddclient",
                     "      systemctl enable ddclient",
                     "      systemctl stop ddclient",
                     "      systemctl start ddclient",
-                    "      wget -qO- https://raw.githubusercontent.com/bigbluebutton/bbb-install/v2.7.x-release/bbb-install.sh | bash -s -- -w -v focal-270 -r www.freesoft.org -s qjw3fsjusn4iacsj5nmw.freesoft.org -e cosine@freesoft.org",
+                    "      wget -qO- https://raw.githubusercontent.com/bigbluebutton/bbb-install/v2.7.x-release/bbb-install.sh | bash -s -- -w -v focal-270 -r www.freesoft.org -s genius.freesoft.org -e cosine@freesoft.org",
                     "    owner: 'root:root'",
                     "    permissions: '0755'",
                     "  - path: /etc/ddclient.conf",
@@ -189,9 +190,27 @@
                     "      login=/usr/share/nsupdate-aws/nsupdate-aws",
                     "      password=Z08462181NK07JJAPHM5M",
                     "      ttl=10",
-                    "      qJw3FsJuSn4IACSJ5nmW.freesoft.org",
+                    "      genius.freesoft.org",
                     "    owner: 'root:root'",
                     "    permissions: '0400'",
+                    "  - path: /etc/bigbluebutton/authorized_keys",
+                    "    content: |",
+                    { "Fn::GetAtt" : [ "KeyPair", "PublicKeyYAML" ] },
+                    "    owner: 'root:root'",
+                    "    permissions: '0644'",
+                    "    defer: true",
+                    "  - path: /home/ubuntu/.ssh/id_rsa",
+                    "    content: |",
+                    { "Fn::GetAtt" : [ "KeyPair", "PrivateKeyYAML" ] },
+                    "    owner: 'ubuntu:ubuntu'",
+                    "    permissions: '0400'",
+                    "    defer: true",
+                    "  - path: /home/ubuntu/.ssh/id_rsa.pub",
+                    "    content: |",
+                    { "Fn::GetAtt" : [ "KeyPair", "PublicKeyYAML" ] },
+                    "    owner: 'ubuntu:ubuntu'",
+                    "    permissions: '0444'",
+                    "    defer: true",
                     ""
                 ] ] } }
             }
@@ -199,7 +218,6 @@
         "Role": {
             "Type": "AWS::IAM::Role",
             "Properties": {
-                "RoleName": "cloudformation-login",
                 "AssumeRolePolicyDocument": {
                     "Version": "2012-10-17",
                     "Statement": [
@@ -212,6 +230,7 @@
                       }
                     ]
                 },
+                "ManagedPolicyArns" : [ "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" ],
                 "Policies" : [
                     {
                         "PolicyName": "cloudformation-login",
@@ -232,7 +251,6 @@
         "LambdaFunction": {
             "Type": "AWS::Lambda::Function",
             "Properties": {
-                "FunctionName": "cloudformation-login",
                 "Role": {"Fn::GetAtt": ["Role", "Arn"]},
                 "PackageType": "Zip",
                 "Runtime": "python3.9",
@@ -246,10 +264,10 @@
                     "Variables": {
                         "CONFIG": {
                             "Fn::ToJsonString" : {
-                                "ts2l": {
-                                    "fqdn": "qJw3FsJuSn4IACSJ5nmW.freesoft.org",
+                                "collaborate": {
+                                    "fqdn": "genius.freesoft.org",
                                     "instances": [ { "Fn::GetAtt" : ["Ec2Instance", "InstanceId" ] } ],
-                                    "keys": ["ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDT6kS1/ZnYXOM5QTDu4RY0mGaVWrz53LpjW9stK+E73JUFQh+FNGUWObab0m+TJzOpaAPMFVor1GaN/RdMPgNW537mGBH7H2LnQhSv3A3Sw5GvxZw11sy4ek6T2m2NVsemSvMgeUi/nPkt7vhgZdjktMkRS0MoErv0FsaZaqHTfnXqZ2saOqIy9FWusWZMQe60hvYAmAPZFB7AUE1Yj6ZyvcI+lZeHCtylvQUJrX1zwvhYPuwMd25ZCWAHLyQfTxpuS5Wv2aPDTwIsl9bSdbqv1myvEnkG/nGKrP1fH47GwnqfQZCl4Kzht/DaH1Q7uwIFdP4hpjce1kphJZBPexDJ ubuntu@ts2lclassroom"]
+                                    "keys": [ { "Fn::GetAtt" : ["KeyPair", "PublicKey" ] } ]
                                 }
                             }
                         }
@@ -265,7 +283,24 @@
                 "Target": { "Fn::GetAtt": ["LambdaFunction", "Arn"] },
                 "RouteKey": "ANY /login"
             }
-        }
+        },
+	"LoginPermission": {
+	    "Type": "AWS::Lambda::Permission",
+	    "Properties": {
+		"Action": "lambda:InvokeFunction",
+		"FunctionName": { "Fn::GetAtt" : [ "LambdaFunction", "Arn" ] },
+		"Principal": "apigateway.amazonaws.com",
+		"SourceArn": { "Fn::Join" : [ "", [
+		    "arn:aws:execute-api:",
+		    { "Ref" : "AWS::Region" },
+		    ":",
+		    { "Ref" : "AWS::AccountId" },
+		    ":",
+		    { "Fn::GetAtt" : [ "API", "ApiId" ] },
+		    "/*/*/login"
+		] ] }
+	    }
+	}
     },
     "Outputs": {
         "InstanceId": {
@@ -280,8 +315,11 @@
 	"PublicKey" : {
 	    "Value" : { "Fn::GetAtt" : [ "KeyPair", "PublicKey" ] }
 	},
-	"PrivateKey" : {
-	    "Value" : { "Fn::GetAtt" : [ "KeyPair", "PrivateKey" ] }
+	"UbuntuToken" : {
+	    "Value" : { "Fn::GetAtt" : [ "KeyPair", "UbuntuToken" ] }
+	},
+	"URL" : {
+	    "Value" : { "Fn::Join" : [ "/login?", [ { "Fn::GetAtt": [ "API", "ApiEndpoint" ] }, { "Fn::GetAtt" : [ "KeyPair", "UbuntuToken" ] } ] ] }
 	}
     }
 }

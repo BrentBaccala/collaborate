@@ -38,6 +38,7 @@ import json
 import boto3
 import botocore
 import cfnresponse
+import traceback
 import requests
 import dns.resolver
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
@@ -52,6 +53,7 @@ def authenticate(config, token):
     try:
         token_dict = jwt.decode(token, verify=False)
     except:
+        print(traceback.format_exc())
         return None
     name = token_dict.get('nam')
     if name in config:
@@ -59,6 +61,8 @@ def authenticate(config, token):
             try:
                 return jwt.decode(token, key = key, algorithms = ['RS512'])
             except:
+                # If we have more than one key in config[name]['keys'], we expect all but one to raise an exception here
+                print(traceback.format_exc())
                 pass
     return None
 
@@ -206,8 +210,8 @@ def lambda_handler(event, context):
 
   config = json.loads(os.environ['CONFIG'])
 
-  # XXX - Parse all of the SSH public keys once, when the lambda function loads.
-  # XXX - I've moved this into the lambda_handler code since we don't have a CONFIG variable when used to generate keys
+  # XXX - I'd like to parse all of the SSH public keys once, when the lambda function loads, but that's not how this works,
+  # since I've moved this into the lambda_handler code because we don't have a CONFIG variable when generate_key_pair is called.
 
   for server in config:
       config[server]['keys'] = [load_ssh_public_key(key.encode()) for key in config[server]['keys']]
@@ -308,9 +312,17 @@ def lambda_handler(event, context):
     error_page_formatted = limited_format(error_page, error=str(ex))
     return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
 
+# When using the collaborate CloudFormation template to create a collaborate server, this function
+# will generate an openssh RSA key pair, encode a JWT login token that can be used to connect
+# to the server, and send all of this information to a CloudFormation callback URL to create
+# a CustomResource.  The lambda function is called asynchronously; the AWS-provided cfnresponse
+# package is used to form the JSON messages to the callback URL.
 
 def generate_key_pair(event, context):
   try:
+    if event['RequestType'] == 'Delete':
+        cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+        return
     key = rsa.generate_private_key(
 	backend=crypto_default_backend(),
 	public_exponent=65537,
@@ -325,9 +337,16 @@ def generate_key_pair(event, context):
 	crypto_serialization.Encoding.OpenSSH,
 	crypto_serialization.PublicFormat.OpenSSH
     )
+    ubuntu_token = jwt.encode({'sub': 'ubuntu', 'role': 'm', 'nam': 'collaborate'}, key, algorithm='RS512')
     responseData = {}
     responseData['PublicKey'] = public_key.decode()
-    responseData['PrivateKey'] = private_key.decode()
-    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
+    # Omit this because otherwise we get "Response object is too long" from CloudFormation
+    # responseData['PrivateKey'] = private_key.decode()
+    # put six spaces at the beginning of each line of the key so it can be embedded into a YAML literal block
+    responseData['PublicKeyYAML'] = '\n'.join(['      '+l for l in public_key.decode().split('\n')])
+    responseData['PrivateKeyYAML'] = '\n'.join(['      '+l for l in private_key.decode().split('\n')])
+    responseData['UbuntuToken'] = ubuntu_token.decode()
+    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
   except Exception as ex:
-    cfnresponse.send(event, context, cfnresponse.FAILED, reason=str(ex))
+    print(traceback.format_exc())
+    cfnresponse.send(event, context, cfnresponse.FAILED, {})
