@@ -29,6 +29,44 @@
         }
     },
     "Resources": {
+        "MinimalLambdaRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Principal": {
+                          "Service": "lambda.amazonaws.com"
+                        },
+                        "Action": "sts:AssumeRole"
+                      }
+                    ]
+                },
+                "ManagedPolicyArns" : [ "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole" ]
+            }
+        },
+	"GenerateKeyPairLambdaFunction" : {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "PackageType": "Zip",
+                "Runtime": "python3.9",
+		"Role": {"Fn::GetAtt": ["MinimalLambdaRole", "Arn"]},
+                "Timeout": 60,
+                "Code": {
+                    "S3Bucket": "collaborate-lambda-function",
+                    "S3Key": "deployment-package.zip"
+                },
+		"Handler" : "lambda_function.generate_key_pair"
+	    }
+	},
+	"KeyPair" : {
+	    "Type" : "AWS::CloudFormation::CustomResource",
+	    "Properties": {
+		"ServiceToken": { "Fn::GetAtt" : ["GenerateKeyPairLambdaFunction", "Arn"] }
+	    }
+	},
         "InstanceSecurityGroup": {
             "Type": "AWS::EC2::SecurityGroup",
             "Properties": {
@@ -238,6 +276,12 @@
         },
         "ApiEndpoint": {
             "Value": { "Fn::GetAtt": [ "API", "ApiEndpoint" ] }
-        }
+        },
+	"PublicKey" : {
+	    "Value" : { "Fn::GetAtt" : [ "KeyPair", "PublicKey" ] }
+	},
+	"PrivateKey" : {
+	    "Value" : { "Fn::GetAtt" : [ "KeyPair", "PrivateKey" ] }
+	}
     }
 }

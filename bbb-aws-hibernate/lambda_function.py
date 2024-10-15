@@ -37,25 +37,18 @@ import time
 import json
 import boto3
 import botocore
+import cfnresponse
 import requests
 import dns.resolver
 from cryptography.hazmat.primitives.serialization import load_ssh_public_key
+from cryptography.hazmat.primitives import serialization as crypto_serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.backends import default_backend as crypto_default_backend
 
 region = os.environ['AWS_REGION']
 ec2 = boto3.client('ec2', region_name=region)
 
-# Environment variable CONFIG is a JSON dictionary mapping server names ('nam' in the JWT)
-# to dictionaries with entries 'fqdn' (a string), 'instances' (a list of strings, each an AWS instance ID),
-# and 'keys' (a list of strings, each an openssh RSA public key)
-
-config = json.loads(os.environ['CONFIG'])
-
-# Parse all of the SSH public keys once, when the lambda function loads.
-
-for server in config:
-    config[server]['keys'] = [load_ssh_public_key(key.encode()) for key in config[server]['keys']]
-
-def authenticate(token):
+def authenticate(config, token):
     try:
         token_dict = jwt.decode(token, verify=False)
     except:
@@ -207,6 +200,18 @@ def limited_format(string, **kwargs):
     return string
 
 def lambda_handler(event, context):
+  # Environment variable CONFIG is a JSON dictionary mapping server names ('nam' in the JWT)
+  # to dictionaries with entries 'fqdn' (a string), 'instances' (a list of strings, each an AWS instance ID),
+  # and 'keys' (a list of strings, each an openssh RSA public key)
+
+  config = json.loads(os.environ['CONFIG'])
+
+  # XXX - Parse all of the SSH public keys once, when the lambda function loads.
+  # XXX - I've moved this into the lambda_handler code since we don't have a CONFIG variable when used to generate keys
+
+  for server in config:
+      config[server]['keys'] = [load_ssh_public_key(key.encode()) for key in config[server]['keys']]
+
   try:
     token = event['rawQueryString']
     if token.startswith('waitpage-'):
@@ -245,7 +250,7 @@ def lambda_handler(event, context):
             print(ans)
         return {'statusCode': 200, 'headers': {'Content-Type': 'text/plain'}, 'body': '' }
     else:
-        jwt = authenticate(token)
+        jwt = authenticate(config, token)
         if jwt:
             instances = config[jwt['nam']]['instances']
             instances_to_start = []
@@ -302,3 +307,27 @@ def lambda_handler(event, context):
   except Exception as ex:
     error_page_formatted = limited_format(error_page, error=str(ex))
     return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
+
+
+def generate_key_pair(event, context):
+  try:
+    key = rsa.generate_private_key(
+	backend=crypto_default_backend(),
+	public_exponent=65537,
+	key_size=2048
+    )
+    private_key = key.private_bytes(
+	crypto_serialization.Encoding.PEM,
+	crypto_serialization.PrivateFormat.OpenSSH,
+	crypto_serialization.NoEncryption()
+    )
+    public_key = key.public_key().public_bytes(
+	crypto_serialization.Encoding.OpenSSH,
+	crypto_serialization.PublicFormat.OpenSSH
+    )
+    responseData = {}
+    responseData['PublicKey'] = public_key.decode()
+    responseData['PrivateKey'] = private_key.decode()
+    cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, "CustomResourcePhysicalID")
+  except Exception as ex:
+    cfnresponse.send(event, context, cfnresponse.FAILED, reason=str(ex))

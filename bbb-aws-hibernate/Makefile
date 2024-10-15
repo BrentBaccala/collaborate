@@ -12,6 +12,7 @@ build/deployment-package.zip: lambda_function.py
 	# Need version 1.7.1 because newer ones require an 'algorithms' argument to jwt.decode() even if verify=False
 	pip3 install --target build/package pyjwt==1.7.1
 	pip3 install --target build/package serialization
+	pip3 install --target build/package cfnresponse
 	# (last command will show "ERROR: launchpadlib 1.10.13 requires testresources, which is not installed.")
 	# cryptography uses a binary shared object, and can be quite tricky to get working on lambda
 	# See https://aws.amazon.com/premiumsupport/knowledge-center/lambda-python-package-compatible/
