@@ -27,7 +27,8 @@ cp fvwm-config staging/usr/share/fvwm/default-config/config
 CONFFILES="--deb-no-default-config-files"
 
 # CONVENIENCE_DEPENDS="gnome-terminal,dbus-x11,chromium-browser,xournal"
-DEPENDS="python3-vnc-collaborate,python3-tk,systemd-container,ssvnc,fvwm,dconf-cli,tigervnc-standalone-server(>=1.10),tigervnc-viewer(>=1.10),xdotool,socat"
+# don't know why python3-posix-ipc isn't picked up as a dependency by python3-vnc-collaborate
+DEPENDS="python3-vnc-collaborate,python3-posix-ipc,python3-tk,systemd-container,ssvnc,fvwm,dconf-cli,tigervnc-standalone-server(>=1.10),tigervnc-viewer(>=1.10),xdotool,socat"
 
 #
 # Build RPM package
