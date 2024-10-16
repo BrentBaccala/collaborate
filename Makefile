@@ -212,7 +212,7 @@ build/tigervnc-viewer_1.10.1+dfsg-3_amd64.deb build/tigervnc-standalone-server_1
 
 bbb-aws-hibernate: build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb
 
-build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
+build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb:
 	if ! which fpm >/dev/null; then echo "ERROR: fpm is required to build bbb-aws-hibernate"; exit 1; fi
 
 	rm -rf build/staging build/staging2
@@ -227,19 +227,19 @@ build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
 	cp bbb-aws-hibernate/bbb-aws-hibernate build/staging/usr/share/bbb-aws-hibernate
 
 	mkdir -p build/staging2
-	cat build/bigbluebutton/build/deb-helper.sh bbb-aws-hibernate/after-install.sh > build/staging2/after-install.sh
-	cat build/bigbluebutton/build/deb-helper.sh bbb-aws-hibernate/before-remove.sh > build/staging2/before-remove.sh
+	cat deb-helper.sh bbb-aws-hibernate/after-install.sh > build/staging2/after-install.sh
+	cat deb-helper.sh bbb-aws-hibernate/before-remove.sh > build/staging2/before-remove.sh
 
 	rm -f build/bbb-aws-hibernate*.deb
 	fpm -s dir -p build/ -C build/staging -n bbb-aws-hibernate --version 2.4.9+$(TIMESTAMP) --iteration 1 --epoch 3 \
 	  --after-install build/staging2/after-install.sh --before-remove build/staging2/before-remove.sh \
 	  --description "Automatic hibernation service" \
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
-	  -d python3-bigbluebutton,python3-boto3 -t deb
+	  -d python3-bigbluebutton,python3-boto3,python3-psutil -t deb
 
 bbb-auth-jwt: build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb
 
-build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
+build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb:
 	if ! which fpm >/dev/null; then echo "ERROR: fpm is required to build bbb-auth-jwt"; exit 1; fi
 
 	rm -rf build/staging build/staging2
@@ -257,8 +257,8 @@ build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb: build/bigbluebutton
 	cp bbb-auth-jwt/bbb-mklogin build/staging/usr/bin
 
 	mkdir -p build/staging2
-	cat build/bigbluebutton/build/deb-helper.sh bbb-auth-jwt/after-install.sh > build/staging2/after-install.sh
-	cat build/bigbluebutton/build/deb-helper.sh bbb-auth-jwt/before-remove.sh > build/staging2/before-remove.sh
+	cat deb-helper.sh bbb-auth-jwt/after-install.sh > build/staging2/after-install.sh
+	cat deb-helper.sh bbb-auth-jwt/before-remove.sh > build/staging2/before-remove.sh
 
 	rm -f build/bbb-auth-jwt*.deb
 	fpm -s dir -p build/ -C build/staging -n bbb-auth-jwt --version 2.4.9+$(TIMESTAMP) --iteration 1 --epoch 3 \

@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 # Embedded Ruby (ERB) enabled with fpm's --template-scripts option
-<%= File.read('deb-helper.sh') %>
+<%= File.read('../deb-helper.sh') %>
 
 # If Python version is less than 3.7, the python3-vnc-collaborate
 # package needs the backported importlib-resources.
