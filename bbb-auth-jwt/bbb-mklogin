@@ -68,7 +68,13 @@ if os.path.isfile(CONF_FILE):
 
 if args.rsa:
     with open(os.path.expanduser(args.identity)) as key_file:
-        JWT_KEY = serialization.load_pem_private_key(key_file.read().encode(), password=None, backend=cryptography.hazmat.backends.openssl.backend)
+        key_data = key_file.read()
+        try:
+            JWT_KEY = serialization.load_pem_private_key(key_data.encode(), password=None, backend=cryptography.hazmat.backends.openssl.backend)
+        except ValueError:
+            # Ubuntu 20 requires "pip3 install cryptography --upgrade" to get this function", but this breaks pip3
+            # so it can't do anything, so make sure you only upgrade cryptography in a virtual environment
+            JWT_KEY = serialization.load_ssh_private_key(key_data.encode(), password=None)
         algorithm = 'RS512'
 elif 'JWT_KEY' not in vars():
     import bigbluebutton
@@ -121,4 +127,7 @@ else:
 
 # don't ask me why it used to require JWT.decode(), but now (Ubuntu 24 on my laptop) does not
 # print(LOGIN_URL + JWT.decode())
-print(LOGIN_URL + JWT)
+try:
+    print(LOGIN_URL + JWT)
+except TypeError:
+    print(LOGIN_URL + JWT.decode())
