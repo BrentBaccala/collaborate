@@ -284,16 +284,7 @@
                                 {
                                     "Effect": "Allow",
                                     "Action": ["ec2:DescribeInstances", "ec2:StartInstances"],
-                                    "Resource": [
-					{ "Fn::Join" : [ "", [
-					    "arn:aws:ec2:",
-					    { "Ref" : "AWS::Region" },
-					    ":",
-					    { "Ref" : "AWS::AccountId" },
-					    ":instance/",
-					    { "Fn::GetAtt": [ "Ec2Instance", "InstanceId" ] }
-					] ] }
-				    ]
+                                    "Resource": "*"
                                 }
                             ]
                         }
