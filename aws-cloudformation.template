@@ -221,7 +221,7 @@
                     "      export AWS_ACCESS_KEY_ID=AKIAY662P6OVTVCJ73P2",
                     "      export AWS_SECRET_ACCESS_KEY=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",
                     "      run_daemon=true",
-                    "      daemon_interval=3",
+                    "      daemon_interval=60",
                     "      EOF",
                     "      chmod 0400 /etc/default/ddclient",
                     "      systemctl enable ddclient",
