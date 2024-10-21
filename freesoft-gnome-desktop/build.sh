@@ -40,12 +40,11 @@ cp gnome-initial-setup-done staging/etc/skel/.config
 
 # Ubuntu 24 has dropped gnome-shell-extension-dash-to-panel
 #    https://askubuntu.com/questions/1511881/shell-extension-manager-errors-on-ubuntu-24-04
-# This code assumes that we're building on the same release that we're distributing for
+# but I'm not running on Ubuntu 24 because
+#    1. BigBlueButton doesn't run on Ubuntu 24 (so we'd need a separate remote desktop server) and
+#    2. gnome-terminal in a vnc desktop seems to be broken
 
-DEPENDS=ubuntu-desktop,gnome-shell-extensions
-if [ $(lsb_release -r | cut -f2) != 24.04 ]; then
-    DEPENDS=$DEPENDS,gnome-shell-extension-dash-to-panel
-fi
+DEPENDS=ubuntu-desktop,gnome-shell-extensions,gnome-shell-extension-dash-to-panel
 
 #
 # Build RPM package
