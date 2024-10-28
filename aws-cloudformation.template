@@ -10,7 +10,9 @@
             "",
             "We use AWS::LanguageExtensions to get Fn::ToJsonString",
 	    "",
-	    "Currently allows the instance to stop all instances on the account (!); need to fix this"
+	    "We depend on having a pre-deployed S3 bucket with the Lambda function code in it",
+	    "",
+	    "Currently allows the instance to start and stop all instances on the account (!); need to fix this"
         ]
     },
     "Transform": "AWS::LanguageExtensions",
@@ -148,7 +150,7 @@
                       "Ebs": {
                         "VolumeType": "io1",
                         "Iops": "300",
-                        "DeleteOnTermination": "false",
+                        "DeleteOnTermination": true,
                         "VolumeSize": "32",
                         "Encrypted": true
                       }
@@ -230,6 +232,13 @@
                     "      wget -qO- https://raw.githubusercontent.com/bigbluebutton/bbb-install/v2.7.x-release/bbb-install.sh | bash -s -- -w -v focal-270 -r www.freesoft.org -s genius.freesoft.org -e cosine@freesoft.org",
                     "      # this has to be done after the BigBlueButton install, or the bigbluebutton group won't exist yet",
 		    "      apt install -y bbb-auth-jwt",
+                    "      # AWS hibernation requires kaslr to be disabled",
+		    "      sed -i '/GRUB_CMDLINE_LINUX_DEFAULT/s/\"$/ nokaslr\"/' /etc/default/grub.d/50-cloudimg-settings.cfg",
+		    "      update-grub",
+		    "      # I like a smaller geometry for the virtual desktops",
+                    "      sed -i /geometry/s/1900x1200/800x600/ /etc/vnc.conf",
+		    "      # Let's give the root user grid mode",
+		    "      adduser ubuntu bigbluebutton",
 		    "      # do this last, because it will cause the instance to hibernate if nobody logs in",
                     "      apt install -y bbb-aws-hibernate",
                     "    owner: 'root:root'",
@@ -339,7 +348,7 @@
         "LoginAPI": {
             "Type": "AWS::ApiGatewayV2::Api",
             "Properties": {
-                "Name": "login",
+                "Name": { "Fn::Join" : [ "-", [ { "Ref" : "AWS::StackName" }, "login" ] ] },
                 "ProtocolType": "HTTP",
                 "Target": { "Fn::GetAtt": ["LoginLambdaFunction", "Arn"] },
                 "RouteKey": "ANY /login"
