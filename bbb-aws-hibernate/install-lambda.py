@@ -192,7 +192,11 @@ except l.exceptions.ResourceNotFoundException:
                                      Environment=environment,
                                      Handler='lambda_function.lambda_handler', Timeout=60)['FunctionArn']
 
-current_AWS_environment = l.get_function_configuration(FunctionName=FUNCTION_NAME)['Environment']
+try:
+   current_AWS_environment = l.get_function_configuration(FunctionName=FUNCTION_NAME)['Environment']
+except:
+   current_AWS_environment = None
+
 if current_AWS_environment != environment:
     print(f'updating {FUNCTION_NAME} function environment')
     l.update_function_configuration(FunctionName = FUNCTION_NAME, Environment = environment)
