@@ -1,9 +1,6 @@
 [org/gnome/shell]
-enabled-extensions=['apps-menu@gnome-shell-extensions.gcampax.github.com', 'icon-hider@kalnitsky.org', 'dash-to-panel@jderose9.github.com']
+enabled-extensions=['apps-menu@gnome-shell-extensions.gcampax.github.com', 'icon-hider@kalnitsky.org']
 favorite-apps=['chromium-browser.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop']
-
-[org/gnome/shell/extensions/dash-to-panel]
-show-show-apps-button=false
 
 [org/gnome/shell/extensions/icon-hider]
 known=['activities', 'appMenu', 'dateMenu', 'a11y', 'keyboard', 'aggregateMenu', 'apps-menu', 'workspace-indicator']
@@ -20,4 +17,4 @@ clock-format='12h'
 no-show-notifications=true
 
 [apps/update-manager]
-check-new-release-ignore='focal'
+check-new-release-ignore='jammy'

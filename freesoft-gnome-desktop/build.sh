@@ -36,15 +36,12 @@ cp gnome-initial-setup-done staging/etc/skel/.config
 
 # I'd like to install ubuntu-desktop, but without gnome-initial-setup, or arrange to disable gnome-initial-setup
 
-# Also install gnome-shell-extensions and gnome-shell-extension-dash-to-panel
+# Also install gnome-shell-extensions
 
-# Ubuntu 24 has dropped gnome-shell-extension-dash-to-panel
-#    https://askubuntu.com/questions/1511881/shell-extension-manager-errors-on-ubuntu-24-04
-# but I'm not running on Ubuntu 24 because
-#    1. BigBlueButton doesn't run on Ubuntu 24 (so we'd need a separate remote desktop server) and
-#    2. gnome-terminal in a vnc desktop seems to be broken
+# gnome-shell-extension-dash-to-panel was dropped starting with Ubuntu 22 (jammy).
+# We no longer depend on it; the desktop uses the default GNOME Shell layout.
 
-DEPENDS=ubuntu-desktop,gnome-shell-extensions,gnome-shell-extension-dash-to-panel
+DEPENDS=ubuntu-desktop,gnome-shell-extensions
 
 #
 # Build RPM package
