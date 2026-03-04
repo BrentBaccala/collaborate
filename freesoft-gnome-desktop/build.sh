@@ -19,6 +19,9 @@ mkdir -p staging/etc/dconf/db/local.d/
 cp 10freesoft staging/etc/dconf/db/local.d/
 cp 20disable-screen-lock staging/etc/dconf/db/local.d/
 
+mkdir -p staging/etc/dconf/db/local.d/locks/
+cp screen-lock-locks staging/etc/dconf/db/local.d/locks/screen-lock
+
 # these are here to set new users to store Chromium passwords unencrypted,
 # which has to be done to prevent constant annoying password prompts
 mkdir -p staging/etc/skel/.local/share/keyrings/
