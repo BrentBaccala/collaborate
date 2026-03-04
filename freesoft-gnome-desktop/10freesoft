@@ -17,4 +17,5 @@ clock-format='12h'
 no-show-notifications=true
 
 [apps/update-manager]
-check-new-release-ignore='jammy'
+check-new-release-ignore='noble'
+check-dist-upgrades=false
