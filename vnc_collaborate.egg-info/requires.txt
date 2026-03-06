@@ -1,8 +1,0 @@
-bigbluebutton
-lxml
-posix-ipc
-psutil
-psycopg2-binary
-service_identity
-vncdotool
-websockify

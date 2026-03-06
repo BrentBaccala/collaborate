@@ -1,4 +1,0 @@
-python3:Depends=python3-bigbluebutton, python3-importlib-resources | python3-supported-min (>= 3.7), python3-lxml, python3-psutil, python3-service-identity, python3-vncdotool, python3-websockify, python3:any
-perl:Depends=perl:any
-misc:Depends=
-misc:Pre-Depends=

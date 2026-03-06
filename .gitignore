@@ -1,3 +1,8 @@
 __pycache__
 build
 jammy-300
+*.deb
+staging
+deb_dist
+dist
+*.egg-info
