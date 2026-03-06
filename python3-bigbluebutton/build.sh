@@ -1,60 +1,26 @@
 #!/bin/bash -ex
-#
-# DEPENDENCIES
-#
-# We have several packages we depend on, some of which exist only in
-# the Debian archive (apt) and some of which exist only in the PyPI
-# archive (pip3).
-#
-# Debian packages (listed in the package dependencies)
-# python3-pip    - required to use pip in the post-install script
-# python3-requests
-# python3-lxml
-#
-# PyPI packages (installed with pip in the post-install script)
-# pyjavaproperties
-# fnvhash
 
-TARGET=`basename $(pwd)`
-BUILD=$1
+VERSION=2.4.9+$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S')
+BUILD=1
+EPOCH=3
 
-PACKAGE=$(echo $TARGET | cut -d'_' -f1)
-VERSION=$(echo $TARGET | cut -d'_' -f2)
-DISTRO=$(echo $TARGET | cut -d'_' -f3)
-TAG=$(echo $TARGET | cut -d'_' -f4)
+rm -rf staging
 
-# Should move this into the docker image
-#
-# There's a Dockerfile in this directory that will add these packages
-# to the standard build image, and then these commands here become
-# NO-OPs.
+mkdir -p staging
+python3 setup.py install --root=staging --prefix=/usr --install-layout=deb --no-compile
 
-apt update
-DEBIAN_FRONTEND=noninteractive apt -y upgrade
-apt install -y python3-all python3-pip
-pip3 install setuptools stdeb
+# Remove egg-info (not needed at runtime)
+rm -rf staging/usr/lib/python3/dist-packages/*.egg-info
 
-# This is so broken because there's some kind of bug in stdeb that
-# prevents us from including post install scripts, so we re-build
-# the (edited) package.
-#
-# See https://github.com/astraw/stdeb/issues/132
-#
-# Plus, the --depends switch doesn't work as documented, so we manually insert
-# the dependency before rebuilding the package.
-#
-# Plus, Debian version numbers are incompatible with Python version
-# numbers (due to the presence of the tilde sign), so stdeb modifies
-# the version number to conform to Python standards.  We edit the
-# changelog before re-building the package in order to change it back.
+# pyjavaproperties and fnvhash are PyPI-only packages (no Debian equivalent);
+# they get installed via pip in the after-install script
+DEPENDS="python3-pip,python3-requests,python3-lxml"
 
-python3 setup.py --command-packages=stdeb.command bdist_deb
-
-rm -r deb_dist/bigbluebutton-*/bigbluebutton.egg-info
-rm deb_dist/*.deb
-cp debian/* deb_dist/bigbluebutton-*/debian/
-sed -i '/^Depends:/s/$/,python3-pip,python3-requests,python3-lxml,python3-psycopg2/' deb_dist/bigbluebutton-*/debian/control
-sed -i "/^bigbluebutton/s/(.*)/($EPOCH:$VERSION)/" deb_dist/bigbluebutton-*/debian/changelog
-( cd deb_dist/bigbluebutton-*; dpkg-buildpackage -b )
-
-cp deb_dist/*.deb .
+rm -f python3-bigbluebutton*.deb
+fpm -s dir -C ./staging -n python3-bigbluebutton \
+    --version $VERSION --iteration $BUILD --epoch $EPOCH \
+    -a all \
+    --description "Big Blue Button API bindings" \
+    --vendor freesoft.org -m cosine@freesoft.org --url https://github.com/BrentBaccala/collaborate/ \
+    --deb-no-default-config-files \
+    -d "$DEPENDS" -t deb

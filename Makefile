@@ -42,7 +42,7 @@ packages: bigbluebutton bigbluebutton-build collaborate ssvnc vncdotool tigervnc
 rsync: all
 	rsync -avvz --delete bionic-240 ubuntu@u20.freesoft.org:/var/www/html/
 
-TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dt%H%M%S')
+TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S')
 PYTHON3_VNC_COLLABORATE_PACKAGE=build/python3-vnc-collaborate_0.0.2+$(TIMESTAMP)-1_all.deb
 PYTHON3_BIGBLUEBUTTON_PACKAGE=build/python3-bigbluebutton_2.4.9+$(TIMESTAMP)-1_all.deb
 
@@ -50,49 +50,18 @@ collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE) $(PYTHON3_BIGBLUEBUTTON_PACKAGE)
 
 python3-vnc-collaborate: $(PYTHON3_VNC_COLLABORATE_PACKAGE)
 $(PYTHON3_VNC_COLLABORATE_PACKAGE): setup.py vnc_collaborate/*.py vnc_collaborate/fvwm_configs/*
-	#apt install $(DEPENDENCIES)
-	# this is here due to the chicken-and-egg situation described above
-	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-vnc-collaborate"; exit 1; fi
-	if ! pip3 -q show bigbluebutton; then echo "ERROR: python3-bigbluebutton must be installed to build python3-vnc-collaborate"; exit 1; fi
-	if ! pip3 -q show vncdotool; then echo "ERROR: python3-vncdotool must be installed to build python3-vnc-collaborate"; exit 1; fi
-	# posix_ipc is needed to avoid a race condition in the adduser script that was fixed by Ubuntu 24
-	if ! lsb_release -r | grep -q 24; then \
-		if ! pip3 -q show posix_ipc; then echo "ERROR: python3-posix-ipc must be installed to build python3-vnc-collaborate"; exit 1; fi \
-	fi
-	# have to remove the old deb_dist, or the setup.py errors out
-	rm -rf deb_dist
-	# this is here because the underscore gets changed to a comma and the setup script will error out if it can't rm the file
-	touch vnc-collaborate-dummy.tar.gz
-	# the environment variable is a kludge; it comes from here: https://stackoverflow.com/a/76474591/1493790
-	if ! python3  -c $$'import sys\nexit(sys.version_info.minor < 10)'; then \
-		env SETUPTOOLS_USE_DISTUTILS=stdlib python3 setup.py --command-packages=stdeb.command bdist_deb; \
-	else \
-		python3 setup.py --command-packages=stdeb.command bdist_deb; \
-	fi
-	rm vnc-collaborate-*.tar.gz
-	rm -r vnc_collaborate.egg-info
-	rm -r deb_dist/vnc-collaborate-*/vnc_collaborate.egg-info
-	# This is so broken because there's some kind of bug in stdeb that
-	# prevents us from including post install scripts.
-	#
-	# See https://github.com/astraw/stdeb/issues/132
-	# cp debian/* deb_dist/vnc-collaborate-*/debian/
-	if ! python3  -c $$'import sys\nexit(sys.version_info.minor < 10)'; then \
-		cd deb_dist/vnc-collaborate-*; env SETUPTOOLS_USE_DISTUTILS=stdlib dpkg-buildpackage -rfakeroot -uc -us; \
-	else \
-		cd deb_dist/vnc-collaborate-*; dpkg-buildpackage -rfakeroot -uc -us; \
-	fi
+	if ! which fpm >/dev/null; then echo "ERROR: fpm is required to build python3-vnc-collaborate"; exit 1; fi
+	cd python3-vnc-collaborate; bash build.sh
 	mkdir -p build
 	rm -f build/python3-vnc-collaborate*.deb
-	cp deb_dist/*.deb build
+	cp python3-vnc-collaborate/python3-vnc-collaborate*.deb build
 
 $(PYTHON3_BIGBLUEBUTTON_PACKAGE):
-	if ! pip3 -q show stdeb; then echo "ERROR: stdeb is required to build python3-bigbluebutton"; exit 1; fi
-	# have to remove the old deb_dist, or the setup.py errors out
-	rm -rf python3-bigbluebutton/deb_dist
-	cd python3-bigbluebutton; python3 setup.py --command-packages=stdeb.command bdist_deb
+	if ! which fpm >/dev/null; then echo "ERROR: fpm is required to build python3-bigbluebutton"; exit 1; fi
+	cd python3-bigbluebutton; bash build.sh
+	mkdir -p build
 	rm -f build/python3-bigbluebutton_*.deb
-	cp python3-bigbluebutton/deb_dist/*.deb build
+	cp python3-bigbluebutton/python3-bigbluebutton*.deb build
 
 build/pyjavaproperties-0.7:
 	cd build; wget https://pypi.python.org/packages/source/p/pyjavaproperties/pyjavaproperties-0.7.tar.gz

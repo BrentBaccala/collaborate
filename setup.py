@@ -34,7 +34,6 @@ setuptools.setup(
         'posix-ipc',
         'lxml',
         'psutil',
-        'importlib_resources; python_version < "3.7"',
         'vncdotool',
         'psycopg2-binary',
         'service_identity'   # this is just here so twisted doesn't print warning messages
