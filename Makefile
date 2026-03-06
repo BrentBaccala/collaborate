@@ -27,7 +27,7 @@ TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%
 
 all: reprepro keys
 
-packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-wss-proxy bbb-aws-hibernate vncdotool
+packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-wss-proxy bbb-aws-hibernate vncdotool dash-to-panel
 
 rsync: all
 	rsync -avvz --delete jammy-300 ubuntu@u20.freesoft.org:/var/www/html/
@@ -151,6 +151,18 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  -d python3-bigbluebutton,python3-boto3,python3-psutil -t deb
 
+# dash-to-panel — download from PPA (not in Ubuntu 22.04 repos)
+
+DASH_TO_PANEL_PPA=https://ppa.launchpadcontent.net/gnome-shell-extensions/ppa/ubuntu
+DASH_TO_PANEL_DEB=gnome-shell-extension-dash-to-panel_52-0~20221018~ubuntu22.04.1_all.deb
+DASH_TO_PANEL_PATH=pool/main/g/gnome-shell-extension-dash-to-panel/$(DASH_TO_PANEL_DEB)
+
+dash-to-panel: build/$(DASH_TO_PANEL_DEB)
+
+build/$(DASH_TO_PANEL_DEB):
+	mkdir -p build
+	wget -O build/$(DASH_TO_PANEL_DEB) $(DASH_TO_PANEL_PPA)/$(DASH_TO_PANEL_PATH)
+
 # vncdotool — not available in Ubuntu repos, build from GitHub with fpm
 
 vncdotool:
@@ -197,4 +209,4 @@ clean:
 
 .PHONY: all packages rsync clean reprepro keys
 .PHONY: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton freesoft-gnome-desktop
-.PHONY: bbb-auth-jwt bbb-wss-proxy bbb-aws-hibernate vncdotool
+.PHONY: bbb-auth-jwt bbb-wss-proxy bbb-aws-hibernate vncdotool dash-to-panel

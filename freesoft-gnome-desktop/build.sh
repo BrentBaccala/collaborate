@@ -42,10 +42,10 @@ cp gnome-initial-setup-done staging/etc/skel/.config
 
 # Also install gnome-shell-extensions
 
-# gnome-shell-extension-dash-to-panel was dropped starting with Ubuntu 22 (jammy).
-# We no longer depend on it; the desktop uses the default GNOME Shell layout.
+# gnome-shell-extension-dash-to-panel was dropped from Ubuntu 22 (jammy) repos.
+# We include it from the gnome-shell-extensions PPA via the freesoft.org apt repo.
 
-DEPENDS=ubuntu-desktop,gnome-shell-extensions
+DEPENDS=ubuntu-desktop,gnome-shell-extensions,gnome-shell-extension-dash-to-panel
 
 #
 # Build RPM package
