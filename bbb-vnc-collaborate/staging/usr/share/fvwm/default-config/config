@@ -1,0 +1,1 @@
+PipeRead 'python3 -m vnc_collaborate print fvwm_config'

@@ -1,0 +1,31 @@
+Package: python3-vnc-collaborate
+Source: vnc-collaborate
+Version: 0.0.2+20260305t231414-1
+Architecture: all
+Maintainer: None <None>
+Installed-Size: 291
+Depends: python3-bigbluebutton, python3-importlib-resources | python3-supported-min (>= 3.7), python3-lxml, python3-psutil, python3-service-identity, python3-vncdotool, python3-websockify, python3:any
+Section: python
+Priority: optional
+Homepage: https://github.com/BrentBaccala/collaborate
+Description: Scripts to facilite VNC remote desktop collaboration
+ This is a extension to the
+ [Big Blue Button](https://bigbluebutton.org/) video conferencing
+ system to facilitate virtual classrooms by allowing VNC remote
+ desktops to be shared in a video conference.
+ .
+ **WARNING**: There is no real security isolation between the remote
+ desktops.  Anybody with access to one desktop can access all desktops.
+ The system is suitable for limited use but is not fully production-ready.
+ .
+ This extension itself is housed in the
+ [BrentBaccala/bigbluebutton](https://github.com/BrentBaccala/bigbluebutton)
+ repository.  This repository contains Python support code,
+ but is also the home of the install instructions and the issue tracker.
+ .
+ The extension allows different VNC desktops to be presented to different
+ participants, each of whom is given a Linux login on the video
+ conferencing server.
+ .
+ **For security purposes, it's probably best to
+ think about this extension as a login method that allows UNIX users

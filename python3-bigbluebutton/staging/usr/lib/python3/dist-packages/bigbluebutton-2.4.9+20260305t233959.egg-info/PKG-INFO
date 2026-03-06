@@ -1,0 +1,21 @@
+Metadata-Version: 2.1
+Name: bigbluebutton
+Version: 2.4.9+20260305t233959
+Summary: Big Blue Button API bindings
+Author: Brent Baccala
+Author-email: cosine@freesoft.org
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: Linux
+Description-Content-Type: text/plain
+
+python3-bigbluebutton is a Python 3 module (and some scripts) to work
+with a Big Blue Button video conferencing system.
+
+Usage of the module:
+
+    import bigbluebutton
+
+Available scripts:
+
+    bbb-get-meetings
+    bbb-shared-notes

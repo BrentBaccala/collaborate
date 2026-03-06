@@ -1,0 +1,24 @@
+Style * !Title, !Borders, !Handles
+Style * SloppyFocus
+Style * NoIcon
+Style Tk StaysOnTop
+
+Style * StartsOnDesk 0
+
+# This seems to be necessary to get the vnc viewer into full screen mode on start
+Style "*TigerVNC Viewer*" MinWindowSize 1280 720
+Style "*TigerVNC Viewer*" MaxWindowSize 1280 720
+
+# remove all standard FVWM mouse and key mappings
+
+Key F1 R A -
+Key Tab A M -
+Key Escape A MC -
+Mouse 1 R A   -
+Mouse 1 T   A -
+Mouse 1 FS  A -
+Mouse 2 FST A -
+
+# edge scrolling doesn't work well at all on our VNC-based desktops
+
+EdgeScroll 0 0

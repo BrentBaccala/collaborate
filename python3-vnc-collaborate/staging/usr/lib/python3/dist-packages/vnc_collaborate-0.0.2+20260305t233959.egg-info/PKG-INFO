@@ -1,0 +1,52 @@
+Metadata-Version: 2.1
+Name: vnc-collaborate
+Version: 0.0.2+20260305t233959
+Summary: Scripts to facilite VNC remote desktop collaboration
+Home-page: https://github.com/BrentBaccala/collaborate
+Author: Brent Baccala
+Author-email: cosine@freesoft.org
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: Linux
+Description-Content-Type: text/markdown
+
+This is a extension to the
+[Big Blue Button](https://bigbluebutton.org/) video conferencing
+system to facilitate virtual classrooms by allowing VNC remote
+desktops to be shared in a video conference.
+
+**WARNING**: There is no real security isolation between the remote
+desktops.  Anybody with access to one desktop can access all desktops.
+The system is suitable for limited use but is not fully production-ready.
+
+This extension itself is housed in the
+[BrentBaccala/bigbluebutton](https://github.com/BrentBaccala/bigbluebutton)
+repository.  This repository contains Python support code,
+but is also the home of the install instructions and the issue tracker.
+
+The extension allows different VNC desktops to be presented to different
+participants, each of whom is given a Linux login on the video
+conferencing server.
+
+**For security purposes, it's probably best to
+think about this extension as a login method that allows UNIX users
+to collaborate among themselves in video conferences.**
+
+There is also a "teacher mode" that allows moderators to
+observe all student desktops running in a Big Blue Button session and
+interact with them individually.  When a student's desktop is selected
+(by clicking on it), that student desktop becomes full screen on the
+teacher desktop, and the session audio is undeafed for that student
+only.  Pressing an escape sequence (ALT-SHIFT-Q) returns the teacher
+to the overview mode, and re-deafs the student.
+
+Here's a screenshot of "teacher mode" with four students connected:
+
+![screenshot of a running demo](demo.jpg)
+
+A more basic use of this software is to share a VNC remote desktop
+among the participants in a video conference.
+
+For more information, see the [Wiki](../../wiki), in particular the
+[installation instructions](../../wiki/Install).
+
+Collaborate is covered under an [open patent license](../../wiki/Patent).
