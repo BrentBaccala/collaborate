@@ -9,8 +9,6 @@ rm -rf staging
 mkdir -p staging
 python3 setup.py install --root=staging --prefix=/usr --install-layout=deb --no-compile
 
-# Remove egg-info (not needed at runtime)
-rm -rf staging/usr/lib/python3/dist-packages/*.egg-info
 
 # pyjavaproperties and fnvhash are PyPI-only packages (no Debian equivalent);
 # they get installed via pip in the after-install script

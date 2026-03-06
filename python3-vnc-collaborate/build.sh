@@ -12,8 +12,6 @@ cd ..
 python3 setup.py install --root=python3-vnc-collaborate/staging --prefix=/usr --install-layout=deb --no-compile
 cd python3-vnc-collaborate
 
-# Remove egg-info (not needed at runtime)
-rm -rf staging/usr/lib/python3/dist-packages/*.egg-info
 
 DEPENDS="python3-bigbluebutton,python3-lxml,python3-psutil,python3-service-identity,python3-vncdotool,python3-websockify,python3-psycopg2"
 
