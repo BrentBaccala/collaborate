@@ -1,11 +1,14 @@
 [org/gnome/shell]
-enabled-extensions=['apps-menu@gnome-shell-extensions.gcampax.github.com', 'icon-hider@kalnitsky.org']
+enabled-extensions=['dash-to-panel@jderose9.github.com', 'apps-menu@gnome-shell-extensions.gcampax.github.com', 'ubuntu-appindicators@ubuntu.com']
 favorite-apps=['chromium-browser.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop']
 
-[org/gnome/shell/extensions/icon-hider]
-known=['activities', 'appMenu', 'dateMenu', 'a11y', 'keyboard', 'aggregateMenu', 'apps-menu', 'workspace-indicator']
-hidden=['aggregateMenu', 'a11y', 'keyboard', 'workspace-indicator']
-is-indicator-shown=false
+[org/gnome/shell/extensions/dash-to-panel]
+panel-positions='{"0":"BOTTOM"}'
+panel-sizes='{"0":32}'
+appicon-margin=4
+animate-appicon-hover=false
+show-apps-icon-file=''
+panel-element-positions='{"0":[{"element":"showAppsButton","visible":true,"position":"stackedTL"},{"element":"activitiesButton","visible":false,"position":"stackedTL"},{"element":"leftBox","visible":true,"position":"stackedTL"},{"element":"taskbar","visible":true,"position":"stackedTL"},{"element":"centerBox","visible":true,"position":"stackedBR"},{"element":"rightBox","visible":true,"position":"stackedBR"},{"element":"dateMenu","visible":true,"position":"stackedBR"},{"element":"systemMenu","visible":true,"position":"stackedBR"},{"element":"desktopButton","visible":true,"position":"stackedBR"}]}'
 
 [org/gnome/desktop/wm/preferences]
 button-layout='appmenu:minimize,maximize,close'
