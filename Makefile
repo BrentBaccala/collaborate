@@ -27,7 +27,7 @@ TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%
 
 all: reprepro keys
 
-packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-wss-proxy bbb-aws-hibernate vncdotool dash-to-panel
+packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-wss-proxy bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
 
 rsync: all
 	rsync -avvz --delete jammy-300 ubuntu@u20.freesoft.org:/var/www/html/
@@ -151,6 +151,14 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  -d python3-bigbluebutton,python3-boto3,python3-psutil -t deb
 
+# bbb-plugin-remote-desktop — built separately in ~/bbb-plugin-remote-desktop
+# Copy the .deb from the parent directory of that repo into build/
+
+bbb-plugin-remote-desktop:
+	mkdir -p build
+	rm -f build/bbb-plugin-remote-desktop*.deb
+	cp ~/bbb-plugin-remote-desktop_*.deb build/
+
 # dash-to-panel — download current version from PPA (not in Ubuntu 22.04 repos)
 
 DASH_TO_PANEL_PPA=https://ppa.launchpadcontent.net/gnome-shell-extensions/ppa/ubuntu
@@ -212,4 +220,4 @@ clean:
 
 .PHONY: all packages rsync clean reprepro keys
 .PHONY: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton freesoft-gnome-desktop
-.PHONY: bbb-auth-jwt bbb-wss-proxy bbb-aws-hibernate vncdotool dash-to-panel
+.PHONY: bbb-auth-jwt bbb-wss-proxy bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
