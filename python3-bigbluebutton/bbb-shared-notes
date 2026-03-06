@@ -8,8 +8,8 @@ import argparse
 import requests
 from urllib.parse import urlencode, quote_plus
 
+import subprocess
 import bigbluebutton
-import pymongo
 
 parser = argparse.ArgumentParser(description='Read and write the shared notes of a Big Blue Button meeting')
 parser.add_argument('-t', '--text', action="store_true",
@@ -57,13 +57,19 @@ else:
       exit(1)
    meetingID = allMeetingIDs[0]
 
-# Lookup the meeting in the Mongo database and retrieve the padID
+# Lookup the meeting in PostgreSQL and retrieve the padID
 
-client = pymongo.MongoClient('mongodb://127.0.1.1/')
-db = client.meteor
-note = db.note
-document = note.find_one({'meetingId' : meetingID.text})
-padID = document['noteId']
+result = subprocess.run(
+   ['sudo', '-u', 'postgres', 'psql', '-d', 'bbb_graphql', '-t', '-A',
+    '-c', f"SELECT \"padId\" FROM \"sharedNotes\" WHERE \"meetingId\" = '{meetingID.text}' LIMIT 1"],
+   capture_output=True, text=True
+)
+if result.returncode != 0 or not result.stdout.strip():
+   print("Can't find shared notes pad for this meeting", file=sys.stderr)
+   if result.stderr.strip():
+      print(result.stderr.strip(), file=sys.stderr)
+   exit(1)
+padID = result.stdout.strip()
 
 # Get the APIKEY used to communicate with the Etherpad server.
 
