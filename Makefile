@@ -157,10 +157,14 @@ DASH_TO_PANEL_PPA=https://ppa.launchpadcontent.net/gnome-shell-extensions/ppa/ub
 
 dash-to-panel:
 	mkdir -p build
-	rm -f build/gnome-shell-extension-dash-to-panel*.deb
 	$(eval DTP_PATH := $(shell curl -s $(DASH_TO_PANEL_PPA)/dists/jammy/main/binary-amd64/Packages.gz | \
 		zcat | awk '/^Package: gnome-shell-extension-dash-to-panel$$/,/^$$/' | grep '^Filename:' | awk '{print $$2}'))
-	wget -O build/$(notdir $(DTP_PATH)) $(DASH_TO_PANEL_PPA)/$(DTP_PATH)
+	@if [ -f build/$(notdir $(DTP_PATH)) ]; then \
+		echo "dash-to-panel: build/$(notdir $(DTP_PATH)) is up to date"; \
+	else \
+		rm -f build/gnome-shell-extension-dash-to-panel*.deb; \
+		wget -O build/$(notdir $(DTP_PATH)) $(DASH_TO_PANEL_PPA)/$(DTP_PATH); \
+	fi
 
 # vncdotool — not available in Ubuntu repos, build from GitHub with fpm
 
