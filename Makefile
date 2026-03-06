@@ -13,6 +13,7 @@
 #    - freesoft-gnome-desktop — GNOME desktop config for VNC (FPM via build.sh)
 #    - bbb-wss-proxy — WebSocket proxy (FPM)
 #    - bbb-aws-hibernate — AWS auto-hibernate service (FPM)
+#    - python3-vncdotool — VNC client tool (not in Ubuntu repos; stdeb from GitHub)
 #
 # The remote desktop UI is provided by the bbb-plugin-remote-desktop BBB 3.0
 # plugin (separate repo). This repo provides the server-side infrastructure.
@@ -26,10 +27,10 @@ TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%
 
 all: reprepro keys
 
-packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-wss-proxy bbb-aws-hibernate
+packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-wss-proxy bbb-aws-hibernate vncdotool
 
 rsync: all
-	rsync -avvz --delete jammy-300 ubuntu@u20.freesoft.org:/var/www/html/
+	rsync -avvz --delete jammy-300 ubuntu@www.freesoft.org:/var/www/html/
 
 # Packages with their own build.sh scripts
 
@@ -150,11 +151,28 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  -d python3-bigbluebutton,python3-boto3,python3-psutil -t deb
 
+# vncdotool — not available in Ubuntu repos, build from GitHub
+
+vncdotool: build/python3-vncdotool_1.0.0-1_all.deb
+
+build/python3-vncdotool_1.0.0-1_all.deb:
+	rm -rf build/vncdotool
+	mkdir -p build/vncdotool
+	cd build/vncdotool && git init
+	cd build/vncdotool && git remote add origin https://github.com/sibson/vncdotool.git
+	cd build/vncdotool && git fetch --depth 1 origin v1.0.0
+	cd build/vncdotool && git checkout FETCH_HEAD
+	cd build/vncdotool && python3 setup.py --command-packages=stdeb.command bdist_deb
+	cp build/vncdotool/deb_dist/*.deb build/
+
 # Repository targets
 
 reprepro: packages
 	mkdir -p jammy-300/conf
 	cp reprepro/* jammy-300/conf/
+	cd jammy-300; for pkg in $$(reprepro list bigbluebutton-jammy 2>/dev/null | awk '{print $$2}' | sort -u); do \
+		reprepro remove bigbluebutton-jammy $$pkg; \
+	done
 	cd jammy-300; reprepro includedeb bigbluebutton-jammy ../build/*.deb
 	echo Header set Cache-Control no-cache > jammy-300/dists/.htaccess
 
@@ -173,4 +191,4 @@ clean:
 
 .PHONY: all packages rsync clean reprepro keys
 .PHONY: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton freesoft-gnome-desktop
-.PHONY: bbb-auth-jwt bbb-wss-proxy bbb-aws-hibernate
+.PHONY: bbb-auth-jwt bbb-wss-proxy bbb-aws-hibernate vncdotool
