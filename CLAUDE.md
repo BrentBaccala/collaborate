@@ -21,14 +21,22 @@ repo at `~/bbb-plugin-remote-desktop`.
 
 ### Joining a meeting via login URL (preferred)
 
-bbb-auth-jwt is installed on the VM. Use this persistent login URL to
-join as moderator (creates the meeting automatically if not running):
+bbb-auth-jwt is installed on the VM. Use `bbb-mklogin` to generate
+login URLs, then navigate to them in Playwright. Moderator links
+create the meeting automatically if it's not already running.
 
-```
-https://jammy-300.samsung/login/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJNb2RlcmF0b3IiLCJyb2xlIjoibSIsImV4cCI6MTg5MzQ1NjAwMH0.S88MRhp6xlTAcXKxNo1FK-xtvvhNg_KZgUa7EW_A3Ug
+For most tests, use "Moderator" or "Viewer" as the username with the
+default meeting (hostname):
+
+```bash
+# Generate a moderator login link
+ssh ubuntu@jammy-300.samsung "bbb-mklogin -m -e never 'Moderator'"
+
+# Generate a viewer login link
+ssh ubuntu@jammy-300.samsung "bbb-mklogin -e never 'Viewer'"
 ```
 
-In Playwright: navigate to this URL with `--ignore-https-errors`.
+In Playwright: navigate to the returned URL with `--ignore-https-errors`.
 
 ### Joining a meeting via the BBB API
 
