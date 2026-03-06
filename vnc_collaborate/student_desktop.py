@@ -21,7 +21,8 @@ from lxml import etree
 
 import bigbluebutton
 
-import pymongo
+import psycopg2
+import select
 
 from .simple_text import simple_text
 from .vnc import get_VNC_info
@@ -117,54 +118,57 @@ def get_global_display_geometry(screenx=None, screeny=None):
     SCREENX = int(screenx)
     SCREENY = int(screeny)
 
-def get_current_screenshare(db_vnc, meetingID, default):
-    mongo_doc = db_vnc.find_one({'screenshare': {'$exists': True}, 'meetingID': meetingID})
-    if mongo_doc:
-        return mongo_doc['screenshare']
-    else:
-        return default
+def get_current_screenshare(pg_conn, meetingID, default):
+    try:
+        cur = pg_conn.cursor()
+        cur.execute('SELECT screenshare FROM vnc_screenshare WHERE "meetingId" = %s', (meetingID,))
+        row = cur.fetchone()
+        cur.close()
+        if row:
+            return row[0]
+    except psycopg2.Error:
+        pass
+    return default
 
-def listen_forever_for_mongo_screenshare_events(UNIXname):
-    # We're interested in the 'screenshare' documents in the 'vnc' collection, which look like this:
-    #
-    # { 'screenshare': USER_TO_PROJECT, 'meetingID': BBB_MEETINGID }
-    #
-    # There should be no more than one of these documents per meeting.
+def listen_forever_for_screenshare_events(UNIXname):
+    # Connect to PostgreSQL and use LISTEN/NOTIFY for real-time screenshare events.
+    # The vnc_screenshare table stores: { meetingId, screenshare (UNIX username) }
 
-    client = pymongo.MongoClient('mongodb://127.0.1.1/')
-    db = client.meteor
-    db_vnc = db.vnc
-
-    cursor = db_vnc.watch()
-    # This filter will pick up insert operations, but deletes don't have a fullDocument.
-    # I could get the documentKey from the insert and use it to build a new change stream watching for a matching delete.
-    # cursor = db_vnc.watch([{'$match' : {'fullDocument.meetingID': JWT['bbb-meetingID']}}])
+    pg_conn = psycopg2.connect(host='127.0.0.1', dbname='bbb_graphql',
+                               user='bbb_core', password='bbb_core')
+    pg_conn.autocommit = True
+    cur = pg_conn.cursor()
+    cur.execute("LISTEN vnc_screenshare")
+    cur.close()
 
     global current_screen, current_screenshare
 
     meetingID = os.environ['MeetingId']
     try:
-        new_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
+        new_screenshare = get_current_screenshare(pg_conn, meetingID, UNIXname)
         if new_screenshare != current_screenshare:
             current_screenshare = new_screenshare
             old_screen = current_screen
             viewonly = (current_screenshare != UNIXname)
             current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
             old_screen.terminate()
-        for document in cursor:
-            print(document, file=sys.stderr)
-            sys.stderr.flush()
-            new_screenshare = get_current_screenshare(db_vnc, meetingID, UNIXname)
-            if new_screenshare != current_screenshare:
-                current_screenshare = new_screenshare
-                old_screen = current_screen
-                viewonly = (current_screenshare != UNIXname)
-                current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
-                old_screen.terminate()
+        while True:
+            if select.select([pg_conn], [], [], 5.0) != ([], [], []):
+                pg_conn.poll()
+                while pg_conn.notifies:
+                    pg_conn.notifies.pop(0)
+                    new_screenshare = get_current_screenshare(pg_conn, meetingID, UNIXname)
+                    if new_screenshare != current_screenshare:
+                        current_screenshare = new_screenshare
+                        old_screen = current_screen
+                        viewonly = (current_screenshare != UNIXname)
+                        current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
+                        old_screen.terminate()
 
     except KeyboardInterrupt:
         # We'll get KeyboardInterrupt from the os.kill() in terminate_this_script
         # when the user disconnects.
+        pg_conn.close()
         sys.exit(0)
 
 
@@ -192,15 +196,15 @@ def student_desktop(screenx=None, screeny=None):
     #signal.signal(signal.SIGTERM, terminate_this_script)
 
     # Do we show the current screen, or check for a screenshare first?
-    # Checking for a screenshare might take a while to timeout if mongo isn't available, so I do the current screen first
+    # Checking for a screenshare might take a while to timeout if PostgreSQL isn't available, so I do the current screen first
     global current_screen, current_screenshare
     current_screenshare = UNIXname
     current_screen = add_full_screen(UNIXname)
 
     try:
-        listen_forever_for_mongo_screenshare_events(UNIXname)
-    except:
-        # pymongo.errors.ServerSelectionTimeoutError is a common culprit
+        listen_forever_for_screenshare_events(UNIXname)
+    except psycopg2.Error:
+        # PostgreSQL connection error — fall back to just showing the student's own desktop
         try:
             while True:
                 time.sleep(100000)

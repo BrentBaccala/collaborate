@@ -53,7 +53,7 @@ python3 setup.py --command-packages=stdeb.command bdist_deb
 rm -r deb_dist/bigbluebutton-*/bigbluebutton.egg-info
 rm deb_dist/*.deb
 cp debian/* deb_dist/bigbluebutton-*/debian/
-sed -i '/^Depends:/s/$/,python3-pip,python3-requests,python3-lxml,python3-pymongo/' deb_dist/bigbluebutton-*/debian/control
+sed -i '/^Depends:/s/$/,python3-pip,python3-requests,python3-lxml,python3-psycopg2/' deb_dist/bigbluebutton-*/debian/control
 sed -i "/^bigbluebutton/s/(.*)/($EPOCH:$VERSION)/" deb_dist/bigbluebutton-*/debian/changelog
 ( cd deb_dist/bigbluebutton-*; dpkg-buildpackage -b )
 

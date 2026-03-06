@@ -25,7 +25,7 @@ from lxml import etree
 
 import bigbluebutton
 
-import pymongo
+import psycopg2
 
 from .simple_text import simple_text
 from .vnc import get_VNC_info
@@ -92,8 +92,8 @@ myMeetingID = os.environ.get('MeetingId')
 SCREENX = 0
 SCREENY = 0
 
-# The Mongo database (None if it doesn't exist) where screenshare notifications are posted
-db_vnc = None
+# The PostgreSQL connection (None if not connected) for screenshare notifications
+pg_conn = None
 
 # get_xprop works for the string data type only
 def get_xprop(name, default=None):
@@ -421,10 +421,16 @@ def main_loop_grid(reset_display):
             next_location += 1
 
 def get_current_screenshare():
-    if db_vnc:
-        mongo_doc = db_vnc.find_one({'screenshare': {'$exists': True}, 'meetingID': myMeetingID})
-        if mongo_doc:
-            return mongo_doc['screenshare']
+    if pg_conn:
+        try:
+            cur = pg_conn.cursor()
+            cur.execute('SELECT screenshare FROM vnc_screenshare WHERE "meetingId" = %s', (myMeetingID,))
+            row = cur.fetchone()
+            cur.close()
+            if row:
+                return row[0]
+        except psycopg2.Error:
+            pass
     return None
 
 current_screenshare = None
@@ -537,22 +543,19 @@ def get_global_display_geometry():
     else:
         return False
 
-# Open the mongo database so we can watch for screenshare notifications
-
-def open_mongo_database():
+def open_pg_database():
+    global pg_conn
     try:
-        client = pymongo.MongoClient('mongodb://127.0.1.1/')
-        db = client.meteor
-        # Post it in global variable db_vnc
-        db_vnc = db.vnc
-    except:
-        # pymongo.errors.ServerSelectionTimeoutError if we don't have a local mongo database
-        pass
+        pg_conn = psycopg2.connect(host='127.0.0.1', dbname='bbb_graphql',
+                                   user='bbb_core', password='bbb_core')
+        pg_conn.autocommit = True
+    except psycopg2.Error:
+        pg_conn = None
 
 def teacher_desktop(screenx=None, screeny=None):
 
-    # open the mongo database in background so it doesn't hang us if the database doesn't exist
-    thread = threading.Thread(target=open_mongo_database)
+    # open the PostgreSQL database in background so it doesn't hang us if the database doesn't exist
+    thread = threading.Thread(target=open_pg_database)
     thread.start()
     # at some point, should do thread.join()
 
@@ -626,10 +629,17 @@ def close_projection_button():
         # (see comment there), end any active screen shares for this
         # meeting.
 
-        client = pymongo.MongoClient('mongodb://127.0.1.1/')
-        db = client.meteor
-        db_vnc = db.vnc
-        db_vnc.remove({'meetingID': myMeetingID})
+        try:
+            conn = psycopg2.connect(host='127.0.0.1', dbname='bbb_graphql',
+                                    user='bbb_core', password='bbb_core')
+            conn.autocommit = True
+            cur = conn.cursor()
+            cur.execute('DELETE FROM vnc_screenshare WHERE "meetingId" = %s', (myMeetingID,))
+            cur.execute("NOTIFY vnc_screenshare")
+            cur.close()
+            conn.close()
+        except psycopg2.Error:
+            pass
 
     process = multiprocessing.Process(target = app)
     process.start()
@@ -681,10 +691,20 @@ def project_to_students(screenx, screeny, student_window_name = None):
         X_VNC_SOCKET = args[4]
         display_to_project = STUDENT_DISPLAY
 
-    # put a screenshare announcement into mongo, which will trigger
+    # put a screenshare announcement into PostgreSQL, which will trigger
     # both the actual screenshares on the student desktops and the
     # outline indicator and close button on the teacher desktops
 
-    open_mongo_database()
-    if db_vnc:
-        db_vnc.insert({'screenshare': STUDENT_DISPLAY, 'meetingID': myMeetingID})
+    try:
+        conn = psycopg2.connect(host='127.0.0.1', dbname='bbb_graphql',
+                                user='bbb_core', password='bbb_core')
+        conn.autocommit = True
+        cur = conn.cursor()
+        cur.execute('INSERT INTO vnc_screenshare ("meetingId", screenshare) VALUES (%s, %s) '
+                    'ON CONFLICT ("meetingId") DO UPDATE SET screenshare = %s',
+                    (myMeetingID, STUDENT_DISPLAY, STUDENT_DISPLAY))
+        cur.execute("NOTIFY vnc_screenshare")
+        cur.close()
+        conn.close()
+    except psycopg2.Error:
+        pass
