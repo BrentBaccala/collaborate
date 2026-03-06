@@ -8,6 +8,7 @@ EPOCH=3
 #
 # Clean up directories
 rm -rf staging
+rm -f bbb-vnc-collaborate*.deb
 
 #
 # package

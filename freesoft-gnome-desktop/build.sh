@@ -8,6 +8,7 @@ EPOCH=3
 #
 # Clean up directories
 rm -rf staging
+rm -f freesoft-gnome-desktop*.deb
 
 #
 # package

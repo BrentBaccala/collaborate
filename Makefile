@@ -151,19 +151,25 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  -d python3-bigbluebutton,python3-boto3,python3-psutil -t deb
 
-# vncdotool — not available in Ubuntu repos, build from GitHub
+# vncdotool — not available in Ubuntu repos, build from GitHub with fpm
 
-vncdotool: build/python3-vncdotool_1.0.0-1_all.deb
-
-build/python3-vncdotool_1.0.0-1_all.deb:
+vncdotool:
 	rm -rf build/vncdotool
 	mkdir -p build/vncdotool
 	cd build/vncdotool && git init
 	cd build/vncdotool && git remote add origin https://github.com/sibson/vncdotool.git
 	cd build/vncdotool && git fetch --depth 1 origin v1.0.0
 	cd build/vncdotool && git checkout FETCH_HEAD
-	cd build/vncdotool && python3 setup.py --command-packages=stdeb.command bdist_deb
-	cp build/vncdotool/deb_dist/*.deb build/
+	cd build/vncdotool && python3 setup.py install --root=staging --prefix=/usr --install-layout=deb --no-compile
+	rm -f build/python3-vncdotool*.deb
+	fpm -s dir -C build/vncdotool/staging -n python3-vncdotool \
+	  --version 1.0.0 --iteration 1 \
+	  -a all \
+	  --description "Command line VNC client" \
+	  --vendor freesoft.org -m cosine@freesoft.org --url http://github.com/sibson/vncdotool \
+	  --deb-no-default-config-files \
+	  -p build/ \
+	  -d python3-twisted,python3-pil -t deb
 
 # Repository targets
 
