@@ -22,6 +22,27 @@ if ! python3  -c $'import sys\nexit(sys.version_info.minor < 7)'; then
     pip3 install importlib-resources
 fi
 
+# Create PostgreSQL role and database for screenshare signaling
+if runuser -u postgres -- psql -tc "SELECT 1 FROM pg_roles WHERE rolname='collaborate'" | grep -q 1; then
+    echo "PostgreSQL role 'collaborate' already exists"
+else
+    runuser -u postgres -- psql -c "CREATE USER collaborate WITH PASSWORD 'collaborate'"
+fi
+
+if runuser -u postgres -- psql -tc "SELECT 1 FROM pg_database WHERE datname='collaborate'" | grep -q 1; then
+    echo "PostgreSQL database 'collaborate' already exists"
+else
+    runuser -u postgres -- psql -c "CREATE DATABASE collaborate OWNER collaborate"
+fi
+
+runuser -u postgres -- psql -d collaborate -c "
+CREATE TABLE IF NOT EXISTS vnc_screenshare (
+    \"meetingId\" VARCHAR(100) PRIMARY KEY,
+    screenshare VARCHAR(100) NOT NULL
+);
+ALTER TABLE vnc_screenshare OWNER TO collaborate;
+"
+
 startService bbb-vnc-collaborate || echo "bbb-vnc-collaborate service could not be registered or started"
 
 # The bbb-vnc-collaborate package does not depend on nginx, so it might not be installed.

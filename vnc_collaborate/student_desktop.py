@@ -134,8 +134,8 @@ def listen_forever_for_screenshare_events(UNIXname):
     # Connect to PostgreSQL and use LISTEN/NOTIFY for real-time screenshare events.
     # The vnc_screenshare table stores: { meetingId, screenshare (UNIX username) }
 
-    pg_conn = psycopg2.connect(host='127.0.0.1', dbname='bbb_graphql',
-                               user='bbb_core', password='bbb_core')
+    pg_conn = psycopg2.connect(host='127.0.0.1', dbname='collaborate',
+                               user='collaborate', password='collaborate')
     pg_conn.autocommit = True
     cur = pg_conn.cursor()
     cur.execute("LISTEN vnc_screenshare")

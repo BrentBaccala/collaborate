@@ -546,8 +546,8 @@ def get_global_display_geometry():
 def open_pg_database():
     global pg_conn
     try:
-        pg_conn = psycopg2.connect(host='127.0.0.1', dbname='bbb_graphql',
-                                   user='bbb_core', password='bbb_core')
+        pg_conn = psycopg2.connect(host='127.0.0.1', dbname='collaborate',
+                                   user='collaborate', password='collaborate')
         pg_conn.autocommit = True
     except psycopg2.Error:
         pg_conn = None
@@ -630,8 +630,8 @@ def close_projection_button():
         # meeting.
 
         try:
-            conn = psycopg2.connect(host='127.0.0.1', dbname='bbb_graphql',
-                                    user='bbb_core', password='bbb_core')
+            conn = psycopg2.connect(host='127.0.0.1', dbname='collaborate',
+                                    user='collaborate', password='collaborate')
             conn.autocommit = True
             cur = conn.cursor()
             cur.execute('DELETE FROM vnc_screenshare WHERE "meetingId" = %s', (myMeetingID,))
@@ -696,8 +696,8 @@ def project_to_students(screenx, screeny, student_window_name = None):
     # outline indicator and close button on the teacher desktops
 
     try:
-        conn = psycopg2.connect(host='127.0.0.1', dbname='bbb_graphql',
-                                user='bbb_core', password='bbb_core')
+        conn = psycopg2.connect(host='127.0.0.1', dbname='collaborate',
+                                user='collaborate', password='collaborate')
         conn.autocommit = True
         cur = conn.cursor()
         cur.execute('INSERT INTO vnc_screenshare ("meetingId", screenshare) VALUES (%s, %s) '
