@@ -3,6 +3,7 @@ enabled-extensions=['dash-to-panel@jderose9.github.com', 'apps-menu@gnome-shell-
 favorite-apps=['chromium-browser.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop']
 
 [org/gnome/shell/extensions/dash-to-panel]
+hide-overview-on-startup=true
 panel-positions='{"0":"BOTTOM"}'
 panel-sizes='{"0":32}'
 appicon-margin=4
@@ -15,6 +16,7 @@ button-layout='appmenu:minimize,maximize,close'
 
 [org/gnome/desktop/interface]
 clock-format='12h'
+enable-hot-corners=false
 
 [com/ubuntu/update-notifier]
 no-show-notifications=true
