@@ -16,7 +16,7 @@
 #    - python3-vncdotool — VNC client tool (not in Ubuntu repos; stdeb from GitHub)
 #
 # The remote desktop UI is provided by the bbb-plugin-remote-desktop BBB 3.0
-# plugin (separate repo). This repo provides the server-side infrastructure.
+# plugin (git submodule).
 #
 # Uses reprepro to maintain a jammy-300/ apt repository and rsync to publish it.
 
@@ -151,22 +151,13 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  -d python3-bigbluebutton,python3-boto3,python3-psutil -t deb
 
-# bbb-plugin-remote-desktop — built separately in ~/bbb-plugin-remote-desktop
-# Copy the .deb from the parent directory of that repo into build/
+# bbb-plugin-remote-desktop — git submodule, built with dpkg-buildpackage
 
 bbb-plugin-remote-desktop:
+	cd bbb-plugin-remote-desktop && npm install && npm run build && dpkg-buildpackage -us -uc -b -d
 	mkdir -p build
-	@for deb in ~/bbb-plugin-remote-desktop_*.deb; do \
-		if [ -f "$$deb" ] && ! cmp -s "$$deb" "build/$$(basename $$deb)" 2>/dev/null; then \
-			rm -f build/bbb-plugin-remote-desktop*.deb; \
-			cp "$$deb" build/; \
-			echo "bbb-plugin-remote-desktop: updated $$(basename $$deb)"; \
-			break; \
-		else \
-			echo "bbb-plugin-remote-desktop: build/$$(basename $$deb) is up to date"; \
-			break; \
-		fi; \
-	done
+	rm -f build/bbb-plugin-remote-desktop*.deb
+	cp bbb-plugin-remote-desktop_*.deb build/
 
 # dash-to-panel — download current version from PPA (not in Ubuntu 22.04 repos)
 

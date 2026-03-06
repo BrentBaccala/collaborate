@@ -2,6 +2,8 @@ __pycache__
 build
 jammy-300
 *.deb
+*.buildinfo
+*.changes
 staging
 deb_dist
 dist

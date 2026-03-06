@@ -6,8 +6,8 @@ This repo contains packages that extend BigBlueButton with remote desktop
 capabilities: VNC desktop service, JWT authentication, GNOME desktop
 configuration, and supporting Python libraries.
 
-The remote desktop feature itself is now a BBB v3.0 plugin in a separate
-repo at `~/bbb-plugin-remote-desktop`.
+The remote desktop feature itself is now a BBB v3.0 plugin, included as
+a git submodule at `bbb-plugin-remote-desktop/`.
 
 ## Testing on the BBB VM
 
