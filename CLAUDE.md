@@ -1,0 +1,75 @@
+# CLAUDE.md — Collaborate
+
+## Overview
+
+This repo contains packages that extend BigBlueButton with remote desktop
+capabilities: VNC desktop service, JWT authentication, GNOME desktop
+configuration, and supporting Python libraries.
+
+The remote desktop feature itself is now a BBB v3.0 plugin in a separate
+repo at `~/bbb-plugin-remote-desktop`.
+
+## Testing on the BBB VM
+
+### VM details
+
+- **Host**: jammy-300.samsung
+- **SSH**: `ubuntu@jammy-300.samsung` (has sudo)
+- **BBB version**: 3.0 on Ubuntu 22.04
+- **BBB shared secret**: `bbbci`
+- **VNC URL**: `wss://jammy-300.samsung/vnc`
+
+### Joining a meeting via login URL (preferred)
+
+bbb-auth-jwt is installed on the VM. Use this persistent login URL to
+join as moderator (creates the meeting automatically if not running):
+
+```
+https://jammy-300.samsung/login/eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJNb2RlcmF0b3IiLCJyb2xlIjoibSIsImV4cCI6MTg5MzQ1NjAwMH0.S88MRhp6xlTAcXKxNo1FK-xtvvhNg_KZgUa7EW_A3Ug
+```
+
+In Playwright: navigate to this URL with `--ignore-https-errors`.
+
+### Joining a meeting via the BBB API
+
+When you need more control (custom meeting names, multiple users, etc.),
+use the BBB API directly. Checksums use **SHA256** (not SHA1).
+
+```python
+import hashlib
+secret = 'bbbci'
+# Create meeting
+call = 'create' + 'name=Test&meetingID=test&attendeePW=ap&moderatorPW=mp' + secret
+checksum = hashlib.sha256(call.encode()).hexdigest()
+# Then GET: https://jammy-300.samsung/bigbluebutton/api/create?name=Test&meetingID=test&attendeePW=ap&moderatorPW=mp&checksum={checksum}
+```
+
+### Generating new login tokens
+
+```bash
+ssh ubuntu@jammy-300.samsung "bbb-mklogin -m 'Username' -e 'January 1 2030'"
+```
+
+### Playwright notes
+
+- Use `--ignore-https-errors` (self-signed cert)
+- **Always call `browser_close` as your very last Playwright action**
+  before finishing, or Chromium stays alive and the task runner hangs.
+
+## Apt repository
+
+The freesoft.org apt repo at `~/website/jammy-300` contains 6+ packages
+(no upstream BBB mirror). To update a package:
+
+```bash
+cd ~/website/jammy-300
+reprepro remove bigbluebutton-jammy PACKAGE_NAME
+reprepro includedeb bigbluebutton-jammy /path/to/new.deb
+```
+
+Then rsync to www.freesoft.org and invalidate CloudFront cache.
+
+## Building packages
+
+Most packages use FPM via `build.sh` or `deb-helper.sh`. Check each
+package's directory for its build script.
