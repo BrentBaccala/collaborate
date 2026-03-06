@@ -1,4 +1,3 @@
 location /login {
-        fastcgi_pass unix:/run/bbb-auth-jwt/fastcgi.sock;
-        include /etc/nginx/fastcgi_params;
+        proxy_pass http://unix:/run/bbb-auth-jwt/http.sock;
 }

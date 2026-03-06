@@ -299,7 +299,7 @@ build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb:
 	  --description "JSON web token based authentication service for BigBlueButton" \
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  --deb-no-default-config-files \
-	  -d python3-jwt,python3-dateutil,python3-bigbluebutton,python3-pip -t deb
+	  -d python3-jwt,python3-dateutil,python3-bigbluebutton -t deb
 
 clean:
 	# sudo? there's stuff in build/bigbluebutton and build/bigbluebutton-build that's owned by root

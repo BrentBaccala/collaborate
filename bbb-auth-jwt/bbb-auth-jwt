@@ -1,6 +1,6 @@
 #! /usr/bin/python3
 #
-# A FastCGI script used to authenticate users into Big Blue Button
+# An HTTP server used to authenticate users into Big Blue Button
 # using a JSON web token signed with either the Big Blue Button API
 # key, or an RSA key from /etc/bigbluebutton/authorized_keys
 #
@@ -31,11 +31,6 @@ try:
     import bigbluebutton
 except ImportError:
     bigbluebutton = None
-
-# If stdin is /dev/null, we probably started from systemd and are a FastCGI script.
-# Certainly, if we're a standard CGI script, then stdin is talking to the web server.
-
-use_fastcgi = bool(os.stat('/dev/null') == os.stat('/dev/stdin'))
 
 # The main role of loading this file is to define a 'redirect'
 # function that accepts a JSON web token and returns either None (to
@@ -81,11 +76,10 @@ def authorized_keys():
             pass
     return authorized_keys.retval
 
-# FASTCGI server / CGI script
-
-def login():
+def login(request_uri):
+    """Process a login request. Returns (status_code, headers_dict, body)."""
     try:
-        JWT = os.environ['REQUEST_URI'].split('/')[-1]
+        JWT = request_uri.split('/')[-1]
 
         decoded = None
 
@@ -107,13 +101,9 @@ def login():
 
         url = redirect(JWT)
         if url:
-            print(f"Location: {url}\n")
-            return
+            return (302, {'Location': url}, '')
 
         if not bigbluebutton:
-            # We tried to import it at the start of the script, but
-            # now we actually need it, so just error out at this point
-            # if it isn't here.
             raise ImportError('bigbluebutton')
 
         rewrite(decoded)
@@ -137,8 +127,6 @@ def login():
             )
 
         if False:
-            # using redirect = False and using the URL from the XML
-            # seems to be buggy right now (2.3.0~alpha7)
             response = bigbluebutton.join(meetingID = meetingID,
                                           fullName = fullName,
                                           password = password,
@@ -146,24 +134,19 @@ def login():
             )
 
             url = response.xpath('.//url')[0].text
-            print(f"Location: {url}\n")
+            return (302, {'Location': url}, '')
         else:
-            # to evade the bug, use an internal package function to
-            # construct the join URL without calling it, then redirect
-            # to that URL instead
             response = bigbluebutton._APIurl('join', {'meetingID': meetingID,
                                                       'fullName': fullName,
                                                       'password': password,
                                                       'redirect': 'true',
             })
-            print(f"Location: {response}\n")
+            return (302, {'Location': response}, '')
 
     except Exception as ex:
         print(ex, file=sys.stderr)
         sys.stderr.flush()
-        print(f"""Content-type: text/html
-
-<HTML>
+        body = f"""<HTML>
 <HEAD>
 <TITLE>Login Failed</TITLE>
 </HEAD>
@@ -179,14 +162,54 @@ Something went wrong!
 </PRE>
 </BODY>
 </HTML>
-""")
+"""
+        return (200, {'Content-Type': 'text/html'}, body)
 
 
-if not use_fastcgi:
-    login()
-    exit(0)
+# CGI mode
+if os.isatty(0) or not os.path.exists('/run/bbb-auth-jwt'):
+    if 'REQUEST_URI' in os.environ:
+        status, headers, body = login(os.environ['REQUEST_URI'])
+        for k, v in headers.items():
+            print(f"{k}: {v}")
+        print()
+        print(body)
+        exit(0)
 
-import fastcgi
-@fastcgi.fastcgi(sock='/run/bbb-auth-jwt/fastcgi.sock')
-def fastcgi_login():
-    login()
+# HTTP server mode
+import http.server
+
+SOCKET_PATH = '/run/bbb-auth-jwt/http.sock'
+
+class AuthHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        status, headers, body = login(self.path)
+        self.send_response(status)
+        for k, v in headers.items():
+            self.send_header(k, v)
+        if body:
+            encoded = body.encode('utf-8')
+            self.send_header('Content-Length', str(len(encoded)))
+        self.end_headers()
+        if body:
+            self.wfile.write(encoded)
+
+    def log_message(self, format, *args):
+        print(format % args, file=sys.stderr)
+
+if os.path.exists(SOCKET_PATH):
+    os.unlink(SOCKET_PATH)
+
+server = http.server.HTTPServer(('', 0), AuthHandler)
+# Replace the TCP socket with a Unix socket
+server.server_close()
+
+import http.server as _hs
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.bind(SOCKET_PATH)
+os.chmod(SOCKET_PATH, 0o666)
+sock.listen(5)
+server.socket = sock
+
+print(f"Listening on {SOCKET_PATH}", file=sys.stderr)
+server.serve_forever()
