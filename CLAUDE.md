@@ -79,6 +79,14 @@ Options:
 - `-d` / `--debug` — print the JWT payload being encoded
 - The positional argument is the user's display name
 
+### DNS workaround
+
+`bbb-mklogin` generates URLs using the VM's hostname (`jammy-300`), but
+the `.samsung` DNS suffix isn't automatically appended on the local
+machine (see task 152). The generated URLs won't work as-is. You need to
+replace `jammy-300` with `jammy-300.samsung` in the URL before navigating
+to it in Playwright or a browser.
+
 ### Playwright notes
 
 - Use `--ignore-https-errors` (self-signed cert)
