@@ -1,8 +1,7 @@
 Origin: freesoft.org
-Update: bigbluebutton.org
 Label: BigBlueButton
-Codename: bigbluebutton-bionic
+Codename: bigbluebutton-jammy
 Architectures: amd64
 Components: main
-Description: BigBlueButton with freesoft.org customizations
+Description: BigBlueButton remote desktop plugin and collaborate packages
 SignWith: yes
