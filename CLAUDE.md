@@ -46,9 +46,30 @@ checksum = hashlib.sha256(call.encode()).hexdigest()
 
 ### Generating new login tokens
 
+`bbb-mklogin` generates JWT login URLs. It runs on the VM where
+bbb-auth-jwt is installed.
+
 ```bash
-ssh ubuntu@jammy-300.samsung "bbb-mklogin -m 'Username' -e 'January 1 2030'"
+# Moderator login, expires Jan 1 2030
+ssh ubuntu@jammy-300.samsung "bbb-mklogin -m -e 'January 1 2030' 'Brent Baccala'"
+
+# Viewer login (no -m flag)
+ssh ubuntu@jammy-300.samsung "bbb-mklogin -e 'January 1 2030' 'Student Name'"
+
+# Moderator for a specific meeting (default is the hostname)
+ssh ubuntu@jammy-300.samsung "bbb-mklogin -m -M 'Math Class' -e 'June 1 2027' 'Teacher'"
+
+# No expiration
+ssh ubuntu@jammy-300.samsung "bbb-mklogin -m -e never 'Admin'"
 ```
+
+Options:
+- `-m` / `--moderator` — moderator role (can start meetings); omit for viewer
+- `-e` / `--expiration-time` — expiration date/time, or `never`
+- `-M` / `--meeting` — meeting name (default: hostname)
+- `-r` / `--rsa` — sign with RSA key instead of BBB shared secret
+- `-d` / `--debug` — print the JWT payload being encoded
+- The positional argument is the user's display name
 
 ### Playwright notes
 
