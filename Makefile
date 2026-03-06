@@ -156,8 +156,17 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 
 bbb-plugin-remote-desktop:
 	mkdir -p build
-	rm -f build/bbb-plugin-remote-desktop*.deb
-	cp ~/bbb-plugin-remote-desktop_*.deb build/
+	@for deb in ~/bbb-plugin-remote-desktop_*.deb; do \
+		if [ -f "$$deb" ] && ! cmp -s "$$deb" "build/$$(basename $$deb)" 2>/dev/null; then \
+			rm -f build/bbb-plugin-remote-desktop*.deb; \
+			cp "$$deb" build/; \
+			echo "bbb-plugin-remote-desktop: updated $$(basename $$deb)"; \
+			break; \
+		else \
+			echo "bbb-plugin-remote-desktop: build/$$(basename $$deb) is up to date"; \
+			break; \
+		fi; \
+	done
 
 # dash-to-panel — download current version from PPA (not in Ubuntu 22.04 repos)
 
