@@ -237,6 +237,39 @@ build/bbb-aws-hibernate_2.4.9+$(TIMESTAMP)-1_amd64.deb:
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  -d python3-bigbluebutton,python3-boto3,python3-psutil -t deb
 
+bbb-wss-proxy: build/bbb-wss-proxy_2.4.9+$(TIMESTAMP)-1_all.deb
+
+build/bbb-wss-proxy_2.4.9+$(TIMESTAMP)-1_all.deb:
+	if ! which fpm >/dev/null; then echo "ERROR: fpm is required to build bbb-wss-proxy"; exit 1; fi
+
+	rm -rf build/staging build/staging2
+
+	mkdir -p build/staging/etc/bigbluebutton/nginx
+	cp bbb-wss-proxy/bbb-wss-proxy.nginx build/staging/etc/bigbluebutton/nginx
+
+	mkdir -p build/staging/usr/lib/systemd/system
+	cp bbb-wss-proxy/bbb-wss-proxy.service build/staging/usr/lib/systemd/system
+
+	mkdir -p build/staging/etc/default
+	cp bbb-wss-proxy/bbb-wss-proxy.default build/staging/etc/default/bbb-wss-proxy
+
+	mkdir -p build/staging/usr/share/bbb-wss-proxy/bin
+	cp bbb-wss-proxy/bbb-wss-proxy build/staging/usr/share/bbb-wss-proxy/bin
+	chmod 755 build/staging/usr/share/bbb-wss-proxy/bin/bbb-wss-proxy
+
+	mkdir -p build/staging2
+	cat deb-helper.sh bbb-wss-proxy/after-install.sh > build/staging2/after-install.sh
+	cat deb-helper.sh bbb-wss-proxy/before-remove.sh > build/staging2/before-remove.sh
+
+	rm -f build/bbb-wss-proxy*.deb
+	fpm -s dir -p build/ -C build/staging -n bbb-wss-proxy --version 2.4.9+$(TIMESTAMP) --iteration 1 --epoch 1 \
+	  -a all \
+	  --after-install build/staging2/after-install.sh --before-remove build/staging2/before-remove.sh \
+	  --description "A WebSocket proxy for Big Blue Button" \
+	  --vendor BigBlueButon -m "Brent Baccala <cosine@freesoft.org>" --url http://github.com/BrentBaccala/bbb-wss-proxy \
+	  --deb-no-default-config-files \
+	  -d python3-websockify,python3-jwt -t deb
+
 bbb-auth-jwt: build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb
 
 build/bbb-auth-jwt_2.4.9+$(TIMESTAMP)-1_amd64.deb:

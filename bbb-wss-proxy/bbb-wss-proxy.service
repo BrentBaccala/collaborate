@@ -1,0 +1,21 @@
+[Unit]
+Description=WebSocket proxy for BigBlueButton VNC service
+Requires=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/usr/share/bbb-wss-proxy
+EnvironmentFile=/etc/default/bbb-wss-proxy
+ExecStart=/usr/share/bbb-wss-proxy/bin/bbb-wss-proxy
+TimeoutStopSec=5
+
+# We could use User=nobody because bigbluebutton.properties is currently
+# world-readable, but I anticipate that this will change since that file
+# contains a copy of the API key (which is why we need to read it), so
+# I'd prefer User=bigbluebutton, but the program can't seem to connect
+# to the VNC server unless it's running as root.
+#
+# User=bigbluebutton
+
+[Install]
+WantedBy=multi-user.target
