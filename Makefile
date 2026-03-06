@@ -151,17 +151,16 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 	  --vendor BigBlueButon -m ffdixon@bigbluebutton.org --url http://bigbluebutton.org/ \
 	  -d python3-bigbluebutton,python3-boto3,python3-psutil -t deb
 
-# dash-to-panel — download from PPA (not in Ubuntu 22.04 repos)
+# dash-to-panel — download current version from PPA (not in Ubuntu 22.04 repos)
 
 DASH_TO_PANEL_PPA=https://ppa.launchpadcontent.net/gnome-shell-extensions/ppa/ubuntu
-DASH_TO_PANEL_DEB=gnome-shell-extension-dash-to-panel_52-0~20221018~ubuntu22.04.1_all.deb
-DASH_TO_PANEL_PATH=pool/main/g/gnome-shell-extension-dash-to-panel/$(DASH_TO_PANEL_DEB)
 
-dash-to-panel: build/$(DASH_TO_PANEL_DEB)
-
-build/$(DASH_TO_PANEL_DEB):
+dash-to-panel:
 	mkdir -p build
-	wget -O build/$(DASH_TO_PANEL_DEB) $(DASH_TO_PANEL_PPA)/$(DASH_TO_PANEL_PATH)
+	rm -f build/gnome-shell-extension-dash-to-panel*.deb
+	$(eval DTP_PATH := $(shell curl -s $(DASH_TO_PANEL_PPA)/dists/jammy/main/binary-amd64/Packages.gz | \
+		zcat | awk '/^Package: gnome-shell-extension-dash-to-panel$$/,/^$$/' | grep '^Filename:' | awk '{print $$2}'))
+	wget -O build/$(notdir $(DTP_PATH)) $(DASH_TO_PANEL_PPA)/$(DTP_PATH)
 
 # vncdotool — not available in Ubuntu repos, build from GitHub with fpm
 
