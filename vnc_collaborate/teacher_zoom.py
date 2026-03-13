@@ -70,9 +70,18 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
       if VNC_VIEWER == 'xtigervncviewer':
          # Send/Set Primary is turned off because we just want the clipboard, not the PRIMARY selection
          # RemoteResize is turned off so that this viewer doesn't try to resize the desktop
-         proc_args = [VNC_VIEWER, '-Fullscreen', '-Shared', '-RemoteResize=0',
+         # MenuKey is disabled to suppress the fullscreen toolbar.
+         #
+         # We use -geometry WxH+0+0 instead of -Fullscreen because
+         # xtigervncviewer has an "Adjusting window size to avoid
+         # accidental full screen request" behavior that shrinks the
+         # window by ~40px when it detects the window would match the
+         # screen size.  Requesting 1px larger than the screen bypasses
+         # this check; FVWM clips the window to the screen.
+         oversized_geom = str(int(desktop_width)+1) + 'x' + str(int(desktop_height)+1) + '+0+0'
+         proc_args = [VNC_VIEWER, '-geometry', oversized_geom, '-MenuKey=',
+                      '-Shared', '-RemoteResize=0',
                       '-SetPrimary=0', '-SendPrimary=0',
-                      '-FullscreenSystemKeys=0',
                       # '-Log', 'Viewport:stdout:100',
                       VNC_SOCKET]
       elif VNC_VIEWER == 'ssvncviewer':
