@@ -6,6 +6,7 @@
 import subprocess
 import multiprocessing
 import threading
+import http.server
 
 import sys
 import math
@@ -552,7 +553,132 @@ def open_pg_database():
     except psycopg2.Error:
         pg_conn = None
 
+def launch_desktop_viewer():
+    r"""
+    Launch a zoomed VNC viewer of the moderator's own desktop on desktop 0.
+    Returns True if the viewer was launched, False if it couldn't be.
+    """
+    vnc_socket = '/run/vnc/' + myUNIXname
+    if not os.path.exists(vnc_socket):
+        return False
+
+    # Get the moderator's desktop geometry
+    if myUNIXname in VNCdata:
+        nativex = VNCdata[myUNIXname]['width']
+        nativey = VNCdata[myUNIXname]['height']
+    else:
+        nativex = SCREENX
+        nativey = SCREENY
+
+    geometry = str(nativex) + 'x' + str(nativey)
+    # Build a window name matching the TeacherViewVNC pattern so
+    # FVWM's DestroyWindowEvent handler recognizes it
+    window_name = ";".join(["TeacherViewVNC", "", myUNIXname, geometry, vnc_socket])
+
+    # Launch teacher_zoom the same way FVWM's ZoomDesktop does
+    subprocess.Popen([
+        "python3", "-m", "vnc_collaborate", "teacher_zoom",
+        "'" + window_name + "'",
+        str(SCREENX), str(SCREENY),
+    ])
+
+    # Wait for the TigerVNC viewer window to appear on desktop 0
+    for _ in range(50):  # up to 5 seconds
+        result = subprocess.run(
+            ["xdotool", "search", "--desktop", "0", "--name", "TigerVNC"],
+            stdout=subprocess.PIPE, encoding='ascii'
+        )
+        if result.stdout.strip():
+            break
+        time.sleep(0.1)
+
+    return True
+
+def toggle_desktop_view():
+    r"""
+    Toggle between the moderator's own desktop and grid mode.
+
+    Desktop 0 is the moderator's desktop (zoomed view).
+    Desktop 1 is the grid view showing student desktops.
+
+    If on desktop 0 (desktop view): switch to grid view on desktop 1.
+    If on desktop 1 (grid view): launch a zoomed VNC viewer of the
+    moderator's own desktop on desktop 0 and switch there.
+    """
+    current_desk = subprocess.run(
+        ["xdotool", "get_desktop"],
+        stdout=subprocess.PIPE, encoding='ascii'
+    ).stdout.strip()
+
+    if current_desk == '1':
+        # We're in grid mode — zoom to the moderator's own desktop
+        if not launch_desktop_viewer():
+            return
+
+        # Switch to desktop 0 (where zoomed views live)
+        subprocess.run(["xdotool", "set_desktop", "0"])
+        # Tell FVWM to remove grid bindings (F24)
+        subprocess.run(["xdotool", "key", "F24"])
+
+    else:
+        # We're on the desktop view — kill zoomed viewer windows.
+        # Search on desktop 0 only to avoid killing grid viewers on desktop 1.
+        for pattern in ["Zoomed Student Desktop", "TigerVNC"]:
+            result = subprocess.run(
+                ["xdotool", "search", "--desktop", "0", "--name", pattern],
+                stdout=subprocess.PIPE, encoding='ascii'
+            )
+            for wid in result.stdout.strip().split('\n'):
+                if wid:
+                    subprocess.run(["xdotool", "windowclose", wid])
+        # Switch to desktop 1 (grid view).
+        time.sleep(0.5)
+        subprocess.run(["xdotool", "set_desktop", "1"])
+        # Tell FVWM to restore grid bindings (F23)
+        subprocess.run(["xdotool", "key", "F23"])
+
+class TeacherDesktopHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == '/grid-toggle':
+            toggle_desktop_view()
+            self.send_response(200)
+            self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        pass
+
+def start_http_listener():
+    r"""
+    Start a lightweight HTTP server on a random port, bound to localhost only.
+    Sets TEACHER_DESKTOP_PORT in the environment so FVWM key bindings can
+    use it to curl the appropriate endpoint.
+    """
+    server = http.server.HTTPServer(('127.0.0.1', 0), TeacherDesktopHandler)
+    port = server.server_address[1]
+    os.environ['TEACHER_DESKTOP_PORT'] = str(port)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server
+
 def teacher_desktop(screenx=None, screeny=None):
+
+    # Start HTTP listener for plugin commands (grid toggle, etc.)
+    # Must start before FVWM so $TEACHER_DESKTOP_PORT is available in the environment
+    start_http_listener()
+
+    # Map F13-F24 keysyms to keycodes so that FVWM can bind to them.
+    # The TigerVNC X server's default keymap only includes F1-F12.
+    # These keys are used by the BBB remote desktop plugin to send commands
+    # via noVNC's sendKey() — the VNC server needs keycode mappings to
+    # generate X11 KeyPress events from the received keysyms.
+    # We use unused keycodes and some rarely-needed multimedia keycodes.
+    unused_keycodes = [8, 93, 97, 103, 120, 132, 149, 154, 168, 178, 183, 184]
+    for i, keycode in enumerate(unused_keycodes):
+        subprocess.run(["xmodmap", "-e", f"keycode {keycode} = F{13 + i}"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # open the PostgreSQL database in background so it doesn't hang us if the database doesn't exist
     thread = threading.Thread(target=open_pg_database)
@@ -566,6 +692,13 @@ def teacher_desktop(screenx=None, screeny=None):
         retry_attempts -= 1
     debug('initial call to main_loop')
     main_loop()
+
+    # FVWM starts on desktop 0 (desktop view).  main_loop() creates
+    # grid windows on desktop 1, which may cause FVWM to switch there
+    # despite SkipMapping.  Ensure we're on desktop 0 and launch the
+    # moderator's own desktop viewer so desk 0 isn't a black screen.
+    subprocess.run(["xdotool", "set_desktop", "0"])
+    launch_desktop_viewer()
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)

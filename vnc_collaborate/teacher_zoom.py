@@ -72,6 +72,7 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
          # RemoteResize is turned off so that this viewer doesn't try to resize the desktop
          proc_args = [VNC_VIEWER, '-Fullscreen', '-Shared', '-RemoteResize=0',
                       '-SetPrimary=0', '-SendPrimary=0',
+                      '-FullscreenSystemKeys=0',
                       # '-Log', 'Viewport:stdout:100',
                       VNC_SOCKET]
       elif VNC_VIEWER == 'ssvncviewer':

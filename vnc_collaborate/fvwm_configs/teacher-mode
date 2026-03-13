@@ -9,17 +9,18 @@ Style Tk StaysOnTop
 
 Style * SkipMapping
 
-# Most windows (i.e, the grid view) appear on desktop 0.  A zoomed
-# student view appears on desktop 1, so that any changes to the grid
-# (i.e, students coming and going) get made to desktop 0 and are
-# invisible until the zoom ends on desktop 1.
+# Desktop 0 is the moderator's own desktop (zoomed view).  Desktop 1
+# is the grid view showing student desktops.  FVWM starts on desktop 0,
+# so the moderator sees their own desktop immediately without a flash.
+# Grid changes (students coming and going) happen on desktop 1 and are
+# invisible while viewing desktop 0.
 
 # Older zoomed student views are done with ssvncviewer and are named "Zoomed Student Desktop"
-# Newer method is tigervncviewer, which doesn't support the -title option, so it's called "TigerVNC Viewer"
+# Newer method is tigervncviewer, whose window title is "host:display (user) - TigerVNC"
 
-Style * StartsOnDesk 0
-Style "Zoomed Student Desktop" StartsOnDesk 1
-Style "*TigerVNC Viewer*" StartsOnDesk 1
+Style * StartsOnDesk 1
+Style "Zoomed Student Desktop" StartsOnDesk 0
+Style "*TigerVNC*" StartsOnDesk 0
 
 # The Tk windows are the window labels and the "end screenshare"
 # button.  We always want them on top of the other windows.  The
@@ -119,48 +120,68 @@ AddToMenu TeacherMenuOnStudentDesktop	"Overview Menu"			Title
 +			""				Nop
 +			"Refresh Screen"		Refresh
 
-Mouse 3 A       A       Menu TeacherMenu Nop
-Mouse 3 W       A       Menu TeacherMenuOnStudentDesktop Nop
+# Mouse bindings for grid view: right-click for menus, left-click to zoom.
+# These start UNSET because FVWM starts on desktop 0 (desktop view).
+# RestoreGridBindings sets them when entering grid view (desk 1);
+# RemoveGridBindings clears them when leaving.
 
 # MAJOR FEATURE: when the teacher clicks on a miniaturized student desktop,
 # we launch a "zoomed" view of that desktop that is fully interactive.
 # We need to remove the mouse binding to allow the zoomed view to
 # work right.  When the teacher exits the zoomed view, we replace
-# the mouse binding.  We also switch to desktop 1 for the zoomed view.
+# the mouse binding.  We also switch to desktop 0 for the zoomed view.
 
 DestroyFunc ZoomDesktop
 AddToFunc ZoomDesktop
+ + I RemoveGridBindings
+ + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]" $[vp.width] $[vp.height] $0
+ + I GotoDesk 0 0
+
+DestroyFunc RemoveGridBindings
+AddToFunc RemoveGridBindings
  + I Mouse 3 A  A  -
  + I Mouse 3 W  A  -
- + I Exec exec python3 -m vnc_collaborate teacher_zoom "$[w.name]" $[vp.width] $[vp.height] $0
  + I Mouse ("TeacherViewVNC;*") 1 A A   -
  + I Mouse ("Projection*") 1 A A  -
- + I GotoDesk 0 1
-
-Mouse ("TeacherViewVNC;*") 1 A A   ZoomDesktop
-
-# The "Projection Controls" window should accept mouse clicks to close it,
-# but I think the previous Mouse... command means that FVWM intercepts all
-# of the mouse events and relays them on as SendEvents, which don't seem
-# to work.  So we add an FVWM mouse event to close the window by clicking on it.
-Mouse ("Projection*") 1 A A   Close
 
 # Whenever a window is destroyed, check to see if there are any zoomed
 # desktops left (there should only be one at any time anyway).  If
 # not, replace the mouse bindings that we removed in ZoomDesktop and
-# return to desktop 0.
+# return to desktop 1 (grid view).
+
+DestroyFunc RestoreGridBindings
+AddToFunc RestoreGridBindings
+ + I Mouse ("TeacherViewVNC;*") 1 A A ZoomDesktop
+ + I Mouse ("Projection*") 1 A A   Close
+ + I Mouse 3 A  A  Menu TeacherMenu Nop
+ + I Mouse 3 W  A  Menu TeacherMenuOnStudentDesktop Nop
 
 DestroyFunc DestroyWindowEvent
 AddToFunc DestroyWindowEvent
- + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse ("TeacherViewVNC;*") 1 A A ZoomDesktop
- + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse ("Projection*") 1 A A   Close
- + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse 3 A  A  Menu TeacherMenu Nop
- + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") Mouse 3 W  A  Menu TeacherMenuOnStudentDesktop Nop
- + I None ("Zoomed Student Desktop|*TigerVNC Viewer*") GotoDesk 0 0
+ + I None ("Zoomed Student Desktop|*TigerVNC*") RestoreGridBindings
+ + I None ("Zoomed Student Desktop|*TigerVNC*") GotoDesk 0 1
 
 *FvwmEvent: destroy_window DestroyWindowEvent
 
 Module FvwmEvent
+
+# ToggleGridView: calls the Python HTTP listener to toggle between
+# desktop view (desktop 0) and grid mode (desktop 1).
+# Binding management is done via F23/F24 sent by the Python code
+# after the toggle, because FVWM's Test command cannot check the
+# current desktop number.
+
+DestroyFunc ToggleGridView
+AddToFunc ToggleGridView
+ + I Exec curl -s http://localhost:$TEACHER_DESKTOP_PORT/grid-toggle
+
+# F22: toggle grid view (from BBB plugin's grid button)
+# F23: restore grid bindings (sent by Python after switching to desk 0)
+# F24: remove grid bindings (sent by Python after switching to desk 1)
+
+Key F22 A A ToggleGridView
+Key F23 A A RestoreGridBindings
+Key F24 A A RemoveGridBindings
 
 # edge scrolling doesn't work well at all on our VNC-based desktops
 
