@@ -8,3 +8,4 @@ staging
 deb_dist
 dist
 *.egg-info
+*.tar.gz
