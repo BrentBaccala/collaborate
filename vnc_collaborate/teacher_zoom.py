@@ -101,6 +101,15 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
       proc = subprocess.Popen(proc_args, env=env)
       proc.wait()
 
+      if proc.returncode < 0:
+         import signal as signal_module
+         import syslog
+         signame = signal_module.Signals(-proc.returncode).name
+         caller = "own desktop" if not STUDENT_ID else f"student {STUDENT_DISPLAY}"
+         msg = f"teacher_zoom: {VNC_VIEWER} died with {signame} (viewing {caller}, socket {VNC_SOCKET})"
+         syslog.syslog(syslog.LOG_WARNING, msg)
+         print(msg, file=sys.stderr, flush=True)
+
       # Re-deaf the student, but ONLY if they were deafed originally
       if was_deafed:
          freeswitch.deaf_student(STUDENT_ID)
