@@ -64,7 +64,10 @@ def main():
                         except botocore.exceptions.ClientError as ex:
                             print(ex)
             print("Hibernating", my_instance_id, "at", datetime.datetime.now())
-            ec2().stop_instances(InstanceIds=[my_instance_id], Hibernate=True)
+            try:
+                ec2().stop_instances(InstanceIds=[my_instance_id], Hibernate=True)
+            except botocore.exceptions.ClientError as ex:
+                print("Failed to self-hibernate:", ex)
         time.sleep(60)
 
 if __name__ == "__main__":
