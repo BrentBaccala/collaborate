@@ -25,6 +25,9 @@ cp bbb-vnc-collaborate.default staging/etc/default/bbb-vnc-collaborate
 mkdir -p staging/usr/share/fvwm/default-config
 cp fvwm-config staging/usr/share/fvwm/default-config/config
 
+mkdir -p staging/etc/apport/blacklist.d
+echo "/usr/bin/xtigervncviewer" > staging/etc/apport/blacklist.d/bbb-vnc-collaborate
+
 CONFFILES="--deb-no-default-config-files"
 
 # CONVENIENCE_DEPENDS="gnome-terminal,dbus-x11,chromium-browser,xournal"
