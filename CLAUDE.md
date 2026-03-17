@@ -115,3 +115,13 @@ package's directory for its build script.
 version number so `apt upgrade` will install it. For `bbb-plugin-remote-desktop`,
 update `debian/changelog`. For FPM packages, the version is derived from the
 git timestamp automatically.
+
+**Plugin JS deployment**: The plugin's `manifest.json` (including the
+`javascriptEntrypointUrl` with its hash) is fetched by bbb-web at meeting
+creation time and stored in the database. The HTML5 client reads it via
+GraphQL. After deploying a new plugin JS file, existing meetings will
+still reference the old URL. To pick up the new plugin:
+- End the meeting and create a new one, **or**
+- Run `bbb-conf --restart` to restart bbb-web (which re-reads manifests)
+
+A browser page reload alone is **not** sufficient.
