@@ -110,3 +110,8 @@ Then rsync to www.freesoft.org and invalidate CloudFront cache.
 
 Most packages use FPM via `build.sh` or `deb-helper.sh`. Check each
 package's directory for its build script.
+
+**Important**: When rebuilding a package with changes, always bump the
+version number so `apt upgrade` will install it. For `bbb-plugin-remote-desktop`,
+update `debian/changelog`. For FPM packages, the version is derived from the
+git timestamp automatically.
