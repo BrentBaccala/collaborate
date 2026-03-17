@@ -106,7 +106,8 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
          import syslog
          signame = signal_module.Signals(-proc.returncode).name
          caller = "own desktop" if not STUDENT_ID else f"student {STUDENT_DISPLAY}"
-         msg = f"teacher_zoom: {VNC_VIEWER} died with {signame} (viewing {caller}, socket {VNC_SOCKET})"
+         display = os.environ.get('DISPLAY', '?')
+         msg = f"teacher_zoom: {VNC_VIEWER} died with {signame} (viewing {caller}, socket {VNC_SOCKET}, DISPLAY={display})"
          syslog.syslog(syslog.LOG_WARNING, msg)
          print(msg, file=sys.stderr, flush=True)
 
