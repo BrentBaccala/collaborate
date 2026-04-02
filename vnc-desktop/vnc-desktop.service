@@ -1,0 +1,9 @@
+[Unit]
+Description=VNC desktop for %u
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m vnc_collaborate tigervncserver -localhost yes -rfbunixpath /run/vnc/%u -SecurityTypes None -BlacklistThreshold 1000000 -fg
+
+[Install]
+WantedBy=default.target
