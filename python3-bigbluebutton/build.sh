@@ -9,11 +9,7 @@ rm -rf staging
 mkdir -p staging
 python3 setup.py install --root=staging --prefix=/usr --install-layout=deb --no-compile
 
-# pyjavaproperties is PyPI-only (no Debian package).
-# Bundle it directly into the .deb by copying it into staging.
-pip3 install --target=staging/usr/lib/python3/dist-packages --no-deps pyjavaproperties
-
-DEPENDS="python3-requests,python3-lxml"
+DEPENDS="python3-requests,python3-lxml,python3-pyjavaproperties"
 
 rm -f python3-bigbluebutton*.deb
 fpm -s dir -C ./staging -n python3-bigbluebutton \
