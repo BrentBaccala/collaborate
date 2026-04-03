@@ -1,0 +1,10 @@
+[Unit]
+Description=VNC desktop for %i
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/machinectl shell %i@.host /usr/bin/python3 -m vnc_collaborate tigervncserver -localhost yes -rfbunixpath /run/vnc/%i -SecurityTypes None -BlacklistThreshold 1000000 -fg
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

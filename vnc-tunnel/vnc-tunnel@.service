@@ -1,0 +1,16 @@
+[Unit]
+Description=VNC tunnel %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/vnc-tunnel/%i.conf
+ExecStart=/bin/bash -c 'exec sudo -u ${LOCAL_USER} ssh -N -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -L ${LOCAL_SOCKET}:${REMOTE_SOCKET} ${REMOTE_USER}@${REMOTE_HOST}'
+ExecStartPost=/bin/bash -c 'sleep 1 && chown ${LOCAL_USER}:bigbluebutton ${LOCAL_SOCKET} && chmod 660 ${LOCAL_SOCKET}'
+ExecStopPost=/bin/bash -c 'rm -f ${LOCAL_SOCKET}'
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
