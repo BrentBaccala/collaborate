@@ -1,4 +1,5 @@
 [org/gnome/shell]
+disable-user-extensions=false
 enabled-extensions=['dash-to-panel@jderose9.github.com', 'apps-menu@gnome-shell-extensions.gcampax.github.com', 'ubuntu-appindicators@ubuntu.com']
 favorite-apps=['chromium-browser.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop']
 
