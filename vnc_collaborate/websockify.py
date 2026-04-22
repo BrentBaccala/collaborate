@@ -35,6 +35,7 @@ import os
 import re
 import psutil
 import glob
+import threading
 import urllib
 import subprocess
 import time
@@ -42,6 +43,26 @@ import tempfile
 import pwd
 import grp
 import requests
+
+# Per-user startup locks. Closes the race in which two simultaneous
+# websocket connects both pass the `not os.path.exists(rfbpath)` check
+# and both call `start_VNC_server`. The double-spawn collides on the
+# `-rfbunixpath` (the loser's teardown unlinks the winner's socket
+# entry, orphaning the listening inode) and on per-user systemd/dbus/
+# gnome singletons (the loser's Xvnc-session exits 256). The BBB
+# remote-desktop plugin opens two websockets per page load (initial
+# VncDisplay mount + forced reconnect when content enters the
+# layout), which made this race fire on every connect.
+_vnc_spawn_locks = {}
+_vnc_spawn_locks_guard = threading.Lock()
+
+def _get_spawn_lock(UNIXuser):
+    with _vnc_spawn_locks_guard:
+        lock = _vnc_spawn_locks.get(UNIXuser)
+        if lock is None:
+            lock = threading.Lock()
+            _vnc_spawn_locks[UNIXuser] = lock
+        return lock
 
 import bigbluebutton
 
@@ -260,13 +281,18 @@ def new_websocket_client(self):
             self.server.unix_target = socket_fn
         else:
             # default if no .vncserver or .vncsocket exists
-            # First, start a standard user desktop if none exists
-            # XXX - race condition here if this code runs twice quickly, it will start two VNC servers
-            if not os.path.exists(rfbpath):
-                start_VNC_server(UNIXuser, rfbpath)
+            # Serialize the check+spawn+wait per user so two concurrent
+            # websockets (the BBB plugin sends two per page load) can't both
+            # pass the `os.path.exists` check and both call start_VNC_server.
+            # The wait stays INSIDE the lock so the second caller doesn't
+            # race past `os.path.exists` while the winner's machinectl shell
+            # chain is still creating the socket.
+            with _get_spawn_lock(UNIXuser):
+                if not os.path.exists(rfbpath):
+                    start_VNC_server(UNIXuser, rfbpath)
 
-            while not os.path.exists(rfbpath):
-                time.sleep(0.1)
+                while not os.path.exists(rfbpath):
+                    time.sleep(0.1)
 
             # Next, select teacher mode if user can access more than one desktop in /run/vnc
             # This way doesn't work right because this script runs as root:
