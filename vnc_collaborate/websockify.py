@@ -35,7 +35,7 @@ import os
 import re
 import psutil
 import glob
-import threading
+import fcntl
 import urllib
 import subprocess
 import time
@@ -44,7 +44,7 @@ import pwd
 import grp
 import requests
 
-# Per-user startup locks. Closes the race in which two simultaneous
+# Per-user startup lock. Closes the race in which two simultaneous
 # websocket connects both pass the `not os.path.exists(rfbpath)` check
 # and both call `start_VNC_server`. The double-spawn collides on the
 # `-rfbunixpath` (the loser's teardown unlinks the winner's socket
@@ -53,16 +53,23 @@ import requests
 # remote-desktop plugin opens two websockets per page load (initial
 # VncDisplay mount + forced reconnect when content enters the
 # layout), which made this race fire on every connect.
-_vnc_spawn_locks = {}
-_vnc_spawn_locks_guard = threading.Lock()
+#
+# Use fcntl.flock on a per-user lockfile rather than threading.Lock
+# because websockify forks a child process per connection (see
+# websockifyserver.py: multiprocessing.Process(target=top_new_client)),
+# so threading.Lock in the parent is not inherited meaningfully —
+# each child gets its own independent copy.  fcntl.flock works
+# because the kernel tracks flock ownership per inode, so separate
+# open()s in separate processes serialize correctly.
+def _acquire_spawn_lock(UNIXuser):
+    lockpath = '/run/vnc/.' + UNIXuser + '.spawnlock'
+    fd = os.open(lockpath, os.O_CREAT | os.O_WRONLY, 0o660)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    return fd
 
-def _get_spawn_lock(UNIXuser):
-    with _vnc_spawn_locks_guard:
-        lock = _vnc_spawn_locks.get(UNIXuser)
-        if lock is None:
-            lock = threading.Lock()
-            _vnc_spawn_locks[UNIXuser] = lock
-        return lock
+def _release_spawn_lock(fd):
+    fcntl.flock(fd, fcntl.LOCK_UN)
+    os.close(fd)
 
 import bigbluebutton
 
@@ -287,12 +294,15 @@ def new_websocket_client(self):
             # The wait stays INSIDE the lock so the second caller doesn't
             # race past `os.path.exists` while the winner's machinectl shell
             # chain is still creating the socket.
-            with _get_spawn_lock(UNIXuser):
+            spawn_lock_fd = _acquire_spawn_lock(UNIXuser)
+            try:
                 if not os.path.exists(rfbpath):
                     start_VNC_server(UNIXuser, rfbpath)
 
                 while not os.path.exists(rfbpath):
                     time.sleep(0.1)
+            finally:
+                _release_spawn_lock(spawn_lock_fd)
 
             # Next, select teacher mode if user can access more than one desktop in /run/vnc
             # This way doesn't work right because this script runs as root:
