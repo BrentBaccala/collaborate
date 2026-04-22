@@ -30,7 +30,7 @@ all: reprepro keys
 packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-wss-proxy bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
 
 rsync: all
-	rsync -avvz --delete jammy-300 ubuntu@u20.freesoft.org:/var/www/html/
+	rsync -avvzL --delete jammy-300 ubuntu@u24.freesoft.org:/var/www/html/
 
 # Packages with their own build.sh scripts
 
