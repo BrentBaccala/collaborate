@@ -3,6 +3,7 @@
 # Read or write the current contents of Big Blue Button's "Shared
 # Notes" in either text or HTML format.
 
+import os
 import sys
 import argparse
 import requests
@@ -57,17 +58,29 @@ else:
       exit(1)
    meetingID = allMeetingIDs[0]
 
-# Lookup the meeting in PostgreSQL and retrieve the padID
+# Lookup the meeting in PostgreSQL and retrieve the padID.
+# Uses the unprivileged 'bbb_query' role (SELECT-only on sharedNotes)
+# created by /usr/sbin/bbb-shared-notes-setup at install time, so this
+# script does not need root.
 
+env = {**os.environ, 'PGPASSWORD': 'bbbquery'}
 result = subprocess.run(
-   ['sudo', '-u', 'postgres', 'psql', '-d', 'bbb_graphql', '-t', '-A',
+   ['psql', '-h', '127.0.0.1', '-U', 'bbb_query', '-d', 'bbb_graphql', '-t', '-A',
     '-c', f"SELECT \"padId\" FROM \"sharedNotes\" WHERE \"meetingId\" = '{meetingID.text}' LIMIT 1"],
-   capture_output=True, text=True
+   capture_output=True, text=True, env=env
 )
-if result.returncode != 0 or not result.stdout.strip():
+if result.returncode != 0:
+   err = result.stderr.strip()
+   if 'role "bbb_query" does not exist' in err or 'authentication failed' in err:
+      print("bbb-shared-notes: postgres role 'bbb_query' is not configured", file=sys.stderr)
+      print("  Run: sudo bbb-shared-notes-setup", file=sys.stderr)
+   else:
+      print("Can't query shared notes pad for this meeting", file=sys.stderr)
+      if err:
+         print(err, file=sys.stderr)
+   exit(1)
+if not result.stdout.strip():
    print("Can't find shared notes pad for this meeting", file=sys.stderr)
-   if result.stderr.strip():
-      print(result.stderr.strip(), file=sys.stderr)
    exit(1)
 padID = result.stdout.strip()
 

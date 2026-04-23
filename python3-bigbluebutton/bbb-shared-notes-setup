@@ -1,0 +1,39 @@
+#!/bin/bash
+# bbb-shared-notes-setup — create the unprivileged bbb_query Postgres role
+# used by /usr/bin/bbb-shared-notes.
+#
+# Idempotent.  No-op (with a message) if BigBlueButton's bbb_graphql
+# database is not yet present, so it's safe to call from postinst even
+# when the package is installed before BBB.
+#
+# The bbb_query role has SELECT on exactly one table ("sharedNotes")
+# and a hardcoded trivial password — the actual security boundary is
+# the role's grants, not the password.
+
+set -e
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "bbb-shared-notes-setup: must be run as root" >&2
+    exit 1
+fi
+
+if ! sudo -u postgres psql -lqt 2>/dev/null | cut -d'|' -f1 | grep -qw bbb_graphql; then
+    echo "bbb-shared-notes-setup: bbb_graphql database not found; skipping"
+    echo "  (BigBlueButton may not be installed yet; re-run after BBB install.)"
+    exit 0
+fi
+
+sudo -u postgres psql -d bbb_graphql -v ON_ERROR_STOP=1 <<'EOF'
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bbb_query') THEN
+        CREATE ROLE bbb_query LOGIN PASSWORD 'bbbquery';
+    END IF;
+END $$;
+
+GRANT CONNECT ON DATABASE bbb_graphql TO bbb_query;
+GRANT USAGE ON SCHEMA public TO bbb_query;
+GRANT SELECT ON "sharedNotes" TO bbb_query;
+EOF
+
+echo "bbb-shared-notes-setup: bbb_query role configured"
