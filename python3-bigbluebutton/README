@@ -7,5 +7,17 @@ Usage of the module:
 
 Available scripts:
 
-    bbb-get-meetings
-    bbb-shared-notes
+    bbb-get-meetings   List currently running meetings on the local BBB server.
+    bbb-shared-notes   Read or write a meeting's etherpad shared notes
+                       (text or HTML; --read or --write).
+
+Both scripts run unprivileged and can be used by any user on the system.
+
+Admin command (root):
+
+    bbb-shared-notes-setup
+                       Create the unprivileged 'bbb_query' Postgres role
+                       (SELECT-only on "sharedNotes") used by
+                       bbb-shared-notes.  Run automatically by the package
+                       postinst; re-run manually if BigBlueButton was
+                       installed after this package.
