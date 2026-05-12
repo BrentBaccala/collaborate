@@ -150,6 +150,20 @@ try:
 except StopIteration:
     print('Creating policy', POLICY_NAME)
     POLICY_ARN = iam.create_policy(PolicyName = POLICY_NAME, PolicyDocument = json.dumps(role_policy))['Policy']['Arn']
+else:
+    # Policy exists; refresh its document if it diverged from role_policy (e.g. role_policy
+    # gained a new permission). Without this, edits to role_policy never reach AWS for
+    # policies created by an earlier run of this script.
+    versions = iam.list_policy_versions(PolicyArn=POLICY_ARN)['Versions']
+    default_version_id = next(v['VersionId'] for v in versions if v['IsDefaultVersion'])
+    deployed = iam.get_policy_version(PolicyArn=POLICY_ARN, VersionId=default_version_id)['PolicyVersion']['Document']
+    if deployed != role_policy:
+        print('Updating policy', POLICY_NAME)
+        # IAM allows at most 5 versions per policy; prune the oldest non-default first.
+        if len(versions) >= 5:
+            oldest = min((v for v in versions if not v['IsDefaultVersion']), key=lambda v: v['CreateDate'])
+            iam.delete_policy_version(PolicyArn=POLICY_ARN, VersionId=oldest['VersionId'])
+        iam.create_policy_version(PolicyArn=POLICY_ARN, PolicyDocument=json.dumps(role_policy), SetAsDefault=True)
 
 try:
     ROLE = iam.get_role(RoleName = ROLE_NAME)['Role']['Arn']
