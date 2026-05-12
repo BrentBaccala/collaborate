@@ -3,7 +3,7 @@ aws: build/deployment-package.zip
 	./install-lambda.py
 
 logs:
-	awslogs get /aws/lambda/login
+	aws logs tail /aws/lambda/login --since 1h
 
 build/deployment-package.zip: lambda_function.py
 	mkdir -p build
