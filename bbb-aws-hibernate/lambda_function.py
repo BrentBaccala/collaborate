@@ -49,6 +49,48 @@ from cryptography.hazmat.backends import default_backend as crypto_default_backe
 region = os.environ['AWS_REGION']
 ec2 = boto3.client('ec2', region_name=region)
 
+# Resolve a server config dict to (primary_instance_id, instance_ids).
+#
+# The primary is the BBB host: its public IP gets DNS-checked against the
+# server's fqdn, and the wait page redirects to that fqdn. Secondaries don't
+# have DNS to wait on, so the wait-page path checks only the primary's state.
+#
+# Config fields (all but fqdn/keys optional, but at least one of
+# primary_instance/instances must be set):
+#   primary_instance (str)            -- explicit primary; defaults to instances[0]
+#   instances        (list[str])      -- additional explicit instance IDs
+#   filters          (list[dict])     -- boto3 Filter list (e.g.
+#                                        [{"Name": "tag:AutoStart", "Values": ["x"]}])
+#   tags             (dict[str, str]) -- shorthand: {"AutoStart": "x"} expands to a tag filter
+#
+# Filter/tag resolution happens at every invocation, so instances tagged after
+# deployment get picked up without redeploying the lambda.
+def resolve_server_instances(server_config):
+    explicit = list(server_config.get('instances', []))
+    primary = server_config.get('primary_instance')
+    if primary is None:
+        if not explicit:
+            raise ValueError("server config must specify primary_instance or instances")
+        primary = explicit[0]
+
+    ids = set(explicit)
+    ids.add(primary)
+
+    filters = list(server_config.get('filters', []))
+    for k, v in server_config.get('tags', {}).items():
+        filters.append({'Name': f'tag:{k}', 'Values': [v]})
+
+    if filters:
+        try:
+            for reservation in ec2.describe_instances(Filters=filters)['Reservations']:
+                for instance in reservation['Instances']:
+                    ids.add(instance['InstanceId'])
+        except Exception as ex:
+            # Degrade gracefully — explicit IDs still get acted on.
+            print('filter/tag resolution failed:', ex)
+
+    return primary, sorted(ids)
+
 def authenticate(config, token):
     try:
         token_dict = jwt.decode(token, verify=False)
@@ -205,8 +247,16 @@ def limited_format(string, **kwargs):
 
 def lambda_handler(event, context):
   # Environment variable CONFIG is a JSON dictionary mapping server names ('nam' in the JWT)
-  # to dictionaries with entries 'fqdn' (a string), 'instances' (a list of strings, each an AWS instance ID),
-  # and 'keys' (a list of strings, each an openssh RSA public key)
+  # to per-server dictionaries. Required fields:
+  #   'fqdn' (string)  -- DNS name of the BBB host (the primary instance)
+  #   'keys' (list)    -- openssh RSA public keys accepted for this server
+  # Instance selection (any combination; results are unioned):
+  #   'primary_instance' (string)        -- the BBB host; defaults to instances[0]
+  #   'instances'        (list of strings) -- explicit instance IDs to start alongside primary
+  #   'filters'          (list of dicts)   -- boto3 Filter list, e.g.
+  #                                            [{"Name": "tag:AutoStart", "Values": ["foo"]}]
+  #   'tags'             (dict)            -- shorthand: {"AutoStart": "foo"} -> the above filter
+  # See resolve_server_instances() for the full semantics.
 
   config = json.loads(os.environ['CONFIG'])
 
@@ -221,12 +271,12 @@ def lambda_handler(event, context):
     if token.startswith('waitpage-'):
         name = token[9:]
         print('waiting for instance to run')
-        instances = config[name]['instances']
-        # XXX - make this check all the instances in the list, not just the first one
-        while ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
+        # Only the primary has DNS; secondaries are auxiliary and don't gate the wait page.
+        primary, _ = resolve_server_instances(config[name])
+        while ec2.describe_instances(InstanceIds=[primary])['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
             time.sleep(1)
         print('instance running')
-        public_ip_addr = ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['PublicIpAddress']
+        public_ip_addr = ec2.describe_instances(InstanceIds=[primary])['Reservations'][0]['Instances'][0]['PublicIpAddress']
         print('instance running on', public_ip_addr)
         my_resolver = dns.resolver.Resolver()
         dnsname = config[name]['fqdn']
@@ -256,7 +306,7 @@ def lambda_handler(event, context):
     else:
         jwt = authenticate(config, token)
         if jwt:
-            instances = config[jwt['nam']]['instances']
+            primary, instances = resolve_server_instances(config[jwt['nam']])
             instances_to_start = []
             # Depending on our AWS permissions, we might be able to perform either
             # a DescribeInstanceStatus or a DescribeInstances, but not the other
@@ -265,8 +315,9 @@ def lambda_handler(event, context):
                 instances_to_start = [instance['InstanceId'] for instance in instance_statuses if instance['InstanceState']['Name'] != 'running']
 
             except Exception:
-                if ec2.describe_instances(InstanceIds=instances)['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
-                    instances_to_start = instances
+                # Fallback: only the primary's state gates the wait-for-moderator decision.
+                if ec2.describe_instances(InstanceIds=[primary])['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
+                    instances_to_start = list(instances)
 
 
             if not instances_to_start:
@@ -279,13 +330,15 @@ def lambda_handler(event, context):
                     wait_message = "Please wait for a moderator to start your meeting"
 
             if instances_to_start:
+                # Start the primary first if it's in the list — that's the host the redirect targets.
+                if primary in instances_to_start:
+                    instances_to_start = [primary] + [i for i in instances_to_start if i != primary]
                 try:
                     try:
                         ec2.start_instances(InstanceIds=instances_to_start)
                     except botocore.exceptions.ClientError:
                         # If we couldn't start all of the instances, make sure we
-                        # start the first one (presumably the videoconference server),
-                        # then optionally try to start the rest
+                        # start the primary, then optionally try to start the rest
                         ec2.start_instances(InstanceIds=instances_to_start[0:1])
                         for instance in instances_to_start[1:]:
                             try:
@@ -295,7 +348,7 @@ def lambda_handler(event, context):
                 except Exception as ex:
                     error_page_formatted = limited_format(error_page, error=str(ex))
                     return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
-                print('started your instances: ' + str(instances))
+                print('started your instances: ' + str(instances_to_start))
             # redirect to a URL
             #    return {'statusCode': 302, 'headers': {'Location': 'https://freesoft.org/'}}
             # or just return the spinner page here and it redirects to our goal

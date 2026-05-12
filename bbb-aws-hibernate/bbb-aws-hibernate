@@ -46,12 +46,59 @@ def is_server_idle():
     except:
         return False
 
+# AWS-CLI --filters shorthand: space-separated specs, each "Name=KEY,Values=V1[,V2,...]".
+def parse_filter_shorthand(s):
+    filters = []
+    for spec in s.split():
+        m = re.match(r'^Name=([^,]+),Values=(.+)$', spec)
+        if not m:
+            raise ValueError(f"bad filter spec: {spec!r} (expected Name=KEY,Values=V1[,V2,...])")
+        filters.append({'Name': m.group(1), 'Values': m.group(2).split(',')})
+    return filters
+
+# "TAG1=VALUE1, TAG2=VALUE2" -> list of EC2 tag-filter dicts (AND-of-equalities).
+def parse_tag_shorthand(s):
+    filters = []
+    for pair in re.split(r'\s*,\s*', s.strip()):
+        if not pair:
+            continue
+        k, _, v = pair.partition('=')
+        filters.append({'Name': f'tag:{k.strip()}', 'Values': [v.strip()]})
+    return filters
+
+# Union of ADDITIONAL_STOP_INSTANCES (explicit IDs), ADDITIONAL_STOP_TAGS, and
+# ADDITIONAL_STOP_FILTERS, minus our own instance ID. Tag/filter resolution is
+# restricted to running instances; the explicit list is taken as-is.
+def additional_stop_instance_ids():
+    ids = set()
+
+    if os.environ.get('ADDITIONAL_STOP_INSTANCES'):
+        ids.update(s for s in (s.strip() for s in re.split(r'\s*,\s*', os.environ['ADDITIONAL_STOP_INSTANCES'])) if s)
+
+    filters = []
+    if os.environ.get('ADDITIONAL_STOP_TAGS'):
+        filters.extend(parse_tag_shorthand(os.environ['ADDITIONAL_STOP_TAGS']))
+    if os.environ.get('ADDITIONAL_STOP_FILTERS'):
+        filters.extend(parse_filter_shorthand(os.environ['ADDITIONAL_STOP_FILTERS']))
+
+    if filters:
+        filters.append({'Name': 'instance-state-name', 'Values': ['running']})
+        try:
+            for reservation in ec2().describe_instances(Filters=filters)['Reservations']:
+                for instance in reservation['Instances']:
+                    ids.add(instance['InstanceId'])
+        except botocore.exceptions.ClientError as ex:
+            print("Failed to resolve ADDITIONAL_STOP_TAGS/FILTERS:", ex)
+
+    ids.discard(my_instance_id)
+    return sorted(ids)
+
 def main():
     while True:
         if is_server_idle():
             print("Hibernating instances at", datetime.datetime.now())
-            if 'ADDITIONAL_STOP_INSTANCES' in os.environ:
-                instance_ids = re.split(r'\s*,\s*', os.environ['ADDITIONAL_STOP_INSTANCES'])
+            instance_ids = additional_stop_instance_ids()
+            if instance_ids:
                 print("Stopping", instance_ids, "at", datetime.datetime.now())
                 # First try to stop all additional instances.  If that doesn't
                 # work, try to stop them individually, logging any errors.

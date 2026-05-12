@@ -1,6 +1,32 @@
 
 # Specify additional instances to stop when the Big Blue Button server hibernates.
+# Any combination of the three variables below may be set; the resulting sets are
+# unioned, and the running BBB host itself is always excluded from the additional list
+# (it is hibernated separately).
+#
+# ADDITIONAL_STOP_INSTANCES: explicit, comma-separated list of EC2 instance IDs.
 #
 # Ex: ADDITIONAL_STOP_INSTANCES="i-046861ce5d597be6b, i-0e997d8963457c7fa, i-0fb2d7c26fca38e06"
 #
 # ADDITIONAL_STOP_INSTANCES=""
+
+# ADDITIONAL_STOP_TAGS: comma-separated TAG=VALUE pairs. All tags must match (AND).
+# Resolved against running instances each hibernation cycle, so newly tagged
+# instances are picked up automatically.
+#
+# Ex: ADDITIONAL_STOP_TAGS="AutoStop=collaborate"
+# Ex: ADDITIONAL_STOP_TAGS="AutoStop=collaborate, Project=BBB"
+#
+# ADDITIONAL_STOP_TAGS=""
+
+# ADDITIONAL_STOP_FILTERS: AWS-CLI --filters shorthand for cases that need more than
+# tag equality (filter on AZ, VPC, type, multiple values, etc.). Filters are
+# space-separated; values within a filter are comma-separated. An implicit
+# instance-state-name=running filter is added.
+#
+# Ex: ADDITIONAL_STOP_FILTERS="Name=tag:AutoStop,Values=collaborate"
+# Ex: ADDITIONAL_STOP_FILTERS="Name=tag:Project,Values=BBB Name=vpc-id,Values=vpc-abc123"
+#
+# Requires the credentials this service uses to have ec2:DescribeInstances permission.
+#
+# ADDITIONAL_STOP_FILTERS=""
