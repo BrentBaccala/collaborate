@@ -47,6 +47,12 @@ assert len(json.dumps(CONFIG)) <= 4096
 
 environment = { "Variables" : {"CONFIG" : json.dumps(CONFIG)} }
 
+# 'logs' tails the lambda's CloudWatch log group. FUNCTION_NAME comes from
+# configuration.py (overridden per AWS_PROFILE), so the right log group is used
+# for each deployment. Replace ourselves with `aws logs tail` and exit.
+if 'logs' in sys.argv:
+    os.execvp('aws', ['aws', 'logs', 'tail', f'/aws/lambda/{FUNCTION_NAME}', '--since', '1h'])
+
 sts = boto3.client('sts')
 apigw = boto3.client('apigatewayv2')
 iam = boto3.client('iam')
