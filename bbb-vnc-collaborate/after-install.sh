@@ -104,7 +104,7 @@ if 'startLocked' not in settings:
 # Add default buttons config if not present
 if 'buttons' not in settings:
     settings['buttons'] = [
-        {'label': 'Grid View', 'icon': 'grid-2x2', 'keysym': 65491}
+        {'label': 'Grid View', 'icon': 'grid-2x2', 'alt': 'Grid view', 'keysym': 65491}
     ]
 
 with open(yml_path, 'w') as f:
@@ -126,7 +126,7 @@ config = {
                 'remoteDesktopUrl': vnc_url,
                 'startLocked': False,
                 'buttons': [
-                    {'label': 'Grid View', 'icon': 'grid-2x2', 'keysym': 65491}
+                    {'label': 'Grid View', 'icon': 'grid-2x2', 'alt': 'Grid view', 'keysym': 65491}
                 ]
             }
         }]
