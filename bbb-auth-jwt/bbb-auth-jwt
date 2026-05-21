@@ -63,17 +63,27 @@ role_password = {'m' : moderatorPW,
 }
 
 def authorized_keys():
-    if not hasattr(authorized_keys, 'retval'):
+    # Reload /etc/bigbluebutton/authorized_keys whenever it changes (including
+    # being created or removed), so adding a key takes effect without
+    # restarting the service.  Cached between changes, keyed on the file mtime.
+    path = '/etc/bigbluebutton/authorized_keys'
+    try:
+        mtime = os.stat(path).st_mtime
+    except OSError:
+        mtime = None
+    if not hasattr(authorized_keys, 'retval') or authorized_keys.mtime != mtime:
+        authorized_keys.mtime = mtime
         authorized_keys.retval = []
-        try:
-            with open('/etc/bigbluebutton/authorized_keys') as f:
-                for line in f.read().split('\n'):
-                    try:
-                        authorized_keys.retval.append(serialization.load_ssh_public_key(line.encode(), backend=default_backend()))
-                    except:
-                        pass
-        except:
-            pass
+        if mtime is not None:
+            try:
+                with open(path) as f:
+                    for line in f.read().split('\n'):
+                        try:
+                            authorized_keys.retval.append(serialization.load_ssh_public_key(line.encode(), backend=default_backend()))
+                        except:
+                            pass
+            except:
+                pass
     return authorized_keys.retval
 
 def login(request_uri):
