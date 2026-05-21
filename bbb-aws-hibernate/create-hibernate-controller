@@ -1,0 +1,119 @@
+#!/bin/bash
+#
+# create-hibernate-controller INSTANCE_ID [--name=USER] [--profile=P]
+#                             [--new-key] [--invalidate-old-keys]
+#
+# Creates (idempotently) a scoped IAM user that the bbb-aws-hibernate service
+# uses to hibernate ONE EC2 instance, and prints the credential block for
+# /etc/default/bbb-aws-hibernate.
+#
+# Why not the StopSelf instance profile?  Attaching a role to the instance
+# exposes its credentials to every local user via IMDS (169.254.169.254) — on
+# a collaborate host, any participant with a desktop terminal could then stop
+# the box.  A static key handed only to the service (read from a 600 root
+# EnvironmentFile, run as `nobody`) is not reachable that way.
+#
+# The instance is pinned via an `InstanceId` principal tag on the user, so the
+# policy itself is generic and reusable — the same aws:PrincipalTag trick
+# create-DNS-updater uses for FQDN/HostedZone.  ec2:SourceInstanceARN can't be
+# used here: it's only populated for instance-profile credentials, not a key.
+#
+#   INSTANCE_ID   the i-... instance this key may stop/hibernate.
+#   --name=USER   IAM user name (default: hibernate-INSTANCE_ID).
+#   --profile=P   AWS CLI profile for YOUR admin creds (passed to `aws`);
+#                 omit to use the default profile / AWS_PROFILE / env vars.
+#   --new-key     create a new access key, leaving existing keys in place.
+#   --invalidate-old-keys
+#                 delete the user's existing access key(s).
+#
+# Put the printed lines into /etc/default/bbb-aws-hibernate (mode 600) and do
+# NOT attach an instance profile.  (Self-hibernate only; stopping companion
+# instances via ADDITIONAL_STOP_TAGS/FILTERS needs a broader policy.)
+#
+set -euo pipefail
+
+PROFILE=""
+NEW_KEY=""
+INVALIDATE=""
+NAME=""
+INSTANCE_ID=""
+
+usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name=*)              NAME="${1#*=}"; shift;;
+    --name)                NAME="${2:?}"; shift 2;;
+    --profile=*)           PROFILE="${1#*=}"; shift;;
+    --profile)             PROFILE="${2:?}"; shift 2;;
+    --new-key)             NEW_KEY=1; shift;;
+    --invalidate-old-keys) INVALIDATE=1; shift;;
+    -h|--help)             usage; exit 0;;
+    -*)                    echo "unknown option: $1" >&2; usage; exit 1;;
+    *)                     INSTANCE_ID="$1"; shift;;
+  esac
+done
+
+[[ "$INSTANCE_ID" =~ ^i-[0-9a-f]+$ ]] || { echo "error: first argument must be an instance id (i-...)" >&2; usage; exit 1; }
+
+AWS=(aws)
+[[ -n "$PROFILE" ]] && AWS+=(--profile "$PROFILE")
+
+USER="${NAME:-hibernate-$INSTANCE_ID}"
+ACCOUNT="$("${AWS[@]}" sts get-caller-identity --query Account --output text)"
+echo "account=$ACCOUNT  user=$USER  instance=$INSTANCE_ID" >&2
+
+# Generic ABAC policy — the instance is pinned by the user's InstanceId tag,
+# not by this document, so it's fully static and reusable across instances.
+# Account/region are '*' (a key can only act in its own account anyway).
+POLICY="$(mktemp)"; trap 'rm -f "$POLICY"' EXIT
+cat > "$POLICY" <<'JSON'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "HibernateSelf",
+      "Effect": "Allow",
+      "Action": "ec2:StopInstances",
+      "Resource": "arn:aws:ec2:*:*:instance/${aws:PrincipalTag/InstanceId}"
+    }
+  ]
+}
+JSON
+
+# Create the user if needed; always (re)set the InstanceId tag and the policy
+if "${AWS[@]}" iam get-user --user-name "$USER" >/dev/null 2>&1; then
+  echo "User $USER exists; setting InstanceId tag ..." >&2
+  "${AWS[@]}" iam tag-user --user-name "$USER" --tags "Key=InstanceId,Value=$INSTANCE_ID"
+else
+  echo "Creating user $USER ..." >&2
+  "${AWS[@]}" iam create-user --user-name "$USER" --tags "Key=InstanceId,Value=$INSTANCE_ID" >/dev/null
+fi
+"${AWS[@]}" iam put-user-policy --user-name "$USER" \
+    --policy-name hibernate-self --policy-document "file://$POLICY"
+
+# Access key.  --invalidate-old-keys removes existing keys; --new-key (or a
+# brand-new user with no key) mints one.  The two are independent.
+EXISTING="$("${AWS[@]}" iam list-access-keys --user-name "$USER" \
+            --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null || true)"
+
+if [[ -n "$EXISTING" && -n "$INVALIDATE" ]]; then
+  for k in $EXISTING; do
+    echo "Deleting old access key $k ..." >&2
+    "${AWS[@]}" iam delete-access-key --user-name "$USER" --access-key-id "$k"
+  done
+fi
+
+if [[ -n "$NEW_KEY" || -z "$EXISTING" ]]; then
+  read -r AK_ID AK_SECRET < <("${AWS[@]}" iam create-access-key --user-name "$USER" \
+      --query 'AccessKey.[AccessKeyId,SecretAccessKey]' --output text)
+  echo
+  echo "==== append to /etc/default/bbb-aws-hibernate (mode 600), no instance profile ===="
+  echo "AWS_ACCESS_KEY_ID=$AK_ID"
+  echo "AWS_SECRET_ACCESS_KEY=$AK_SECRET"
+elif [[ -n "$INVALIDATE" ]]; then
+  echo "NOTE: deleted old key(s); no new key created (pass --new-key to mint one)." >&2
+else
+  echo "NOTE: $USER already has access key(s): $EXISTING" >&2
+  echo "      --new-key to add one; --invalidate-old-keys to remove them." >&2
+fi
