@@ -49,4 +49,4 @@ fpm -s dir -C ./staging -n $PACKAGE \
     --after-remove after-remove.sh \
     --description "Collaborative remote desktop service for BigBlueButton" \
     --vendor freesoft.org -m cosine@freesoft.org --url https://www.github.com/BrentBaccala/collaborate/ \
-    $CONFFILES -d $DEPENDS -t deb --deb-use-file-permissions
+    $CONFFILES -d $DEPENDS -t deb
