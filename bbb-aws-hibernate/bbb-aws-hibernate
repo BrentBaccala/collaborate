@@ -5,9 +5,11 @@
 # hibernate ourself and, optionally, stop a list of other AWS EC2
 # instances.
 #
-# Currently depends the current instance having a service role with a
-# policy that allows hibernation.  This is not ideal because it allows
-# any user on the system to hibernate it.
+# Credentials come from the standard boto3 chain.  Preferred setup is a
+# scoped static key in /etc/default/bbb-aws-hibernate (see README.md and
+# create-hibernate-controller), readable only by this service, granting
+# ec2:StopInstances on this instance.  An instance profile also works but
+# serves its role credentials to every local user via IMDS -- see README.md.
 
 import os
 import time
