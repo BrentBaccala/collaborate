@@ -77,10 +77,14 @@ instance profile to the instance.
   resume's `swapoff` is still finishing;
 - **no running BigBlueButton meetings** — `bigbluebutton.getMeetings()` is empty.
 
-It checks every 60 s with **no extra grace period**, so it can hibernate within a
-minute of the last SSH session closing and the last meeting ending. (Normal
-collaborate desktop use happens inside a meeting, so the meeting check keeps it
-awake during class.)
+It checks every 60 s, but **won't hibernate within `HIBERNATE_GRACE_SECONDS`
+(default 300) of a boot or a resume** — so a freshly-woken server gives users
+time to (re)connect before it can put itself back to sleep, rather than
+hibernating on its first idle check. The grace resets on resume too (the
+service detects it via `CLOCK_BOOTTIME`/`CLOCK_MONOTONIC` divergence, since the
+process is *restored*, not restarted, on resume). Set it in
+`/etc/default/bbb-aws-hibernate`. (Normal collaborate desktop use happens inside
+a meeting, so the meeting check keeps it awake during class.)
 
 To also stop **companion instances** when this one hibernates, set
 `ADDITIONAL_STOP_INSTANCES` / `ADDITIONAL_STOP_TAGS` / `ADDITIONAL_STOP_FILTERS`

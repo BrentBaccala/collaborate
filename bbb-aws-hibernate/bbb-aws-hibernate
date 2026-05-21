@@ -3,7 +3,9 @@
 # Checks every 60 seconds to see if nobody is logged in, 'swapoff' is
 # not running, and no Big Blue Button meetings are running.  If so,
 # hibernate ourself and, optionally, stop a list of other AWS EC2
-# instances.
+# instances.  Waits HIBERNATE_GRACE_SECONDS (default 300) after a boot or a
+# resume before it is willing to hibernate, so a freshly-woken server isn't
+# put right back to sleep before users have a chance to (re)connect.
 #
 # Credentials come from the standard boto3 chain.  Preferred setup is a
 # scoped static key in /etc/default/bbb-aws-hibernate (see README.md and
@@ -96,7 +98,34 @@ def additional_stop_instance_ids():
     return sorted(ids)
 
 def main():
+    # Don't hibernate within `grace` seconds of a boot or a resume-from-
+    # hibernate, so a freshly-woken server gives users time to (re)connect
+    # before it can put itself back to sleep.  Without this the loop would
+    # hibernate on its first idle check -- moments after the service starts,
+    # or right after a wake before anyone has joined a meeting.
+    #
+    # A process-start timestamp won't do: on resume this very process is
+    # restored from the hibernation image (not restarted), so its start time
+    # is stale.  Instead detect the resume itself -- CLOCK_MONOTONIC pauses
+    # while suspended but CLOCK_BOOTTIME keeps counting, so a gap between the
+    # two across one sleep means we were suspended and have just resumed.
+    grace = int(os.environ.get('HIBERNATE_GRACE_SECONDS', '300'))
+    awake_since = time.monotonic()
+    prev_mono = awake_since
+    prev_boot = time.clock_gettime(time.CLOCK_BOOTTIME)
+
     while True:
+        time.sleep(60)
+
+        now_mono = time.monotonic()
+        now_boot = time.clock_gettime(time.CLOCK_BOOTTIME)
+        if (now_boot - prev_boot) - (now_mono - prev_mono) > 5:
+            awake_since = now_mono          # resumed from suspend; restart the grace window
+        prev_mono, prev_boot = now_mono, now_boot
+
+        if now_mono - awake_since < grace:
+            continue                        # still within the post-boot/resume grace window
+
         if is_server_idle():
             print("Hibernating instances at", datetime.datetime.now())
             instance_ids = additional_stop_instance_ids()
@@ -117,7 +146,6 @@ def main():
                 ec2().stop_instances(InstanceIds=[my_instance_id], Hibernate=True)
             except botocore.exceptions.ClientError as ex:
                 print("Failed to self-hibernate:", ex)
-        time.sleep(60)
 
 if __name__ == "__main__":
     main()

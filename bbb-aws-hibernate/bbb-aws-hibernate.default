@@ -1,4 +1,10 @@
 
+# How long (seconds) after a boot or a resume-from-hibernate the server must
+# stay up before it is allowed to hibernate again. Gives users time to
+# (re)connect after a wake before it can put itself back to sleep. Default 300.
+#
+# HIBERNATE_GRACE_SECONDS=300
+
 # Specify additional instances to stop when the Big Blue Button server hibernates.
 # Any combination of the three variables below may be set; the resulting sets are
 # unioned, and the running BBB host itself is always excluded from the additional list
