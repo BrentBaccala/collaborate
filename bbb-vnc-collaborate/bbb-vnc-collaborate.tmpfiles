@@ -1,0 +1,12 @@
+# /run is tmpfs and is wiped on every boot. vnc_collaborate keeps the per-user
+# VNC sockets in /run/vnc and takes a per-user spawn lock at
+# /run/vnc/.USER.spawnlock on the first connection — if the directory doesn't
+# exist yet, the websockify handler throws ENOENT and the desktop never spawns
+# (the fallback `mkdir -p -m 01777 /run/vnc` in start_VNC_server runs too late,
+# after the lock is taken). Create it at boot instead.
+#
+# Mode 1777 (sticky + world-writable, like /tmp): each user's Xvnc creates its
+# own /run/vnc/USER socket as that user, and the sticky bit stops one user from
+# deleting another's. Matches the mode the code's own mkdir uses; per-socket
+# access for teachers is handled separately (chgrp bigbluebutton + g+rw).
+d /run/vnc 1777 root root -

@@ -22,6 +22,10 @@ cp bbb-vnc-collaborate.service staging/usr/lib/systemd/system
 mkdir -p staging/etc/default
 cp bbb-vnc-collaborate.default staging/etc/default/bbb-vnc-collaborate
 
+# /run/vnc must exist before the first VNC connection (see the .tmpfiles file)
+mkdir -p staging/usr/lib/tmpfiles.d
+cp bbb-vnc-collaborate.tmpfiles staging/usr/lib/tmpfiles.d/bbb-vnc-collaborate.conf
+
 mkdir -p staging/usr/share/fvwm/default-config
 cp fvwm-config staging/usr/share/fvwm/default-config/config
 
