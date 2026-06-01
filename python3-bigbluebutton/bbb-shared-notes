@@ -74,6 +74,12 @@ if result.returncode != 0:
    if 'role "bbb_query" does not exist' in err or 'authentication failed' in err:
       print("bbb-shared-notes: postgres role 'bbb_query' is not configured", file=sys.stderr)
       print("  Run: sudo bbb-shared-notes-setup", file=sys.stderr)
+   elif 'permission denied for table' in err:
+      # A BBB upgrade that recreates the sharedNotes table drops the
+      # table-level GRANT, so the bbb_query role can still connect but
+      # has lost SELECT.  Re-running the setup re-grants it.
+      print("bbb-shared-notes: bbb_query role has lost SELECT on sharedNotes", file=sys.stderr)
+      print("  (a BBB upgrade likely recreated the table) — run: sudo bbb-shared-notes-setup", file=sys.stderr)
    else:
       print("Can't query shared notes pad for this meeting", file=sys.stderr)
       if err:
