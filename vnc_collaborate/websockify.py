@@ -39,6 +39,7 @@ import fcntl
 import urllib
 import subprocess
 import time
+import random
 import tempfile
 import pwd
 import grp
@@ -116,16 +117,27 @@ def get_or_add_user(UNIXuser):
         passwd_struct = pwd.getpwnam(UNIXuser)
     return passwd_struct
 
-def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
+def start_VNC_server(UNIXuser, rfbpath, viewOnly=False, timeout=25):
     r"""
     Start a VNC server as `UNIXuser`, listening for UNIX-domain VNC
     connections on `rfbpath`, optionally in `viewOnly` mode, where no
     keyboard or mouse input will be accepted.
+
+    This is ONE bounded spawn attempt.  It waits up to `timeout` seconds
+    for the socket to appear, watching the spawned server so it fails fast
+    if the server dies (e.g. a display-number collision, where two
+    simultaneous spawns pick the same X display and the loser exits with
+    "Server is already active for display N").  On success
+    it adjusts the socket's group/mode and returns; on failure it raises
+    RuntimeError rather than blocking forever.  Callers that want the
+    serialized + retried behaviour should go through `ensure_vnc_server`.
     """
 
     tigervnc_version = 10
 
     subprocess.run(['sudo', 'mkdir', '-p', '-m', '01777', '/run/vnc'])
+
+    proc = None
 
     if os.path.exists('/usr/bin/tigervncserver'):
 
@@ -170,8 +182,11 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
             # subprocess.run(args, start_new_session=True, env=env)
 
             # runs it and never waits to join it when it's done; it becomes a zombie (probably not the best design)
-            # It isn't going to exit until the X server exits, because of the -fg switch above
-            subprocess.Popen(args, start_new_session=True)
+            # It isn't going to exit until the X server exits, because of the -fg switch above.
+            # We keep the handle so the wait loop below can tell "still starting"
+            # from "died" (the machinectl shell stays in the foreground while the
+            # server runs, and exits with the server's status when it dies).
+            proc = subprocess.Popen(args, start_new_session=True)
 
     else:
 
@@ -207,10 +222,76 @@ def start_VNC_server(UNIXuser, rfbpath, viewOnly=False):
         #
         # We need the socket to be accessible to group bigbluebutton so that teachers
         # can connect to student desktops, and to allow screen shares.
+        #
+        # Bounded wait: fail fast if the server process died (display collision,
+        # bad home dir, ...) and give up after `timeout` seconds rather than
+        # spinning forever (which, while we hold the per-user spawn lock in
+        # ensure_vnc_server, used to wedge that user permanently -- the
+        # spawn-lock deadlock this whole bounded-wait change fixes).
+        deadline = time.monotonic() + timeout
         while not os.path.exists(rfbpath):
+            if proc is not None and proc.poll() is not None:
+                raise RuntimeError(
+                    "VNC server for {} exited (rc={}) before creating {}".format(
+                        UNIXuser, proc.returncode, rfbpath))
+            if time.monotonic() > deadline:
+                raise RuntimeError(
+                    "VNC server for {} did not appear within {}s".format(UNIXuser, timeout))
             time.sleep(0.1)
         subprocess.run(['sudo', 'chgrp', 'bigbluebutton', rfbpath])
         subprocess.run(['sudo', 'chmod', 'g+rw', rfbpath])
+
+
+def ensure_vnc_server(UNIXuser, rfbpath, viewOnly=False, max_attempts=5, total_timeout=40, jitter=True):
+    r"""
+    Make sure a persistent VNC server is listening on `rfbpath`, serializing
+    against concurrent callers and retrying a failed spawn.
+
+    Serialization (a flock keyed on the rfbpath socket) closes the double-spawn
+    race: the BBB remote-desktop plugin opens two websockets per page load, and
+    without the lock both pass the `os.path.exists` check and both call
+    start_VNC_server, colliding on the `-rfbunixpath` socket and the per-user
+    gnome singletons.  The wait stays INSIDE the lock so the second caller can't
+    race past the check while the winner's machinectl chain is still creating the
+    socket.  The lock is keyed on the socket (basename of rfbpath), not the UNIX
+    user: for student/teacher desktops rfbpath is /run/vnc/<user> so it's
+    effectively per-user, while the shared 'default' screenshare desktop is
+    /run/vnc/<meetingID>, so each meeting gets its own lock and meetings don't
+    serialize against (or stall) each other.
+
+    Retry-with-jitter recovers a display-number collision *in place*: when
+    simultaneous class-start spawns pick the same `:N`, the loser dies, but by
+    the time we retry the winner holds the display lock, so the retry is
+    effectively a lone spawn and cleanly skips to the next free display.
+    Randomized backoff de-synchronizes a batch of losers so they spread out
+    instead of re-colliding on the next display.  The whole thing is bounded
+    by `total_timeout` (kept under noVNC's ~50 s connect timeout, so the heal
+    lands on the live connection without needing a client page reload), and
+    the lock is ALWAYS released -- a failed spawn can no longer wedge the user
+    forever (the spawn-lock deadlock).
+    """
+    spawn_lock_fd = _acquire_spawn_lock(os.path.basename(rfbpath))
+    try:
+        deadline = time.monotonic() + total_timeout
+        for attempt in range(1, max_attempts + 1):
+            if os.path.exists(rfbpath):
+                return
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RuntimeError(
+                    "VNC server for {} not ready within {}s".format(UNIXuser, total_timeout))
+            try:
+                start_VNC_server(UNIXuser, rfbpath, viewOnly=viewOnly, timeout=remaining)
+                return
+            except RuntimeError:
+                if os.path.exists(rfbpath):   # a concurrent/previous spawn won the race
+                    return
+                if attempt >= max_attempts or time.monotonic() >= deadline:
+                    raise
+                if jitter:
+                    time.sleep(random.uniform(0.1, 0.4 * attempt))
+    finally:
+        _release_spawn_lock(spawn_lock_fd)
 
 
 from websockify.websocketproxy import ProxyRequestHandler
@@ -288,21 +369,11 @@ def new_websocket_client(self):
             self.server.unix_target = socket_fn
         else:
             # default if no .vncserver or .vncsocket exists
-            # Serialize the check+spawn+wait per user so two concurrent
-            # websockets (the BBB plugin sends two per page load) can't both
-            # pass the `os.path.exists` check and both call start_VNC_server.
-            # The wait stays INSIDE the lock so the second caller doesn't
-            # race past `os.path.exists` while the winner's machinectl shell
-            # chain is still creating the socket.
-            spawn_lock_fd = _acquire_spawn_lock(UNIXuser)
-            try:
-                if not os.path.exists(rfbpath):
-                    start_VNC_server(UNIXuser, rfbpath)
-
-                while not os.path.exists(rfbpath):
-                    time.sleep(0.1)
-            finally:
-                _release_spawn_lock(spawn_lock_fd)
+            # ensure_vnc_server serializes the check+spawn+wait per user (so the
+            # two websockets the BBB plugin sends per page load can't double-spawn)
+            # and retries a failed spawn with jitter, bounded in time, always
+            # releasing the lock.  See its docstring for the full rationale.
+            ensure_vnc_server(UNIXuser, rfbpath)
 
             # Next, select teacher mode if user can access more than one desktop in /run/vnc
             # This way doesn't work right because this script runs as root:
@@ -354,8 +425,11 @@ def new_websocket_client(self):
         UNIXuser = 'default'
         rfbpath = '/run/vnc/' + meetingID
 
-        if not os.path.exists(rfbpath):
-            start_VNC_server(UNIXuser, rfbpath, viewOnly=True)
+        # Same serialized + bounded + retried spawn as the student/teacher path.
+        # The lock is keyed on the meeting's socket (basename of rfbpath), so the
+        # screenshare desktops of different meetings don't serialize against each
+        # other; viewOnly keeps this desktop input-free.
+        ensure_vnc_server(UNIXuser, rfbpath, viewOnly=True)
         self.server.unix_target = rfbpath
 
     # pass through to the "parent" class's version of this method
