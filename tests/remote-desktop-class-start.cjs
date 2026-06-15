@@ -57,6 +57,9 @@
  *                -- override RD_MODERATOR/RD_PREFIX on a shared/production host
  *                   so the dummy accounts (and the scoped cleanup) can't collide
  *                   with real ones.
+ *   RD_SPAWN_SECS first-phase wait for the sockets before declaring a wedge
+ *                (default 60). Lower it (with RD_DIAGNOSE) to deterministically
+ *                catch a slow spawn at the cutoff and watch whether it heals.
  *   RD_DIAGNOSE  if set, on a wedge don't kill immediately: keep polling for the
  *                stuck sockets (to tell a SLOW spawn from a TRUE deadlock) and
  *                dump each stuck user's session journal / lock holder / log.
@@ -83,7 +86,10 @@ const N = parseInt(process.argv[2] || process.env.RD_STUDENTS || '4', 10);
 // (spaces are squashed), and ALL kill/rm/deluser is scoped to exactly these.
 const MODERATOR = process.env.RD_MODERATOR || 'RDTeacher';
 const STUDENT_PREFIX = process.env.RD_PREFIX || 'Student';
-const SPAWN_TIMEOUT_MS = 60000;
+// First-phase poll: how long to wait for the sockets before declaring a wedge.
+// Lower it (with RD_DIAGNOSE) to deterministically catch a slow spawn at the
+// cutoff and then watch whether it heals.
+const SPAWN_TIMEOUT_MS = parseInt(process.env.RD_SPAWN_SECS || '60', 10) * 1000;
 
 const students = Array.from({ length: N }, (_, i) => `${STUDENT_PREFIX}${String(i + 1).padStart(2, '0')}`);
 const allUsers = [MODERATOR, ...students];
