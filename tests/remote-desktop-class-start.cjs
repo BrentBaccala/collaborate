@@ -277,6 +277,34 @@ function captureState(u) {
   ].join('\n'));
 }
 
+// Classify WHY a stuck spawn died. The display-collision signature
+// ("(EE) Server is already active for display N" / "is taken because of
+// /tmp/.X*-lock") lives in the bbb-vnc-collaborate SERVICE journal and is keyed
+// by the tigervncserver PID, NOT the username -- so correlate via this user's
+// "Log file is /home/$u/.vnc/...:N.log" lines (which DO carry the username) to
+// the same PID's collision lines. (This is the bit that was missed before:
+// grepping the 0-byte ~/.vnc log, or the journal by username, never sees it.)
+function classifyWedge(u) {
+  return ssh([
+    `u=${u}`,
+    `J=$(sudo journalctl -u bbb-vnc-collaborate --since "15 min ago" --no-pager 2>/dev/null)`,
+    `pids=$(printf '%s\\n' "$J" | grep -F "Log file is /home/$u/.vnc" | sed -nE 's/.*python3\\[([0-9]+)\\].*/\\1/p' | sort -u)`,
+    `disp=$(printf '%s\\n' "$J" | grep -F "Log file is /home/$u/.vnc" | grep -oE ':[0-9]+\\.log' | grep -oE '[0-9]+' | sort -u | tr '\\n' ' ')`,
+    `hit=""`,
+    // classify on the FATAL "already active for display" (the lost bind); the
+    // "is taken because of /tmp/.X*-lock" warnings are the RECOVERABLE case (the
+    // spawn skipped to a free display and succeeded), so they're context, not the
+    // verdict.
+    `for p in $pids; do printf '%s\\n' "$J" | grep -E "python3\\[$p\\]:" | grep -iqE "already active for display" && hit=yes; done`,
+    `if [ -n "$hit" ]; then`,
+    `  echo "    CAUSE: DISPLAY-NUMBER COLLISION (Bug 2) on display(s) \${disp:-?} -- Xvnc hit the FATAL 'Server is already active for display'; gnome then could not open the display. Evidence (fatal + the lock-race warnings that led to it):"`,
+    `  for p in $pids; do printf '%s\\n' "$J" | grep -E "python3\\[$p\\]:" | grep -iE "already active for display|is taken because of /tmp/\\.X" | tail -3 | sed 's/^/      /'; done`,
+    `else`,
+    `  echo "    CAUSE: no fatal display collision for $u -- some other spawn failure (see session journal above)"`,
+    `fi`,
+  ].join('\n'));
+}
+
 // On a wedge, DON'T kill immediately: keep watching for the socket so we can
 // tell a merely-slow spawn (it eventually appears -> not a true deadlock) from
 // a stuck one (never appears -> apparent deadlock), and capture why.
@@ -304,8 +332,9 @@ async function diagnoseWedged(stuck) {
     if (healed[u] != null) {
       console.log(`#   ${u}: SLOW (healed after ${healed[u]}s) -- the unbounded wait merely held the lock too long`);
     } else {
-      console.log(`#   ${u}: STILL STUCK after ${secs}s -> apparent TRUE deadlock. Final state:`);
-      process.stdout.write(captureState(u));
+      console.log(`#   ${u}: STILL STUCK after ${secs}s -> apparent TRUE deadlock.`);
+      process.stdout.write(classifyWedge(u));   // collision vs other-failure
+      process.stdout.write(captureState(u));     // raw final state
     }
   }
 }
