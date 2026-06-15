@@ -52,6 +52,15 @@
  *   RD_SSH       ssh target with sudo on the host     (default ubuntu@jammy-300.samsung)
  *   RD_MEETING   meeting name                         (default RDClassStart)
  *   RD_STUDENTS  number of students                   (default 4)
+ *   RD_MODERATOR dummy moderator name                 (default RDTeacher)
+ *   RD_PREFIX    dummy student name prefix            (default Student)
+ *                -- override RD_MODERATOR/RD_PREFIX on a shared/production host
+ *                   so the dummy accounts (and the scoped cleanup) can't collide
+ *                   with real ones.
+ *   RD_DIAGNOSE  if set, on a wedge don't kill immediately: keep polling for the
+ *                stuck sockets (to tell a SLOW spawn from a TRUE deadlock) and
+ *                dump each stuck user's session journal / lock holder / log.
+ *   RD_DIAGNOSE_SECS  how long to watch in diagnose mode (default 240)
  *   RD_KEEP      if set, leave the desktops up after the run (don't clean)
  *   PW_MODULE    path to a playwright module
  *   PW_CHROME    path to a chromium executable
@@ -69,10 +78,14 @@ const SSH = process.env.RD_SSH || 'ubuntu@jammy-300.samsung';
 const SECRET = process.env.RD_SECRET || 'bbbci';   // BBB shared secret, for the end-meeting teardown
 const MEETING = process.env.RD_MEETING || 'RDClassStart';
 const N = parseInt(process.argv[2] || process.env.RD_STUDENTS || '4', 10);
-const MODERATOR = 'RDTeacher';
+// Dummy account names -- override on a shared/production host so they can't
+// collide with (or have cleanup touch) real accounts. fullName == UNIX user
+// (spaces are squashed), and ALL kill/rm/deluser is scoped to exactly these.
+const MODERATOR = process.env.RD_MODERATOR || 'RDTeacher';
+const STUDENT_PREFIX = process.env.RD_PREFIX || 'Student';
 const SPAWN_TIMEOUT_MS = 60000;
 
-const students = Array.from({ length: N }, (_, i) => `Student${String(i + 1).padStart(2, '0')}`);
+const students = Array.from({ length: N }, (_, i) => `${STUDENT_PREFIX}${String(i + 1).padStart(2, '0')}`);
 const allUsers = [MODERATOR, ...students];
 
 // ---- locate playwright + a chromium binary (browsers here predate the sdk's
@@ -242,6 +255,55 @@ function wedgedLocks() {
     `[ -e "$f" ] && sudo fuser "$f" >/dev/null 2>&1 && echo $u; done; true`).trim();
 }
 
+// Snapshot the server-side state of one stuck user: live spawn processes, who
+// holds the spawn lock (and for how long), the per-display log, and the user's
+// session journal -- where a machinectl-shelled gnome/Xvnc death/hang logs its
+// error (NOT the ~/.vnc log, which is why those come back 0 bytes).
+function captureState(u) {
+  return ssh([
+    `u=${u}`,
+    `echo "  -- $u --"`,
+    `ps -eo user:20,pid,etimes,cmd | awk -v U="$u" '$1==U' | grep -E "[X]tigervnc|[m]achinectl|[g]nome-session|[t]igervncserver" | head -4 || echo "    (no live spawn procs for $u)"`,
+    `f=/run/vnc/.$u.spawnlock; if [ -e "$f" ]; then echo "    spawnlock holders:"; sudo lsof "$f" 2>/dev/null | awk 'NR>1{print "      "$2" "$4" elapsed="}'; else echo "    (no spawnlock)"; fi`,
+    `l=$(sudo ls -1t /home/$u/.vnc/*:*.log 2>/dev/null | head -1); echo "    log: \${l##*/} ($([ -n "$l" ] && sudo wc -c < "$l" || echo 0)B)"; [ -n "$l" ] && sudo tail -3 "$l" 2>/dev/null | sed 's/^/      /'`,
+    `uid=$(id -u "$u" 2>/dev/null); if [ -n "$uid" ]; then echo "    session journal (_UID=$uid):"; sudo journalctl _UID="$uid" --since "8 min ago" --no-pager 2>/dev/null | tail -6 | sed 's/^/      /'; fi`,
+    `echo "    bbb-vnc-collaborate journal:"; sudo journalctl -u bbb-vnc-collaborate --since "8 min ago" --no-pager 2>/dev/null | grep -iw "$u" | tail -4 | sed 's/^/      /'`,
+  ].join('\n'));
+}
+
+// On a wedge, DON'T kill immediately: keep watching for the socket so we can
+// tell a merely-slow spawn (it eventually appears -> not a true deadlock) from
+// a stuck one (never appears -> apparent deadlock), and capture why.
+async function diagnoseWedged(stuck) {
+  const secs = parseInt(process.env.RD_DIAGNOSE_SECS || '240', 10);
+  console.log(`\n# === DIAGNOSE: ${stuck.length} stuck student(s); watching up to ${secs}s WITHOUT killing ===`);
+  console.log('# initial server-side state of each stuck spawn:');
+  for (const u of stuck) process.stdout.write(captureState(u));
+  const t0 = Date.now();
+  const healed = {};
+  const pending = new Set(stuck);
+  while (pending.size && (Date.now() - t0) / 1000 < secs) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const up = studentsUp();
+    for (const u of [...pending]) {
+      if (up.has(u)) {
+        healed[u] = Math.round((Date.now() - t0) / 1000);
+        pending.delete(u);
+        console.log(`#   HEALED: ${u} socket appeared after ${healed[u]}s -> SLOW spawn, not a permanent deadlock`);
+      }
+    }
+  }
+  console.log('\n# === DIAGNOSE VERDICT ===');
+  for (const u of stuck) {
+    if (healed[u] != null) {
+      console.log(`#   ${u}: SLOW (healed after ${healed[u]}s) -- the unbounded wait merely held the lock too long`);
+    } else {
+      console.log(`#   ${u}: STILL STUCK after ${secs}s -> apparent TRUE deadlock. Final state:`);
+      process.stdout.write(captureState(u));
+    }
+  }
+}
+
 (async () => {
   console.log(`# remote-desktop class-start test: ${N} students vs ${HOST} (meeting ${MEETING})`);
   const { chromium, request } = loadPlaywright();
@@ -292,6 +354,10 @@ function wedgedLocks() {
     if (wedged) console.log(`# WEDGED spawn locks (held, never released -- the deadlock): ${wedged}`);
     pass = missing.length === 0 && !wedged;
     console.log(`\nRESULT: ${pass ? 'PASS' : 'FAIL'}  (${up.size}/${N} desktops up, ${wedged ? 'wedged locks present' : 'no wedged locks'})`);
+
+    // RD_DIAGNOSE: before cleanup, watch the stuck spawns long enough to tell
+    // a slow spawn from a true deadlock, and capture why they stalled.
+    if (process.env.RD_DIAGNOSE && missing.length) await diagnoseWedged(missing);
   } finally {
     await browser.close();
     if (!process.env.RD_KEEP) {
