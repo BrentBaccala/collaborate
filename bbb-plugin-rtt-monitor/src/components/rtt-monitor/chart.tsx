@@ -65,12 +65,20 @@ export function RttChart({
   // Y gridlines / labels at decade + threshold marks.
   const yTicks = [10, 25, 50, 100, 250, 500, 1000, 2000, 5000, 10000];
 
-  // X tick labels: a few evenly spaced wall-clock times.
-  const xTickCount = Math.max(2, Math.min(6, Math.floor(plotW / 90)));
+  // X ticks anchored to wall-clock minute boundaries. Each tick is a fixed
+  // clock time mapped through xScale, so as `now` advances the tick and its
+  // label slide left together and eventually scroll off the left edge — rather
+  // than ticks sitting at fixed pixel positions while only their labels change.
+  const MIN_MS = 60_000;
+  const spanMin = Math.max(1, (now - windowStart) / MIN_MS);
+  const maxTicks = Math.max(2, Math.min(7, Math.floor(plotW / 80)));
+  // Smallest "nice" minute step that keeps the tick count within maxTicks.
+  const STEP_MIN = [1, 2, 5, 10, 15, 30, 60];
+  const stepMs = (STEP_MIN.find((s) => spanMin / s <= maxTicks) ?? 60) * MIN_MS;
+  // First minute boundary at/after windowStart, then step across to now.
+  const firstTick = Math.ceil(windowStart / stepMs) * stepMs;
   const xTicks: number[] = [];
-  for (let i = 0; i <= xTickCount; i += 1) {
-    xTicks.push(windowStart + ((now - windowStart) * i) / xTickCount);
-  }
+  for (let t = firstTick; t <= now; t += stepMs) xTicks.push(t);
   const fmtTime = (t: number): string => {
     const d = new Date(t);
     let h = d.getHours();
