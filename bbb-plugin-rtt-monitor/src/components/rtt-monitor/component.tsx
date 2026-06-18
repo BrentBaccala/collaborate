@@ -42,11 +42,13 @@ function RttMonitorPlugin({ pluginUuid }: RttMonitorPluginProps): React.ReactEle
 
   const isModerator = currentUser?.role === 'MODERATOR';
 
-  // Only run the subscription for moderators. The hook must be called
-  // unconditionally (rules of hooks), so we pass an empty query for
-  // non-moderators, which the SDK treats as inactive.
+  // Run the subscription unconditionally (rules of hooks). The server-side
+  // Hasura permission is what enforces scoping: a moderator's session returns
+  // every meeting user's rows, a viewer's returns only their own. The UI is
+  // separately gated on moderator role below, so a viewer never sees a panel —
+  // but even if they did, they would only ever receive their own RTT.
   const subResult = pluginApi.useCustomSubscription<ConnectionStatusHistoryData>(
-    isModerator ? RTT_SUBSCRIPTION : '',
+    RTT_SUBSCRIPTION,
   );
   const rows = (subResult?.data as any)?.user_connectionStatusHistory || [];
 

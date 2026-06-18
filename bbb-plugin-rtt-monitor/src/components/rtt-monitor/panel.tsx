@@ -65,7 +65,7 @@ export function RttPanel({ rows, windowMinutes, onClose }: PanelProps): React.Re
   // Build the sorted, trimmed series list for the chart. Drop users with no
   // in-window samples so the legend stays clean, but keep the buffer intact.
   const series: UserSeries[] = [];
-  for (const s of bufferRef.current.values()) {
+  for (const s of Array.from(bufferRef.current.values())) {
     const inWindow = s.samples
       .filter((p) => p.t >= windowStart - 1000)
       .sort((a, b) => a.t - b.t);

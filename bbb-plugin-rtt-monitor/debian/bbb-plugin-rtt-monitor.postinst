@@ -25,7 +25,10 @@ case "$1" in
                 echo "pluginManifests=[{\"url\":\"$MANIFEST_URL\"}]" >> "$BBB_WEB_PROPS"
                 echo "bbb-plugin-rtt-monitor: added manifest to bbb-web.properties"
             else
-                NEW=$(echo "$CURRENT" | sed "s/]$/,{\"url\":\"$MANIFEST_URL\"}]/")
+                # Append our entry before the closing ']'. The URL contains
+                # '/', so use '#' as the sed delimiter (not '/'). Both the
+                # match here and the write-back below avoid '/' delimiters.
+                NEW=$(echo "$CURRENT" | sed "s#]\$#,{\"url\":\"$MANIFEST_URL\"}]#")
                 sed -i "s|^pluginManifests=.*|pluginManifests=$NEW|" "$BBB_WEB_PROPS"
                 echo "bbb-plugin-rtt-monitor: appended manifest to existing pluginManifests"
             fi

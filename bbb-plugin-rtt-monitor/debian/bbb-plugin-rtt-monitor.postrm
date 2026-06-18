@@ -9,7 +9,7 @@ case "$1" in
             CURRENT=$(grep -oP '(?<=^pluginManifests=).*' "$BBB_WEB_PROPS" 2>/dev/null || echo "")
 
             if echo "$CURRENT" | grep -q "rtt-monitor/manifest.json"; then
-                NEW=$(echo "$CURRENT" | sed 's/,\?{"url":"[^"]*rtt-monitor\/manifest.json"}//g' | sed 's/\[,/[/')
+                NEW=$(echo "$CURRENT" | sed 's#,\?{"url":"[^"]*rtt-monitor/manifest.json"}##g' | sed 's#\[,#[#')
 
                 if [ "$NEW" = "[]" ] || [ -z "$NEW" ]; then
                     sed -i '/^pluginManifests=/d' "$BBB_WEB_PROPS"
