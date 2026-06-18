@@ -69,26 +69,46 @@ session.
 
 For the default 10-minute window to be populated *immediately* on open
 (rather than filling in over the first ~10 min the panel is open), raise the
-history cap. In `/usr/share/meteor/bundle/programs/server/assets/app/config/settings.yml`
-(or the `/etc/bigbluebutton/bbb-html5.yml` override), set:
+history cap. The cap lives under `public.stats` in the deployed client
+settings. On BBB 3.0 (verified on 3.0-1672 / jammy-300) the file is:
+
+```
+/usr/share/bigbluebutton/html5-client/private/config/settings.yml
+```
+
+(older / meteor-bundle layouts use
+`/usr/share/meteor/bundle/programs/server/assets/app/config/settings.yml`).
+Add `lastEntriesCap` inside the existing `stats:` block — note that a stock
+3.0 settings.yml ships the `stats:` block **without** a `lastEntriesCap`
+key at all, so you are adding it:
 
 ```yaml
 public:
   stats:
-    lastEntriesCap: 64   # ≈ 10.5 min at 10 s cadence (default 20 ≈ 3.3 min)
+    rtt:
+      warning: 500
+      danger: 1000
+      critical: 2000
+    help: STATS_HELP_URL
+    lastEntriesCap: 64   # ≈ 10.5 min at 10 s cadence (default in schema is 20 ≈ 3.3 min)
 ```
 
-The SQL trigger in `bbb_schema.sql` reads this from client settings and caps
-the UNLOGGED history table accordingly. Apply with a restart that re-reads
-client settings and the trigger:
+The history-trim trigger in `bbb_schema.sql`
+(`update_user_connectionStatus_trigger_func`) reads this per-meeting from
+`meeting_clientSettings.clientSettingsJson->'public'->'stats'->'lastEntriesCap'`
+and keeps only the most-recent N rows per `(meetingId, userId, sessionToken)`
+via `OFFSET lastEntriesCap`. The value is captured at meeting-creation time,
+so apply with a restart that re-reads client settings, then start a **new**
+meeting:
 
 ```bash
-sudo bbb-conf --restart        # or: systemctl restart bbb-apps-akka bbb-graphql-server
+sudo bbb-conf --restart        # re-reads client settings; restarts bbb-web, akka, graphql
 ```
 
-The plugin works with **whatever cap is set** — the bump only changes how
-much backfill is visible the instant the panel opens. The client-side buffer
-extends the window past the cap regardless.
+The plugin works with **whatever cap is set** (or none — it then shows
+however much history exists). The bump only changes how much backfill is
+visible the instant the panel opens; the client-side buffer extends the
+window past the cap while the panel stays open regardless.
 
 ### Registering the plugin
 
