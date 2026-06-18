@@ -1,3 +1,14 @@
+bbb-plugin-rtt-monitor (0.1.0-2) unstable; urgency=medium
+
+  * Scrolling time axis: x-axis ticks are now anchored to wall-clock
+    minute boundaries and slide left as time advances — the tick mark and
+    its label move together and scroll off the left edge — instead of
+    sitting at fixed pixel positions while only their labels change. Tick
+    spacing picks the smallest "nice" minute step (1/2/5/10/15/30/60) that
+    fits the plot width.
+
+ -- Brent Baccala <cosine@freesoft.org>  Thu, 18 Jun 2026 19:16:27 -0400
+
 bbb-plugin-rtt-monitor (0.1.0-1) unstable; urgency=medium
 
   * Initial release. Moderator-only live per-user connection-RTT
