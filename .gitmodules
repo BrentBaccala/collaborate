@@ -1,3 +1,6 @@
 [submodule "bbb-plugin-remote-desktop"]
 	path = bbb-plugin-remote-desktop
 	url = git@github.com:BrentBaccala/bbb-plugin-remote-desktop.git
+[submodule "bbb-plugin-rtt-monitor"]
+	path = bbb-plugin-rtt-monitor
+	url = git@github.com:BrentBaccala/bbb-plugin-rtt-monitor.git
