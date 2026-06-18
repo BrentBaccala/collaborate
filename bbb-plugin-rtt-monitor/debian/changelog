@@ -1,0 +1,17 @@
+bbb-plugin-rtt-monitor (0.1.0-1) unstable; urgency=medium
+
+  * Initial release. Moderator-only live per-user connection-RTT
+    monitor for BigBlueButton v3.0. Launcher in the options ("...")
+    menu (moderators only); a movable floating window plots every
+    participant's networkRttInMs over a rolling window (default
+    10 min) as a per-user scatter on a log axis with the BBB
+    warning/danger/critical thresholds drawn in. Data comes from a
+    custom subscription on the user_connectionStatusHistory GraphQL
+    view, joined with the user relationship for name/role; Hasura
+    permissions scope rows to all meeting users for a moderator and
+    own-rows-only for a viewer. The panel keeps its own rolling
+    client-side buffer so the window grows past the server's
+    last-N-samples cap and degrades gracefully when little history
+    exists.
+
+ -- Brent Baccala <cosine@freesoft.org>  Wed, 18 Jun 2026 19:00:00 +0000

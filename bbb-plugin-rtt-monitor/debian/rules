@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	npm install
+	npm run build
+
+override_dh_auto_install:
+	install -d debian/bbb-plugin-rtt-monitor/var/www/bigbluebutton-default/assets/plugins/rtt-monitor/locales
+	install -m 644 dist/RttMonitor-*.js debian/bbb-plugin-rtt-monitor/var/www/bigbluebutton-default/assets/plugins/rtt-monitor/
+	install -m 644 dist/manifest.json debian/bbb-plugin-rtt-monitor/var/www/bigbluebutton-default/assets/plugins/rtt-monitor/
+	install -m 644 dist/locales/en.json debian/bbb-plugin-rtt-monitor/var/www/bigbluebutton-default/assets/plugins/rtt-monitor/locales/
+
+override_dh_auto_test:

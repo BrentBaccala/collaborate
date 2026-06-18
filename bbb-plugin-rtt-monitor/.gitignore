@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-tsc/
+*.tgz
+*.deb
+*.buildinfo
+*.changes
+debian/.debhelper/
+debian/*.debhelper
+debian/bbb-plugin-rtt-monitor/
+debian/bbb-plugin-rtt-monitor.substvars
+debian/debhelper-build-stamp
+debian/files

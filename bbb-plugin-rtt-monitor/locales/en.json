@@ -1,0 +1,6 @@
+{
+  "RttMonitor.launch": "Connection RTT monitor",
+  "RttMonitor.title": "Connection RTT (network round-trip to server)",
+  "RttMonitor.close": "Close",
+  "RttMonitor.noData": "No RTT samples yet — waiting for the next probe (~10 s)…"
+}
