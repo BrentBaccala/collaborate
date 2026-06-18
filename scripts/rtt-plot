@@ -1,0 +1,150 @@
+#!/usr/bin/python3
+#
+# rtt-plot -- plot per-user BigBlueButton connection RTT over time.
+#
+# Standalone companion to rtt-report: reads the bbb-apps-akka journal directly
+# (journalctl) and renders networkRttInMs as a scatter, one color per user, on
+# a log y-axis with the BBB warning/danger/critical thresholds drawn in. Each
+# dot is one /rtt-check sample (~one per 10 s). See rtt-report for the data
+# source and what the numbers mean.
+#
+#   rtt-plot -o /tmp/rtt.png                 # today, on this host
+#   rtt-plot --since "06:00" --until "12:00" -o /tmp/rtt.png
+#   rtt-plot --user bruce -o /tmp/bruce.png
+#   rtt-plot --host ubuntu@itpietraining.com -o /tmp/rtt.png  # over ssh
+#
+# Needs matplotlib. The bbb-apps-akka journal is readable without sudo by
+# members of the `adm` / `systemd-journal` groups.
+
+import argparse
+import json
+import re
+import shlex
+import subprocess
+import sys
+from collections import defaultdict
+from datetime import datetime
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+
+WARNING, DANGER, CRITICAL = 500, 1000, 2000
+
+RTT_RE = re.compile(
+    r'(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{2}:\d{2})'
+    r'.*handleUserConnectionAliveReqMsg:\s*'
+    r'networkRttInMs=(?P<rtt>[\d.]+)\s+'
+    r'userId=(?P<uid>\S+)'
+)
+REGISTER_RE = re.compile(r'-- analytics -- (\{.*"RegisterUserReqMsg".*\})\s*$')
+
+
+def read_journal(unit, since, until, host):
+    cmd = ['journalctl', '-u', unit, '--output=cat', '--no-pager']
+    if since:
+        cmd += ['--since', since]
+    if until:
+        cmd += ['--until', until]
+    if host:
+        cmd = ['ssh', host, shlex.join(cmd)]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError as e:
+        sys.exit(f"could not run {'ssh' if host else 'journalctl'}: {e}")
+    if proc.returncode != 0:
+        sys.exit(f"journalctl failed ({proc.returncode}): {proc.stderr.strip()}")
+    return proc.stdout.splitlines()
+
+
+def parse(lines):
+    """Return {name: [(datetime, rtt), ...]}."""
+    names, samples = {}, []
+    for line in lines:
+        m = REGISTER_RE.search(line)
+        if m:
+            try:
+                body = json.loads(m.group(1))['core']['body']
+                uid = body.get('intUserId')
+                if uid:
+                    names[uid] = body.get('name', uid)
+            except (ValueError, KeyError):
+                pass
+            continue
+        m = RTT_RE.search(line)
+        if m:
+            # Drop tz so the axis shows local wall-clock time, not UTC.
+            t = datetime.fromisoformat(m.group('ts')).replace(tzinfo=None)
+            samples.append((t, m.group('uid'), float(m.group('rtt'))))
+    series = defaultdict(list)
+    for t, uid, rtt in samples:
+        series[names.get(uid, uid)].append((t, rtt))
+    return series
+
+
+def plot(series, out_path, title):
+    fig, ax = plt.subplots(figsize=(13, 6))
+    colors = ['#c62828', '#1565c0', '#2e7d32', '#6a1b9a',
+              '#e65100', '#00838f', '#5d4037', '#283593']
+    for (name, pts), color in zip(sorted(series.items()),
+                                  colors * (len(series) // len(colors) + 1)):
+        pts.sort()
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        med = sorted(ys)[len(ys) // 2]
+        ax.plot(xs, ys, marker='o', ms=4, ls='none', color=color, alpha=0.7,
+                label=f"{name}  (n={len(ys)}, median={med:.0f} ms, "
+                      f"peak={max(ys):.0f} ms)")
+
+    for y, lbl, c in [(WARNING, 'warning 500 ms', '#f9a825'),
+                      (DANGER, 'danger 1000 ms', '#ef6c00'),
+                      (CRITICAL, 'critical 2000 ms', '#c62828')]:
+        ax.axhline(y, ls='--', lw=0.8, color=c, alpha=0.7)
+        ax.text(1.005, y, lbl, va='center', ha='left', fontsize=8, color=c,
+                transform=ax.get_yaxis_transform(), clip_on=False)
+
+    ax.set_yscale('log')
+    ax.set_ylim(10, 15000)
+    ax.set_ylabel('network RTT to BBB server (log scale)')
+    ax.set_xlabel('time')
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%-I:%M %p'))
+
+    def fmt_rtt(v, _):
+        return f'{v / 1000:g} s' if v >= 1000 else f'{v:g} ms'
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(fmt_rtt))
+
+    ax.set_title(title)
+    ax.grid(True, which='both', axis='y', alpha=0.2)
+    ax.legend(loc='upper left', fontsize=9, framealpha=0.9)
+    fig.savefig(out_path, dpi=130, bbox_inches='tight')
+    print(f"wrote {out_path}")
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Plot BigBlueButton connection RTT over time from the "
+                    "bbb-apps-akka journal.")
+    ap.add_argument('--since', default='today',
+                    help='journalctl --since value (default: today)')
+    ap.add_argument('--until', help='journalctl --until value')
+    ap.add_argument('--unit', default='bbb-apps-akka', help='systemd unit')
+    ap.add_argument('--host', help='run journalctl over ssh on this host')
+    ap.add_argument('--user', metavar='SUBSTR',
+                    help='limit to users whose name matches SUBSTR')
+    ap.add_argument('-o', '--out', default='/tmp/bbb-rtt.png',
+                    help='output PNG path (default: /tmp/bbb-rtt.png)')
+    args = ap.parse_args()
+
+    series = parse(read_journal(args.unit, args.since, args.until, args.host))
+    if args.user:
+        sub = args.user.lower()
+        series = {n: p for n, p in series.items() if sub in n.lower()}
+    if not series:
+        sys.exit("No RTT samples found in range.")
+
+    plot(series, args.out, 'BigBlueButton client connection RTT (/rtt-check keepalive)')
+
+
+if __name__ == '__main__':
+    main()

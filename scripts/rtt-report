@@ -1,0 +1,179 @@
+#!/usr/bin/python3
+#
+# rtt-report -- per-user connection-quality report for BigBlueButton.
+#
+# BBB's client runs a web worker that periodically GETs
+# /bigbluebutton/rtt-check and times the round trip; the result is sent to
+# bbb-apps-akka, which logs one line per sample:
+#
+#   ... o.b.core.apps.users.UsersApp - handleUserConnectionAliveReqMsg: \
+#       networkRttInMs=86.0 userId=w_hi7f1twclmuc serverRequestId=...
+#
+# This probe runs regardless of audio/video/screenshare, so it is the one
+# network signal that exists even in a remote-desktop-only session. The akka
+# journal persists past meeting end (the live user_connectionStatus DB table
+# does not), so this is the way to review connection quality after the fact.
+#
+# This tool reads the akka journal directly (journalctl), joins RTT samples to
+# user display names (from the RegisterUserReqMsg analytics line in the same
+# journal), and prints a worst-first summary. Pass --csv to also write the
+# per-sample time series.
+#
+#   rtt-report                       # today, on this host
+#   rtt-report --since "06:00" --until "12:00"
+#   rtt-report --user bruce --csv /tmp/rtt.csv
+#   rtt-report --host ubuntu@itpietraining.com   # run journalctl over ssh
+#
+# The bbb-apps-akka journal is readable without sudo by members of the `adm`
+# / `systemd-journal` groups (the BBB host's admin user is in `adm`).
+#
+# RTT level thresholds (BBB defaults, public.stats.rtt): warning>=500,
+# danger>=1000, critical>=2000 ms.
+
+import argparse
+import csv
+import json
+import re
+import shlex
+import subprocess
+import sys
+from statistics import mean, median
+
+WARNING, DANGER, CRITICAL = 500.0, 1000.0, 2000.0
+
+RTT_RE = re.compile(
+    r'(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{2}:\d{2})'
+    r'.*handleUserConnectionAliveReqMsg:\s*'
+    r'networkRttInMs=(?P<rtt>[\d.]+)\s+'
+    r'userId=(?P<uid>\S+)'
+)
+REGISTER_RE = re.compile(r'-- analytics -- (\{.*"RegisterUserReqMsg".*\})\s*$')
+
+
+def read_journal(unit, since, until, host):
+    """Run journalctl (locally or over ssh) and return its lines."""
+    cmd = ['journalctl', '-u', unit, '--output=cat', '--no-pager']
+    if since:
+        cmd += ['--since', since]
+    if until:
+        cmd += ['--until', until]
+    if host:
+        cmd = ['ssh', host, shlex.join(cmd)]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError as e:
+        sys.exit(f"could not run {'ssh' if host else 'journalctl'}: {e}")
+    if proc.returncode != 0:
+        sys.exit(f"journalctl failed ({proc.returncode}): {proc.stderr.strip()}")
+    return proc.stdout.splitlines()
+
+
+def parse(lines):
+    names, meta, samples = {}, {}, []
+    for line in lines:
+        m = REGISTER_RE.search(line)
+        if m:
+            try:
+                body = json.loads(m.group(1))['core']['body']
+                uid = body.get('intUserId')
+                if uid:
+                    names[uid] = body.get('name', uid)
+                    jm = body.get('joinRequestMetadata', {})
+                    meta[uid] = {'ip': jm.get('ipAddress', ''),
+                                 'role': body.get('role', '')}
+            except (ValueError, KeyError):
+                pass
+            continue
+        m = RTT_RE.search(line)
+        if m:
+            samples.append((m.group('ts'), m.group('uid'), float(m.group('rtt'))))
+    return names, meta, samples
+
+
+def pct(values, p):
+    if not values:
+        return 0.0
+    s = sorted(values)
+    k = max(0, min(len(s) - 1, int(round((p / 100.0) * (len(s) - 1)))))
+    return s[k]
+
+
+def level(rtt):
+    if rtt >= CRITICAL:
+        return 'critical'
+    if rtt >= DANGER:
+        return 'danger'
+    if rtt >= WARNING:
+        return 'warning'
+    return 'normal'
+
+
+def report(names, meta, samples, out=sys.stdout):
+    by_user = {}
+    for ts, uid, rtt in samples:
+        by_user.setdefault(uid, []).append((ts, rtt))
+    if not by_user:
+        print("No handleUserConnectionAliveReqMsg samples found in range.", file=out)
+        return
+    order = sorted(by_user, key=lambda u: pct([r for _, r in by_user[u]], 95),
+                   reverse=True)
+    hdr = (f"{'user':<22}{'n':>5}{'min':>7}{'med':>7}{'mean':>7}"
+           f"{'p95':>7}{'max':>8}{'warn':>6}{'dang':>6}{'crit':>6}  window")
+    print(hdr, file=out)
+    print("-" * len(hdr), file=out)
+    for uid in order:
+        rtts = [r for _, r in by_user[uid]]
+        ts = [t for t, _ in by_user[uid]]
+        name = names.get(uid, uid)
+        warn = sum(1 for r in rtts if WARNING <= r < DANGER)
+        dang = sum(1 for r in rtts if DANGER <= r < CRITICAL)
+        crit = sum(1 for r in rtts if r >= CRITICAL)
+        window = f"{ts[0][11:19]}-{ts[-1][11:19]}"
+        label = name if len(name) <= 21 else name[:20] + '…'
+        print(f"{label:<22}{len(rtts):>5}{min(rtts):>7.0f}{median(rtts):>7.0f}"
+              f"{mean(rtts):>7.0f}{pct(rtts, 95):>7.0f}{max(rtts):>8.0f}"
+              f"{warn:>6}{dang:>6}{crit:>6}  {window}", file=out)
+        ip = meta.get(uid, {}).get('ip')
+        if ip:
+            print(f"  {'':<20}ip={ip}  role={meta[uid].get('role', '')}", file=out)
+
+
+def write_csv(path, names, samples):
+    with open(path, 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['timestamp', 'userId', 'name', 'networkRttInMs', 'level'])
+        for ts, uid, rtt in samples:
+            w.writerow([ts, uid, names.get(uid, uid), f"{rtt:.0f}", level(rtt)])
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description="Per-user BigBlueButton connection-RTT report from the "
+                    "bbb-apps-akka journal.")
+    ap.add_argument('--since', default='today',
+                    help='journalctl --since value (default: today)')
+    ap.add_argument('--until', help='journalctl --until value')
+    ap.add_argument('--unit', default='bbb-apps-akka', help='systemd unit')
+    ap.add_argument('--host', help='run journalctl over ssh on this host '
+                                   '(e.g. ubuntu@itpietraining.com)')
+    ap.add_argument('--user', metavar='SUBSTR',
+                    help='limit to users whose name matches SUBSTR')
+    ap.add_argument('--csv', metavar='PATH', help='also write per-sample CSV')
+    args = ap.parse_args()
+
+    names, meta, samples = parse(
+        read_journal(args.unit, args.since, args.until, args.host))
+
+    if args.user:
+        sub = args.user.lower()
+        keep = {u for u, n in names.items() if sub in n.lower()}
+        samples = [s for s in samples if s[1] in keep]
+
+    report(names, meta, samples)
+    if args.csv:
+        write_csv(args.csv, names, samples)
+        print(f"\nWrote {len(samples)} samples to {args.csv}", file=sys.stderr)
+
+
+if __name__ == '__main__':
+    main()
