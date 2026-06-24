@@ -4,6 +4,7 @@ import os
 import sys
 
 import vnc_collaborate.freeswitch as freeswitch
+from vnc_collaborate.desktop_name import set_vnc_desktop_name
 
 def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
    r"""
@@ -98,8 +99,19 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
       env = os.environ
       # env['SSVNC_DEBUG_SELECTION'] = '1'
 
+      # Reflect the zoomed desktop in this session's RFB desktop name so the
+      # BBB remote-desktop plugin can show it under this user in the moderator
+      # user list. An empty STUDENT_ID means the teacher zoomed their own
+      # desktop -> blank (no label). A 6th title field, when present, carries
+      # the BBB full name (see teacher_desktop.py); fall back to the display.
+      full_name = args[5] if len(args) >= 6 else ""
+      set_vnc_desktop_name("" if not STUDENT_ID else (full_name or STUDENT_DISPLAY))
+
       proc = subprocess.Popen(proc_args, env=env)
       proc.wait()
+
+      # The fullscreen viewer has exited; we're back in the grid view.
+      set_vnc_desktop_name("Grid")
 
       if proc.returncode < 0:
          import signal as signal_module

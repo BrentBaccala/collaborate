@@ -31,6 +31,7 @@ import psycopg2
 from .simple_text import simple_text
 from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
+from .desktop_name import set_vnc_desktop_name
 
 def debug(*args, **kwargs):
     pass
@@ -384,7 +385,12 @@ def main_loop_grid(reset_display):
             # Use the title of the window to identify these windows to the FVWM config,
             # and to pass information (their userID and display name) to teacher_zoom.
             # The title won't be displayed with our default FVWM config for teacher mode.
-            title = ";".join(["TeacherViewVNC", IDS[display], display, geometry, VNC_SOCKET[display]])
+            # A 6th field carries the BBB full name so teacher_zoom can publish it
+            # as the RFB desktop name (FVWM patterns match "TeacherViewVNC;*", so a
+            # trailing field is safe). ';' is stripped so it can't corrupt the split.
+            zoom_label = LABELS[None] if display == myMeetingID else LABELS.get(display, "")
+            zoom_label = " ".join(str(zoom_label or "").replace(";", " ").split())
+            title = ";".join(["TeacherViewVNC", IDS[display], display, geometry, VNC_SOCKET[display], zoom_label])
 
             if display in locations and locations[display] != next_location:
                 # it moved in the grid
@@ -515,6 +521,8 @@ def main_loop():
 def restore_original_state():
     for procs in processes.values():
         kill_processes(procs)
+    # Leaving grid mode -> back on our own desktop: clear the label.
+    set_vnc_desktop_name("")
     subprocess.run(["xsetroot", "-solid", "grey"])
     subprocess.Popen(["fvwm", "-r"])
 
@@ -690,6 +698,8 @@ def teacher_desktop(screenx=None, screeny=None):
     retry_attempts = 10
     while subprocess.run(["xsetroot", "-solid", "black"]).returncode != 0 and retry_attempts > 0:
         retry_attempts -= 1
+    # Entering grid mode: label this user as viewing the grid.
+    set_vnc_desktop_name("Grid")
     debug('initial call to main_loop')
     main_loop()
 

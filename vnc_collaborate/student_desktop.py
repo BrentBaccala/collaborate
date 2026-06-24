@@ -27,6 +27,7 @@ import select
 from .simple_text import simple_text
 from .vnc import get_VNC_info
 from .users import fullName_to_UNIX_username, fullName_to_rfbport
+from .desktop_name import set_vnc_desktop_name
 
 # xtigervncviewer is prefered for its cut-and-paste capability
 
@@ -186,6 +187,10 @@ def student_desktop(screenx=None, screeny=None):
     #fvwm = subprocess.Popen(args)
 
     subprocess.run(["xsetroot", "-solid", "black"])
+
+    # On our own desktop: no desktop-name label (the moderator user list shows
+    # a name only when the user is viewing someone else's desktop / the grid).
+    set_vnc_desktop_name("")
 
     # I'd like to catch these signals and kill any subprocesses before exiting this script,
     # but it's very difficult to make that work right.  Exiting the process from a thread
