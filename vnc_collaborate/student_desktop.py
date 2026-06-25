@@ -151,6 +151,11 @@ def listen_forever_for_screenshare_events(UNIXname):
             current_screenshare = new_screenshare
             old_screen = current_screen
             viewonly = (current_screenshare != UNIXname)
+            # Reflect the screenshare in this session's RFB desktop name so the
+            # BBB plugin shows it under every user in the moderator user list.
+            # Blank == "on my own desktop"; otherwise the screenshared user's
+            # (UNIX) name -- the same value the grid indicator already shows.
+            set_vnc_desktop_name(current_screenshare if viewonly else "")
             current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
             old_screen.terminate()
         while True:
@@ -163,6 +168,7 @@ def listen_forever_for_screenshare_events(UNIXname):
                         current_screenshare = new_screenshare
                         old_screen = current_screen
                         viewonly = (current_screenshare != UNIXname)
+                        set_vnc_desktop_name(current_screenshare if viewonly else "")
                         current_screen = add_full_screen(current_screenshare, viewonly=viewonly)
                         old_screen.terminate()
 
