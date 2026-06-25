@@ -101,11 +101,18 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
 
       # Reflect the zoomed desktop in this session's RFB desktop name so the
       # BBB remote-desktop plugin can show it under this user in the moderator
-      # user list. An empty STUDENT_ID means the teacher zoomed their own
-      # desktop -> blank (no label). A 6th title field, when present, carries
-      # the BBB full name (see teacher_desktop.py); fall back to the display.
-      full_name = args[5] if len(args) >= 6 else ""
-      set_vnc_desktop_name("" if not STUDENT_ID else (full_name or STUDENT_DISPLAY))
+      # user list. The 6th title field carries the desktop's label (BBB full
+      # name, or the UNIX user for non-participant desktops); see
+      # teacher_desktop.py. The moderator's own desktop is launched without that
+      # field (launch_desktop_viewer builds a 5-field name), so it stays blank.
+      #
+      # Do NOT key "own desktop" on an empty STUDENT_ID: remote/tunneled
+      # desktops pulled in from other servers aren't BBB participants, so their
+      # STUDENT_ID (IDS[display]) is empty too, which wrongly blanked them.
+      if len(args) >= 6:
+         set_vnc_desktop_name(args[5] or STUDENT_DISPLAY)
+      else:
+         set_vnc_desktop_name("")
 
       proc = subprocess.Popen(proc_args, env=env)
       proc.wait()
