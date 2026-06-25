@@ -1,7 +1,7 @@
 # Makefile for the collaborate packages
 #
 # Author: Brent Baccala
-# Last updated: March 2026
+# Last updated: June 2026
 #
 # This makefile builds the server-side packages for BigBlueButton 3.0
 # remote desktop collaboration on Ubuntu 22.04 (jammy):
@@ -24,12 +24,21 @@ SHELL := /bin/bash
 
 TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S')
 
+# The apt repository this Makefile maintains and publishes. It lives under
+# ~/website now (formerly ~/collaborate/jammy-300, still a symlink); use this
+# variable everywhere so there is a single source of truth for its location.
+REPO := $(HOME)/website/jammy-300
+CODENAME := bigbluebutton-jammy
+
 all: reprepro keys
 
 packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
 
 rsync: all
-	rsync -avvz --delete /home/claude/website/jammy-300 ubuntu@u24.freesoft.org:/var/www/html
+	# No trailing slash on $(REPO): rsync syncs it *into* /var/www/html as
+	# the jammy-300/ subdir, so --delete is scoped to /var/www/html/jammy-300/
+	# and never touches the rest of the www.freesoft.org docroot.
+	rsync -avvz --delete $(REPO) ubuntu@u24.freesoft.org:/var/www/html
 
 # Packages with their own build.sh scripts
 
@@ -119,11 +128,16 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 
 # bbb-plugin-remote-desktop — git submodule, built with dpkg-buildpackage
 
+# dpkg-buildpackage emits both bbb-plugin-remote-desktop and bbb-wss-proxy into
+# this directory. Clear old copies first so we don't accumulate stale versions
+# (the cp glob would otherwise pick up every past build), and refresh both
+# binaries in build/.
 bbb-plugin-remote-desktop:
+	rm -f bbb-plugin-remote-desktop_*.deb bbb-wss-proxy_*.deb
 	cd bbb-plugin-remote-desktop && npm install && npm run build && dpkg-buildpackage -us -uc -b -d
 	mkdir -p build
-	rm -f build/bbb-plugin-remote-desktop*.deb
-	cp bbb-plugin-remote-desktop_*.deb build/
+	rm -f build/bbb-plugin-remote-desktop*.deb build/bbb-wss-proxy*.deb
+	cp bbb-plugin-remote-desktop_*.deb bbb-wss-proxy_*.deb build/
 
 # dash-to-panel — download current version from PPA (not in Ubuntu 22.04 repos)
 
@@ -163,22 +177,32 @@ vncdotool:
 # Repository targets
 
 reprepro: packages
-	mkdir -p jammy-300/conf
-	cp reprepro/* jammy-300/conf/
-	cd jammy-300; for pkg in $$(reprepro list bigbluebutton-jammy 2>/dev/null | awk '{print $$2}' | sort -u); do \
-		reprepro remove bigbluebutton-jammy $$pkg; \
+	mkdir -p $(REPO)/conf
+	cp reprepro/* $(REPO)/conf/
+	# Replace ONLY the packages we just built (one current .deb each in build/),
+	# leaving any other packages already in the repo untouched (e.g.
+	# bbb-plugin-rtt-monitor, vnc-desktop, vnc-tunnel, libxft*). The old target
+	# wiped every package and re-added build/*.deb, which silently dropped those.
+	# remove-then-includedeb also makes a same-version rebuild idempotent.
+	for deb in build/*.deb; do \
+		pkg=$$(dpkg-deb -f "$$deb" Package); \
+		echo "reprepro: replacing $$pkg"; \
+		reprepro -b $(REPO) remove $(CODENAME) "$$pkg" >/dev/null 2>&1 || true; \
+		reprepro -b $(REPO) includedeb $(CODENAME) "$$deb"; \
 	done
-	cd jammy-300; reprepro includedeb bigbluebutton-jammy ../build/*.deb
-	echo Header set Cache-Control no-cache > jammy-300/dists/.htaccess
+	echo "Header set Cache-Control no-cache" > $(REPO)/dists/.htaccess
 
-keys: jammy-300/freesoft.asc
+keys: $(REPO)/freesoft.asc
 
-jammy-300/freesoft.asc:
-	mkdir -p jammy-300
-	gpg --export --armor --output jammy-300/freesoft.asc
+$(REPO)/freesoft.asc:
+	mkdir -p $(REPO)
+	gpg --export --armor --output $(REPO)/freesoft.asc
 
+# NB: clean removes build artifacts only. It deliberately does NOT touch $(REPO)
+# — that is the published apt repository, not a build product.
 clean:
-	rm -rf build dist deb_dist jammy-300
+	rm -rf build dist deb_dist
+	rm -f bbb-plugin-remote-desktop_*.deb bbb-wss-proxy_*.deb *.buildinfo *.changes
 	cd bbb-vnc-collaborate && rm -rf staging *.deb
 	cd python3-vnc-collaborate && rm -rf staging *.deb
 	cd python3-bigbluebutton && rm -rf staging *.deb
