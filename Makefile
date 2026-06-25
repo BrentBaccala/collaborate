@@ -34,7 +34,13 @@ all: reprepro keys
 
 packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
 
-rsync: all
+# Publish only. Deliberately has NO build prerequisite: the package targets in
+# `packages` are phony and rebuild unconditionally (npm/dpkg-buildpackage for
+# the plugin, a GitHub fetch for vncdotool, etc.), so chaining `rsync: all`
+# rebuilt ~6 packages just to publish an already-current repo. Build + stage
+# explicitly first -- `make reprepro` (all packages) or a single package plus
+# `make reprepro` -- then `make rsync` to push $(REPO) as-is.
+rsync:
 	# No trailing slash on $(REPO): rsync syncs it *into* /var/www/html as
 	# the jammy-300/ subdir, so --delete is scoped to /var/www/html/jammy-300/
 	# and never touches the rest of the www.freesoft.org docroot.
