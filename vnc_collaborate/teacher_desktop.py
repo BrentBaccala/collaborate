@@ -673,6 +673,16 @@ def start_http_listener():
 
 def teacher_desktop(screenx=None, screeny=None):
 
+    # This session lands on the moderator's own desktop (desktop 0, see the
+    # launch_desktop_viewer() call after main_loop below), so start with a
+    # blank desktop name -> no user-list label. Clearing it first thing, before
+    # the slower grid setup in main_loop(), avoids briefly flashing the Xvnc
+    # default name or a transient "Grid" label while the session initializes.
+    # "Grid" is set later, when the user actually switches to the grid view
+    # (toggle_desktop_view kills the own-desktop viewer, whose teacher_zoom exit
+    # sets "Grid").
+    set_vnc_desktop_name("")
+
     # Start HTTP listener for plugin commands (grid toggle, etc.)
     # Must start before FVWM so $TEACHER_DESKTOP_PORT is available in the environment
     start_http_listener()
@@ -698,8 +708,6 @@ def teacher_desktop(screenx=None, screeny=None):
     retry_attempts = 10
     while subprocess.run(["xsetroot", "-solid", "black"]).returncode != 0 and retry_attempts > 0:
         retry_attempts -= 1
-    # Entering grid mode: label this user as viewing the grid.
-    set_vnc_desktop_name("Grid")
     debug('initial call to main_loop')
     main_loop()
 
