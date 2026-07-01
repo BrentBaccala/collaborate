@@ -486,7 +486,17 @@ def main_loop():
     try:
         # If the geometry of the grid view changed (user selected "Set Geometry" from menu), we need to restart fvwm
         geometry_changed = get_global_display_geometry()
+        # Which virtual desktop the teacher was viewing before the (possible)
+        # fvwm restart below.  The restart always brings fvwm up on desktop 0
+        # (the own-desktop view), but "Set Geometry" is only reachable from
+        # grid mode (desktop 1); we use this to return to the grid afterwards.
+        # Left None when nothing changed, and empty on the initial startup call
+        # (no window manager running yet), so neither triggers the restore.
+        desktop_before_restart = None
         if geometry_changed:
+            desktop_before_restart = subprocess.run(
+                ["xdotool", "get_desktop"],
+                stdout=subprocess.PIPE, encoding='ascii').stdout.strip()
             fvwm_config = 'teacher_mode_fvwm_config'
             args = ["fvwm", "-c", "PipeRead 'python3 -m vnc_collaborate print %s'" % fvwm_config, "-r"]
             global fvwm
@@ -514,6 +524,16 @@ def main_loop():
         # we don't need to pass page_changed to main_loop_grid, because it will already kill all off-screen viewers
         main_loop_grid(geometry_changed or grid_changed)
         main_loop_screenshare(geometry_changed or grid_changed or page_changed)
+
+        # A geometry change restarts fvwm (above), which comes up on desktop 0.
+        # If the teacher was viewing the grid (desktop 1) when they picked "Set
+        # Geometry", return them there and restore the grid mouse bindings (F23),
+        # mirroring toggle_desktop_view().  Otherwise (initial startup, or a
+        # change made from the own-desktop view) leave the desktop as fvwm set
+        # it, so the startup path in teacher_desktop() still lands on desktop 0.
+        if desktop_before_restart == '1':
+            subprocess.run(["xdotool", "set_desktop", "1"])
+            subprocess.run(["xdotool", "key", "F23"])
 
     except Exception as ex:
         simple_text(repr(ex), SCREENX/2, SCREENY - 300)
