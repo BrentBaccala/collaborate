@@ -8,3 +8,5 @@ from .freeswitch import deaf_students, undeaf_students, mute_students, unmute_st
 from .student_audio_controls import student_audio_controls
 
 from .websockify import websockify
+
+from .set_geometry import set_geometry

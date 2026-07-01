@@ -35,6 +35,8 @@ if len(sys.argv) > 1:
         unmute_students(sys.argv[2:])
     elif sys.argv[1] == 'mute_students':
         mute_students(sys.argv[2:])
+    elif sys.argv[1] == 'set_geometry':
+        sys.exit(set_geometry(*sys.argv[2:]))
     elif sys.argv[1] == 'websockify':
         websockify()
     elif sys.argv[1] == 'tigervncserver':
