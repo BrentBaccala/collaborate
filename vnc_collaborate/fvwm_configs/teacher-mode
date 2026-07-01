@@ -176,8 +176,8 @@ AddToFunc ToggleGridView
  + I Exec curl -s http://localhost:$TEACHER_DESKTOP_PORT/grid-toggle
 
 # F22: toggle grid view (from BBB plugin's grid button)
-# F23: restore grid bindings (sent by Python after switching to desk 0)
-# F24: remove grid bindings (sent by Python after switching to desk 1)
+# F23: restore grid bindings (sent by Python after switching to desk 1)
+# F24: remove grid bindings (sent by Python after switching to desk 0)
 
 Key F22 A A ToggleGridView
 Key F23 A A RestoreGridBindings
