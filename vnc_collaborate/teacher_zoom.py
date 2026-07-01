@@ -86,9 +86,15 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
                       # '-Log', 'Viewport:stdout:100',
                       VNC_SOCKET]
       elif VNC_VIEWER == 'ssvncviewer':
+         # No escape sequence: the teacher exits a zoom via the grid button
+         # (F22 -> ToggleGridView), which works because this viewer runs
+         # windowed (no keyboard grab).  This matches the xtigervncviewer path
+         # (which never had an escape sequence) and the grid thumbnails
+         # (-escape never), and avoids an accidental Alt-Shift-Q kicking the
+         # teacher out of a student's desktop.
          proc_args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
                       '-geometry', geometry, '-scale', str(scale),
-                      '-escape', 'Alt_L',
+                      '-escape', 'never',
                       'unix=' + VNC_SOCKET]
       else:
          proc_args = [VNC_VIEWER, VNC_SOCKET]

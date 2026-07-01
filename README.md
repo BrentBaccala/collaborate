@@ -41,7 +41,7 @@ observe all student desktops running in a Big Blue Button session and
 interact with them individually.  When a student's desktop is selected
 (by clicking on it), that student desktop becomes full screen on the
 teacher desktop, and the session audio is undeafed for that student
-only.  Pressing an escape sequence (ALT-SHIFT-Q) returns the teacher
+only.  Clicking the grid button returns the teacher
 to the overview mode, and re-deafs the student.
 
 Here's a screenshot of "teacher mode" with four students connected:
