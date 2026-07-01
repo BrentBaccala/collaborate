@@ -658,6 +658,14 @@ def toggle_desktop_view():
     else:
         # We're on the desktop view — kill zoomed viewer windows.
         # Search on desktop 0 only to avoid killing grid viewers on desktop 1.
+        # Use windowkill (XKillClient), not windowclose (WM_DELETE): ssvncviewer
+        # -- the scaled zoom viewer, used whenever the grid geometry differs from
+        # the desktop's native size -- advertises WM_DELETE_WINDOW but ignores
+        # it, so windowclose never terminates it.  The viewer then lingers and
+        # teacher_zoom's post-exit set_vnc_desktop_name("Grid") never runs, so
+        # the moderator's "Grid" label is delayed or missing.  windowkill exits
+        # both viewer types immediately (exit code 1, not a signal, so it trips
+        # no "died with signal" warning in teacher_zoom).
         for pattern in ["Zoomed Student Desktop", "TigerVNC"]:
             result = subprocess.run(
                 ["xdotool", "search", "--desktop", "0", "--name", pattern],
@@ -665,7 +673,7 @@ def toggle_desktop_view():
             )
             for wid in result.stdout.strip().split('\n'):
                 if wid:
-                    subprocess.run(["xdotool", "windowclose", wid])
+                    subprocess.run(["xdotool", "windowkill", wid])
         # Switch to desktop 1 (grid view).
         time.sleep(0.5)
         subprocess.run(["xdotool", "set_desktop", "1"])
