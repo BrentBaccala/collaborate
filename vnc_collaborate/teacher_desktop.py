@@ -610,10 +610,17 @@ def launch_desktop_viewer():
         str(SCREENX), str(SCREENY),
     ])
 
-    # Wait for the TigerVNC viewer window to appear on desktop 0
+    # Wait for the own-desktop viewer window to appear on desktop 0.
+    # teacher_zoom picks the viewer by scale: xtigervncviewer (window name
+    # "...TigerVNC") when the grid geometry matches the moderator's desktop
+    # 1:1, otherwise ssvncviewer (window name "Zoomed Student Desktop").  Match
+    # either -- the same two names toggle_desktop_view() uses on the kill side.
+    # Waiting only for "TigerVNC" made every grid->own-desktop toggle stall the
+    # full 5 s whenever the grid had been resized away from the native geometry.
     for _ in range(50):  # up to 5 seconds
         result = subprocess.run(
-            ["xdotool", "search", "--desktop", "0", "--name", "TigerVNC"],
+            ["xdotool", "search", "--desktop", "0", "--name",
+             "Zoomed Student Desktop|TigerVNC"],
             stdout=subprocess.PIPE, encoding='ascii'
         )
         if result.stdout.strip():
