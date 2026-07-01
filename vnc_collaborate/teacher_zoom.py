@@ -92,8 +92,16 @@ def teacher_zoom(window, desktop_width, desktop_height, *optional_args):
          # (which never had an escape sequence) and the grid thumbnails
          # (-escape never), and avoids an accidental Alt-Shift-Q kicking the
          # teacher out of a student's desktop.
+         # -x11cursor: use the real X11 cursor rather than a painted soft
+         # cursor.  In scale mode ssvncviewer otherwise composites the remote
+         # pointer into the software-scaled image, which lags the local pointer
+         # and shows as a second, trailing cursor.  ssvnc's own -help recommends
+         # -x11cursor for scale-mode cursor artifacts; it also matches the
+         # xtigervncviewer (1:1) path, which uses the X cursor and never had the
+         # double-cursor.
          proc_args = ['ssvncviewer', '-title', 'Zoomed Student Desktop',
                       '-geometry', geometry, '-scale', str(scale),
+                      '-x11cursor',
                       '-escape', 'never',
                       'unix=' + VNC_SOCKET]
       else:
