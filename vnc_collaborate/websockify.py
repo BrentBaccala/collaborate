@@ -332,28 +332,36 @@ def new_websocket_client(self):
         _reject_with_rfb_reason(self, reason or 'The remote desktop is currently unavailable.')
         return
 
-    url = urllib.parse.urlparse(self.path)
-    querydict = urllib.parse.parse_qs(url.query)
-
-    # querydict includes 'sessionToken'
+    # Authenticate the session token by calling bbb-web's checkAuthorization
+    # ourselves (this used to be an nginx `auth_request`, but that can only
+    # allow/deny with an HTTP 401 -- opaque to the browser as a bare WS close
+    # 1006).  By moving the check here, an invalid/expired token can be refused
+    # at the RFB layer with a specific reason string that the remote-desktop
+    # plugin surfaces on its connection-error overlay.
     #
-    # HTTP request to /bigbluebutton/connection/checkAuthorization
-    # will return User-Id and Meeting-Id in HTTP response headers
+    # checkAuthorization is `internal;` in bbb-web.nginx, so it can't be reached
+    # via the public serverURL -- we hit bbb-web directly on loopback.
+    # 127.0.0.1:8090 is hardcoded ~9x in bbb-web.nginx (LISTEN_PORT is read only
+    # by bbb-web.service, not by nginx), so it's a de-facto fixed constant; we
+    # match BBB's own convention rather than over-engineer a port lookup.
     #
-    # API call to getMeetingInfo with meetingID will return XML with attendee/userID and attendee/fullName
-    #
-    # or just make an API call to getMeetings.  Simplier, but returns more data
-
-    if 'User-Id' in self.headers:
-        userID = self.headers['User-Id']
-        meetingID = self.headers['Meeting-Id']
-    else:
-        params = {'sessionToken': querydict['sessionToken']}
-        response = requests.get('https://test24.freesoft.org/bigbluebutton/connection/checkAuthorization', params=params)
-        # This will raise an exception if sessionToken isn't valid
-        response.raise_for_status()
-        userID = response['User-Id']
-        meetingID = response['Meeting-Id']
+    # checkAuthorization reads the token from X-Original-URI and validates the
+    # JSESSIONID-keyed session, so BOTH X-Original-URI (= self.path, e.g.
+    # /vnc?sessionToken=...) and the browser Cookie must be forwarded.  On
+    # success it returns User-Id/Meeting-Id response headers + 200, else 401.
+    BBB_WEB = 'http://127.0.0.1:8090'   # matches bbb-web.nginx's own hardcode
+    resp = requests.get(BBB_WEB + '/bigbluebutton/connection/checkAuthorization',
+                        headers={'X-Original-URI': self.path,
+                                 'Cookie': self.headers.get('Cookie', '')},
+                        allow_redirects=False)
+    if resp.status_code != 200:
+        _reject_with_rfb_reason(
+            self,
+            'Your BigBlueButton token is not valid (it may have expired). '
+            'Please rejoin the meeting')
+        return
+    userID    = resp.headers['User-Id']
+    meetingID = resp.headers['Meeting-Id']
 
     # something seems to be wrong with this API call - returns 500 Internal Server Error (Aug 26 2022)
     #meetings = bigbluebutton.getMeetingInfo(meetingID=meetingID)
