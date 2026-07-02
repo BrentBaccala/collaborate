@@ -159,7 +159,9 @@ geometry, window tree, current RFB desktop name).
   the button reads "unlocked". *(User-reported: share → screenshare →
   un-screenshare → the desktop comes back with input locked though the button
   shows unlocked — a `locked`/`rfb.viewOnly` desync across the reconnect
-  remount.) Harness: `tests/d5-viewonly-after-screenshare.cjs`. Oracle
+  remount. **Seen on itpietraining.com** — the production teacher-grid
+  deployment, not reproduced on the jammy-300 solo VM.) Harness:
+  `tests/d5-viewonly-after-screenshare.cjs`. Oracle
   (validated): read the live RFB via React-fiber traversal from its `<canvas>`
   and compare `rfb._viewOnly` to the lock button's aria-label. Baseline (share →
   interactive, button matches) passes; the screenshare cycle needs a display
@@ -176,6 +178,22 @@ geometry, window tree, current RFB desktop name).
   `VncDisplay.connect()` applies it via the passthrough loop right after
   `new RFB(...)`; a suspected root cause is that assignment racing the fresh
   connection.*
+- **D6 — "Connection lost" only after a real connection** **[NEW / UNFIXED]** —
+  sharing a remote desktop pointed at an unresponsive / unreachable endpoint
+  (the `/vnc` websocket never opens, or noVNC never reaches its `connect`
+  event) must show a **"could not connect"**-style message, NOT *"The connection
+  to the remote desktop was lost."* The "lost" wording is only correct for a
+  drop **after** a successful connect. *(User-reported: an unresponsive URL shows
+  the "lost" message even though there was never a connection.) Root cause:
+  `vnc-content.tsx` `handleDisconnect` shows the same overlay
+  (`connError.reason || 'The connection to the remote desktop was lost.'`) on
+  **any** noVNC `disconnect`, with no distinction for "never connected". Oracle:
+  point a share at a black-hole endpoint (e.g. a port that accepts the WS
+  upgrade then goes silent, or an unreachable host) and assert the overlay reads
+  the never-connected variant; then do a real connect + server-side kill and
+  assert it reads the "lost" variant. Fix sketch: track a `hasConnected` ref set
+  in `handleConnect` (reset on `reconnectCounter` change); choose the overlay
+  message from it. Not yet implemented — noted per request.)*
 
 ### E. Rendering / crashes (earlier sessions)
 
