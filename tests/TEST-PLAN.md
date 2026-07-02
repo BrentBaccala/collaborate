@@ -77,21 +77,21 @@ geometry, window tree, current RFB desktop name).
   desktop (e.g. `WindowsServer2022`, no human to trigger a connection) appears
   in the grid after a host reboot. *(Bug 6 — no boot-time spawn trigger yet;
   currently fails.)*
-- **A7 — Blank share** **[NEW/UNFIXED — root-caused]** — share → unshare →
-  re-share; the share must connect the outer session to the inner desktop.
-  *(Bug 9. Harness: `tests/a7-blank-second-share.cjs`. **Root cause found
-  2026-07-01:** the outer inetd `teacher_desktop`/`student_desktop` spawn
-  (`websockify.py:407-413`) is a bare `socat`/`tigervncserver -inetd` Popen with
-  **no display-collision protection** — unlike the persistent-desktop
-  (`:376`) and screenshare (`:432`) paths, which use `ensure_vnc_server`'s
-  bounded-wait + retry-with-jitter (Bug 1/2 fix). When the outer spawn's display
-  pick collides with a display still held by a not-fully-released prior/concurrent
-  session, it fails silently → blank. Empirically confirmed: with a display
-  occupied (a leaked grid on `:2`) the share blanks; from a clean state it
-  connects (acc moved, `:2` spawned, estab=2). This matches A7's original
-  "2nd share blank, 1st & 3rd+ work" — the 2nd share races the 1st's teardown
-  for the same display. **Fix:** route the outer inetd spawn through the same
-  collision-retry logic, or make its display allocation collision-safe.)*
+- **A7 — Blank share** **[NEW — could not reproduce in normal use]** — share →
+  unshare → re-share; the share must connect the outer session to the inner
+  desktop. *(Bug 9. Harness: `tests/a7-blank-second-share.cjs`, verified working
+  2026-07-01.* **Finding:** on the current build (plugin `658ff7b`,
+  vnc-collaborate `184327`) **3/3 sequential shares connected** — the outer
+  inetd spawn even skipped a busy `:2` to take `:3` and still connected. The one
+  blank observed earlier was against a **3.6h-stale *leaked* `:2`** (a test
+  artifact), i.e. an abnormal/stale display state, not normal contention. So A7
+  is **not an active bug in normal share/unshare** here.
+  *Latent risk (not triggered):* the outer inetd spawn (`websockify.py:407-413`)
+  is a bare `socat`/`tigervncserver -inetd` Popen with **no `ensure_vnc_server`
+  collision-retry** (the persistent-desktop `:376` and screenshare `:432` paths
+  have it). It skips normal occupied displays fine, but a stale/corrupt display
+  (e.g. a leaked session's lock) can still wedge it → blank. Worth hardening for
+  robustness; keep the harness as a regression guard.)*
 
 ### B. Teacher grid — Set Geometry (this session)
 

@@ -89,13 +89,17 @@ async function dismissAudioModal(page) {
 // generic BBB modal close button; fall back to an aria "Close ..." button.
 async function dismissModals(page) {
   try {
-    await evalClick(page, () => {
+    const r = await withTimeout(page.evaluate(() => {
+      const overlays = document.querySelectorAll('.ReactModal__Overlay').length;
       const btn = document.querySelector('[data-test="closeModal"]')
         || [...document.querySelectorAll('button[aria-label^="Close"]')][0];
+      const label = btn ? (btn.getAttribute('aria-label') || btn.getAttribute('data-test') || 'closeModal') : null;
       if (btn) btn.click();
-    }, 'dismiss-modal');
+      return { overlays, closed: label };
+    }), 8000, 'dismiss-modal');
+    if (process.env.A7_DEBUG) console.log(`    [dismissModals] overlays=${r.overlays} closed=${r.closed}`);
     await sleep(400);
-  } catch (e) { /* none */ }
+  } catch (e) { if (process.env.A7_DEBUG) console.log('    [dismissModals] err ' + e.message.split('\n')[0]); }
 }
 
 async function join(browser, url) {
@@ -117,14 +121,22 @@ async function actionItem(page, re, label) {
     try {
       await dismissModals(page);
       await evalClick(page, () => document.querySelector('button[data-test="actionsButton"]').click(), 'actions-open');
-      await page.waitForFunction((src) => [...document.querySelectorAll('[role="menuitem"],li,button')]
-        .some(e => new RegExp(src, 'i').test(e.textContent)), re.source, { timeout: 7000 });
-      const clicked = await evalClick(page, (src) => {
-        const it = [...document.querySelectorAll('[role="menuitem"],li,button')]
-          .find(e => new RegExp(src, 'i').test(e.textContent));
-        if (!it) return false; it.click(); return true;
-      }, label);
-      if (clicked) return true;
+      if (process.env.A7_DEBUG) {
+        await sleep(500);
+        const st = await page.evaluate((src) => ({
+          overlays: document.querySelectorAll('.ReactModal__Overlay').length,
+          menuitems: document.querySelectorAll('[role="menuitem"]').length,
+          targetFound: [...document.querySelectorAll('[role="menuitem"],li,button')].some(e => new RegExp(src, 'i').test(e.textContent)),
+        }), re.source);
+        console.log(`    [actionItem ${label} attempt ${attempt}] overlays=${st.overlays} menuitems=${st.menuitems} targetFound=${st.targetFound}`);
+      }
+      // Real-click the item with Playwright: a synthetic element.click() inside
+      // evaluate() does NOT trigger BBB's dropdown-item handler (the modal never
+      // opens), even though the same DOM click works for the plain actionsButton.
+      const item = page.getByRole('menuitem', { name: re }).first();
+      await item.waitFor({ state: 'visible', timeout: 7000 });
+      await item.click({ timeout: 5000 });
+      return true;
     } catch (e) {
       await page.keyboard.press('Escape').catch(() => {});
       await sleep(1000);
@@ -135,6 +147,15 @@ async function actionItem(page, re, label) {
 
 async function share(page) {
   if (!await actionItem(page, /Share a remote desktop/, 'share-item')) return false;
+  if (process.env.A7_DEBUG) {
+    await sleep(600);
+    const st = await page.evaluate(() => ({
+      reactModals: document.querySelectorAll('.ReactModal__Content').length,
+      dialogs: document.querySelectorAll('[role="dialog"]').length,
+      hasURL: [...document.querySelectorAll('.ReactModal__Content,[role="dialog"]')].some(m => /Remote Desktop URL/i.test(m.textContent || '')),
+    }));
+    console.log(`    [share] after item-click: reactModals=${st.reactModals} dialogs=${st.dialogs} hasURL=${st.hasURL}`);
+  }
   try {
     await page.waitForFunction(() => [...document.querySelectorAll('.ReactModal__Content')]
       .some(m => /Remote Desktop URL/i.test(m.textContent)), undefined, { timeout: 7000 });
