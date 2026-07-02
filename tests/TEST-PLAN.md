@@ -151,6 +151,31 @@ geometry, window tree, current RFB desktop name).
 - **D4 — Reconnect paths** **[NEW]** — after a screenshare removes and re-adds
   our content, `reconnectCounter` bumps and the desktop comes back; the manual
   Reconnect button works.
+- **D5 — Input not silently locked after content return** **[EXISTS — oracle
+  validated; trigger not reproduced on jammy-300 solo]** — after the remote
+  desktop leaves and re-enters the presentation pile (the `content returned to
+  layout` forced-reconnect path), the live noVNC `viewOnly` must match the lock
+  button: a fresh, unlocked share must be **interactive**, never view-only while
+  the button reads "unlocked". *(User-reported: share → screenshare →
+  un-screenshare → the desktop comes back with input locked though the button
+  shows unlocked — a `locked`/`rfb.viewOnly` desync across the reconnect
+  remount.) Harness: `tests/d5-viewonly-after-screenshare.cjs`. Oracle
+  (validated): read the live RFB via React-fiber traversal from its `<canvas>`
+  and compare `rfb._viewOnly` to the lock button's aria-label. Baseline (share →
+  interactive, button matches) passes; the screenshare cycle needs a display
+  where `getDisplayMedia` works (`D5_HEADED=1` under `xvfb-run`).* **Finding
+  (2026-07-02):** on jammy-300 as a **solo presenter** a screenshare *starts*
+  (`getDisplayMedia`/`screenshareActive` true) yet does **not** swap the remote
+  desktop out of the pile — `showingContent` never flips, so the reconnect never
+  fires and the desync can't arise here; the test SKIPs that cycle rather than
+  false-passing. Re-share and Minimize-presentation also keep the content
+  CURRENT. *Where the swap-out actually happens (a viewer's layout, the
+  collaborate teacher-grid deployment, or a specific BBB version) is still to be
+  pinned — run the harness there with `RD_HOST`/`RD_SSH` set. Code note: noVNC
+  takes `viewOnly` as a settable property, not a constructor option, so
+  `VncDisplay.connect()` applies it via the passthrough loop right after
+  `new RFB(...)`; a suspected root cause is that assignment racing the fresh
+  connection.*
 
 ### E. Rendering / crashes (earlier sessions)
 
