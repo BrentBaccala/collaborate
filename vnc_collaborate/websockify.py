@@ -298,7 +298,39 @@ from websockify.websocketproxy import ProxyRequestHandler
 
 old_new_websocket_client = ProxyRequestHandler.new_websocket_client
 
+REJECT_SENTINEL = '/run/vnc-collaborate-reject'
+
+
+def _reject_with_rfb_reason(self, reason):
+    """Route this connection to the rfb_reject responder so the client gets an
+    RFB security-failure with `reason` (and the plugin shows it) instead of a
+    blank panel.  socat bridges the WebSocket (via websockify's unix_target) to
+    the inetd-style rfb_reject filter, exactly like the real VNC servers."""
+    socket_fn = tempfile.mktemp()
+    env = dict(os.environ, RFB_REJECT_REASON=reason)
+    subprocess.Popen(["socat", "UNIX-LISTEN:" + socket_fn + ",mode=666",
+                      "EXEC:python3 -m vnc_collaborate rfb_reject"], env=env)
+    while not os.path.exists(socket_fn):
+        time.sleep(0.1)
+    self.server.unix_target = socket_fn
+    old_new_websocket_client(self)
+
+
 def new_websocket_client(self):
+
+    # Reject switch (test/ops): while the sentinel file exists, every /vnc
+    # connection is refused at the RFB layer with a security-failure reason (the
+    # file's contents), which the remote-desktop plugin surfaces as its
+    # connection-error overlay.  Remove the file to restore normal service.
+    # This is also the mechanism a future "your session expired" rejection will
+    # use once the expired-token check moves from the nginx 401 into this path.
+    if os.path.exists(REJECT_SENTINEL):
+        try:
+            reason = open(REJECT_SENTINEL).read().strip()
+        except OSError:
+            reason = ''
+        _reject_with_rfb_reason(self, reason or 'The remote desktop is currently unavailable.')
+        return
 
     url = urllib.parse.urlparse(self.path)
     querydict = urllib.parse.parse_qs(url.query)

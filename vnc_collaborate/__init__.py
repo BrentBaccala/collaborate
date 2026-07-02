@@ -10,3 +10,5 @@ from .student_audio_controls import student_audio_controls
 from .websockify import websockify
 
 from .set_geometry import set_geometry
+
+from .rfb_reject import rfb_reject
