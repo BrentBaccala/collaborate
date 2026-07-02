@@ -135,9 +135,19 @@ geometry, window tree, current RFB desktop name).
   on a **live** meeting then reloading fails to load (old bundle hash 404 — the
   *expected* failure); after end+recreate (or `bbb-conf --restart`) it loads.
   *(Bug 5 — documents the operational rule.)*
-- **D3 — No client double-websocket** **[NEW]** — share / content-return opens
-  a single `/vnc` websocket, no double-spawn. *(needs the `hasEverShownContent`
-  gate.)*
+- **D3 — No client double-websocket on re-share** **[EXISTS]** — every share
+  opens exactly **one** `/vnc` websocket, especially a *re-share* (a desktop
+  already shown once in the session): no aborted socket, no `forcing VNC
+  reconnect` breadcrumb, no "can't establish a connection to wss://.../vnc", no
+  double `tigervncserver` spawn. *(Bug: re-sharing made the plugin content leave
+  and re-enter the presentation pile, tripping the screenshare-return reconnect
+  (`hasEverShownContent` gate) while the fresh websocket was still handshaking —
+  it aborted socket #1 and opened #2, spawning two desktops. Fixed in plugin
+  2:0.3.0-13 / commit `39111db` by resetting the layout-return tracking whenever
+  a new `activeConfig` builds a fresh root. Harness:
+  `tests/d3-double-websocket.cjs`; oracle = one `/vnc` open per share in the
+  `bbb-vnc-collaborate` journal + no reconnect/WS-fail console signature.
+  Verified 3/3 shares on jammy-300 2026-07-02.)*
 - **D4 — Reconnect paths** **[NEW]** — after a screenshare removes and re-adds
   our content, `reconnectCounter` bumps and the desktop comes back; the manual
   Reconnect button works.
