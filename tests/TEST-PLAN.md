@@ -178,7 +178,7 @@ geometry, window tree, current RFB desktop name).
   `VncDisplay.connect()` applies it via the passthrough loop right after
   `new RFB(...)`; a suspected root cause is that assignment racing the fresh
   connection.*
-- **D6 — "Connection lost" only after a real connection** **[NEW / UNFIXED]** —
+- **D6 — "Connection lost" only after a real connection** **[FIXED]** —
   sharing a remote desktop pointed at an unresponsive / unreachable endpoint
   (the `/vnc` websocket never opens, or noVNC never reaches its `connect`
   event) must show a **"could not connect"**-style message, NOT *"The connection
@@ -191,9 +191,15 @@ geometry, window tree, current RFB desktop name).
   point a share at a black-hole endpoint (e.g. a port that accepts the WS
   upgrade then goes silent, or an unreachable host) and assert the overlay reads
   the never-connected variant; then do a real connect + server-side kill and
-  assert it reads the "lost" variant. Fix sketch: track a `hasConnected` ref set
-  in `handleConnect` (reset on `reconnectCounter` change); choose the overlay
-  message from it. Not yet implemented — noted per request.)*
+  assert it reads the "lost" variant. Fixed in plugin 2:0.3.0-14 / commit
+  `ee7ff53`: a `hasConnected` ref is set on the noVNC `connect` event and reset
+  per attempt (on `reconnectCounter` change); `handleDisconnect` records
+  `neverConnected = !hasConnected` and the overlay reads "Could not connect …"
+  when never connected, "… was lost" otherwise (a securityfailure reason still
+  wins). Verified on jammy-300 2026-07-02 via Playwright: share → `wss://…
+  /deadend` shows "Could not connect to the remote desktop."; share → `wss://…
+  /vnc` (connects) then `systemctl restart bbb-vnc-collaborate` shows "The
+  connection to the remote desktop was lost.")*
 
 ### E. Rendering / crashes (earlier sessions)
 
