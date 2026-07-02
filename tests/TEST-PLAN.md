@@ -77,15 +77,21 @@ geometry, window tree, current RFB desktop name).
   desktop (e.g. `WindowsServer2022`, no human to trigger a connection) appears
   in the grid after a host reboot. *(Bug 6 — no boot-time spawn trigger yet;
   currently fails.)*
-- **A7 — Blank share** **[NEW/UNFIXED]** — share → unshare → re-share; the
-  share must actually connect the outer session to the inner desktop.
-  *(Bug 9. Harness: `tests/a7-blank-second-share.cjs` — drives the real share
-  UI, oracle = a new outer inetd Xvnc AND the persistent-log "accepted:" count
-  moving. **Reproduced live on collaborate.freesoft.org 2026-07-01**: Share →
-  `/vnc` + `socat`/`teacher_desktop` spawn issued + "connecting to unix socket"
-  — but no `Xtigervnc :N`, no inner connect, blank panel. Caveat: reproduced
-  while the same user had another live grid, so may be same-user spawn
-  contention; run against a quiescent user to isolate. Root cause open.)*
+- **A7 — Blank share** **[NEW/UNFIXED — root-caused]** — share → unshare →
+  re-share; the share must connect the outer session to the inner desktop.
+  *(Bug 9. Harness: `tests/a7-blank-second-share.cjs`. **Root cause found
+  2026-07-01:** the outer inetd `teacher_desktop`/`student_desktop` spawn
+  (`websockify.py:407-413`) is a bare `socat`/`tigervncserver -inetd` Popen with
+  **no display-collision protection** — unlike the persistent-desktop
+  (`:376`) and screenshare (`:432`) paths, which use `ensure_vnc_server`'s
+  bounded-wait + retry-with-jitter (Bug 1/2 fix). When the outer spawn's display
+  pick collides with a display still held by a not-fully-released prior/concurrent
+  session, it fails silently → blank. Empirically confirmed: with a display
+  occupied (a leaked grid on `:2`) the share blanks; from a clean state it
+  connects (acc moved, `:2` spawned, estab=2). This matches A7's original
+  "2nd share blank, 1st & 3rd+ work" — the 2nd share races the 1st's teardown
+  for the same display. **Fix:** route the outer inetd spawn through the same
+  collision-retry logic, or make its display allocation collision-safe.)*
 
 ### B. Teacher grid — Set Geometry (this session)
 
