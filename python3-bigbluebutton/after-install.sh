@@ -43,7 +43,7 @@ with open(tmp, 'w') as f:
     json.dump(data, f, indent=2)
     f.write('\n')
 os.replace(tmp, CFG)
-sys.exit(10)             # changed — signal the shell to restart bbb-pads
+sys.exit(10)             # changed — signal the shell to notify the admin
 PY
   if [ $? -eq 10 ]; then
     echo "python3-bigbluebutton: set bbb-pads sync throttle to 250ms in" >&2
