@@ -121,6 +121,10 @@ build/bbb-aws-hibernate_3.0.0+$(TIMESTAMP)-1_amd64.deb:
 	mkdir -p build/staging/usr/share/bbb-aws-hibernate
 	cp bbb-aws-hibernate/bbb-aws-hibernate build/staging/usr/share/bbb-aws-hibernate
 
+	mkdir -p build/staging/etc/networkd-dispatcher/routable.d
+	cp bbb-aws-hibernate/50-bbb-aws-hibernate-ddclient build/staging/etc/networkd-dispatcher/routable.d
+	chmod 0755 build/staging/etc/networkd-dispatcher/routable.d/50-bbb-aws-hibernate-ddclient
+
 	mkdir -p build/staging2
 	cat deb-helper.sh bbb-aws-hibernate/after-install.sh > build/staging2/after-install.sh
 	cat deb-helper.sh bbb-aws-hibernate/before-remove.sh > build/staging2/before-remove.sh

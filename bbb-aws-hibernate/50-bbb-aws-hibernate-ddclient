@@ -1,0 +1,29 @@
+#!/bin/bash
+# /etc/networkd-dispatcher/routable.d/50-bbb-aws-hibernate-ddclient
+#
+# Shipped by bbb-aws-hibernate.  On resume-from-hibernation (and at boot) the
+# primary NIC acquires its new public IP a couple of seconds after the network
+# comes up.  ddclient's daemon loop fires an update the instant it thaws --
+# because its wall-clock sleep accounting overshoots and drives $left negative
+# (see ddclient's [bugs:#46]) -- but that premature fire lands before the NIC is
+# routable, fails ("found neither ipv4 nor ipv6 address"), and ddclient then
+# sleeps a full fresh interval (a hard-clamped 60s minimum) before retrying.
+# Force an immediate update the moment the default-route interface becomes
+# routable, so DNS gets the new address right away instead of ~1 minute later.
+#
+# No-op -- and therefore no package dependency -- if ddclient isn't in use
+# (e.g. a static Elastic-IP deployment, DNS strategy #1 in the collaborate wiki).
+
+command -v ddclient >/dev/null 2>&1 || exit 0
+[ -r /etc/default/ddclient ] || exit 0
+
+# Act only for the interface carrying the default route: avoids a hardcoded NIC
+# name (ens5 / eth0 / enX0 vary by AWS instance type) and skips docker0/lo/veth.
+# If the default route can't be read yet, proceed anyway rather than miss it.
+default_iface=$(ip -o route show default 2>/dev/null | awk '{print $5; exit}')
+[ -z "$default_iface" ] || [ "$IFACE" = "$default_iface" ] || exit 0
+
+# ddclient's AWS creds (used by nsupdate-aws) live in the EnvironmentFile that
+# the systemd service loads; a dispatcher-launched run doesn't inherit them.
+set -a; . /etc/default/ddclient; set +a
+exec /usr/sbin/ddclient -force
