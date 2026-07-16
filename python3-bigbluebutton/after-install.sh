@@ -12,8 +12,11 @@
 # bbb-shared-notes pushes that 15s lag is very noticeable.  Merge a 250ms
 # override into bbb-pads' local settings file (deep-merged over the shipped
 # defaults by bbb-pads' config loader), preserving any other overrides.
-# Restart bbb-pads only when we actually change the value, so repeated
-# installs/upgrades don't bounce the notes service.
+#
+# We deliberately do NOT restart bbb-pads here: a bbb-pads restart drops the
+# in-memory user/pad mappings for every in-progress meeting (BBB does not
+# re-register them), which breaks shared notes until each meeting is
+# restarted.  The new throttle takes effect on the next bbb-pads restart.
 if [ -d /etc/bigbluebutton ]; then
   python3 - <<'PY'
 import json, os, sys
@@ -43,7 +46,10 @@ os.replace(tmp, CFG)
 sys.exit(10)             # changed — signal the shell to restart bbb-pads
 PY
   if [ $? -eq 10 ]; then
-    systemctl try-restart bbb-pads 2>/dev/null || true
+    echo "python3-bigbluebutton: set bbb-pads sync throttle to 250ms in" >&2
+    echo "  /etc/bigbluebutton/bbb-pads.json -- run 'systemctl restart bbb-pads'" >&2
+    echo "  at a quiet time to apply it (a restart drops notes tracking for any" >&2
+    echo "  in-progress meeting)." >&2
   fi
 fi
 
