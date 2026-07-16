@@ -58,6 +58,19 @@ else:
       exit(1)
    meetingID = allMeetingIDs[0]
 
+# Pick a joined user to attribute writes to.  Etherpad setText/setHTML must
+# carry an authorId that bbb-pads maps to a real BBB user; an anonymous write
+# is attributed to a non-existent "system" user, and the insert into the
+# sharedNotes_rev table (which feeds *locked* viewers) then fails a foreign-key
+# constraint, so locked students never see the notes.  Unlocked users read the
+# live Etherpad pad directly and are unaffected.  Prefer a moderator; fall back
+# to any attendee.  (Taken from the getMeetings XML we already fetched, so no
+# extra database grant is needed.)
+meetingElem = meetingID.getparent()
+attributionUserIDs = (meetingElem.xpath('.//attendee[role="MODERATOR"]/userID/text()')
+                      or meetingElem.xpath('.//attendee/userID/text()'))
+attributionUserID = attributionUserIDs[0] if attributionUserIDs else None
+
 # Lookup the meeting in PostgreSQL and retrieve the padID.
 # Uses the unprivileged 'bbb_query' role (SELECT-only on sharedNotes)
 # created by /usr/sbin/bbb-shared-notes-setup at install time, so this
@@ -122,12 +135,31 @@ if args.write:
    else:
       data = sys.stdin.read()
 
+   # Derive the Etherpad author for the attribution user.  bbb-pads creates
+   # each user's Etherpad author with createAuthorIfNotExistsFor(userId), which
+   # is deterministic, so this returns the same authorId bbb-pads has already
+   # mapped to that user.
+   authorId = None
+   if attributionUserID:
+      payload = {'apikey' : key, 'authorMapper' : attributionUserID}
+      response = requests.get("http://localhost:9001/api/1.3.0/createAuthorIfNotExistsFor?"
+                              + urlencode(payload, quote_via=quote_plus))
+      response.raise_for_status()
+      if response.json()['code'] == 0:
+         authorId = response.json()['data']['authorID']
+
    if '<!DOCTYPE HTML>' in data:
       payload = {'apikey' : key, 'padID' : padID, 'html' : data}
-      url = "http://localhost:9001/api/1/setHTML?"
+      url = "http://localhost:9001/api/1.3.0/setHTML?"
    else:
       payload = {'apikey' : key, 'padID' : padID, 'text' : data}
-      url = "http://localhost:9001/api/1/setText?"
+      url = "http://localhost:9001/api/1.3.0/setText?"
+
+   # /api/1.3.0 is the earliest Etherpad API version whose setText/setHTML
+   # accept an authorId; /api/1 silently ignores it (leaving the write
+   # anonymous, which is what breaks the locked-viewer path).
+   if authorId:
+      payload['authorId'] = authorId
 
    result = urlencode(payload, quote_via=quote_plus)
    response = requests.get(url + result)
