@@ -309,12 +309,28 @@ def lambda_handler(event, context):
                         last_dns_IP = dns_IP
                     time.sleep(1)
             print('dns right')
+            # Poll bbb-web until it serves the API (Content-Type text/xml). A
+            # freshly-resumed instance goes through: SYN dropped (connect times
+            # out) -> socket open but TLS/app hangs -> plain error -> finally XML.
+            # All of those mean "not ready yet", so a connection error/timeout is
+            # a retry, not a failure -- only genuinely unexpected exceptions should
+            # escape to the 500 below. The explicit timeout keeps one hung TLS
+            # handshake from stalling the whole invocation; the API-gateway 29s
+            # cap turns a long wait into a 503, which the wait page retries.
             url = 'https://{}/bigbluebutton/api'.format(dnsname)
-            ans = requests.get(url)
-            while not ans.headers['Content-Type'].startswith('text/xml'):
+            last_not_ready = None
+            while True:
+                try:
+                    ans = requests.get(url, timeout=(5, 10))
+                    if ans.headers.get('Content-Type', '').startswith('text/xml'):
+                        break
+                    not_ready = 'HTTP {} {}'.format(ans.status_code, ans.headers.get('Content-Type'))
+                except requests.exceptions.RequestException as ex:
+                    not_ready = '{}: {}'.format(type(ex).__name__, ex)
+                if not_ready != last_not_ready:
+                    print('bbb-web not ready:', not_ready)
+                    last_not_ready = not_ready
                 time.sleep(1)
-                ans = requests.get(url)
-                print(ans)
             print('bbb-web ready')
             return {'statusCode': 200, 'headers': {'Content-Type': 'text/plain'}, 'body': '' }
         except Exception as ex:
