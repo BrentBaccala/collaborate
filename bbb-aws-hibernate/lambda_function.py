@@ -177,11 +177,14 @@ function fn() {
                 xmlHttp.open("GET", "/login?waitpage-{nam}", true);
                 xmlHttp.send();
             } else {
+                /* Anything that isn't 200 (ready) or 503 (API gateway timeout, retry)
+                   is a failure of the readiness check itself.  Stop and show it rather
+                   than redirecting onto a server we never confirmed was up. */
                 for (element of document.getElementsByClassName('loader')) {
                     element.remove();
                 }
                 document.getElementById('greeting').innerHTML = "Error";
-                document.getElementById('greeting2').innerHTML = xmlHttp.statusCode + " " + xmlHttp.statusText;
+                document.getElementById('greeting2').textContent = xmlHttp.status + " " + xmlHttp.statusText + " " + xmlHttp.responseText;
             }
         }
     }
@@ -270,39 +273,54 @@ def lambda_handler(event, context):
     token = event['rawQueryString']
     if token.startswith('waitpage-'):
         name = token[9:]
-        print('waiting for instance to run')
-        # Only the primary has DNS; secondaries are auxiliary and don't gate the wait page.
-        primary, _ = resolve_server_instances(config[name])
-        while ec2.describe_instances(InstanceIds=[primary])['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
-            time.sleep(1)
-        print('instance running')
-        public_ip_addr = ec2.describe_instances(InstanceIds=[primary])['Reservations'][0]['Instances'][0]['PublicIpAddress']
-        print('instance running on', public_ip_addr)
-        my_resolver = dns.resolver.Resolver()
-        dnsname = config[name]['fqdn']
-
-        # I put this here to make sure we're querying the domain's authoritative server,
-        # to avoid caching an old response for 60 seconds
-        domain = dns.name.from_text(dnsname).parent()
-        my_resolver.nameservers = [a.address for ns in my_resolver.query(domain, rdtype='NS').rrset for a in my_resolver.query(str(ns.target)).rrset]
-
-        last_dns_IP = None
-        dns_IP = None
-        while dns_IP != public_ip_addr:
-            dns_IP = my_resolver.resolve(dnsname)[0].address
-            if dns_IP != public_ip_addr:
-                if dns_IP != last_dns_IP:
-                    print('dns resolves wrong:', dns_IP)
-                    last_dns_IP = dns_IP
+        # The wait page redirects on *any* 200 and never reads the body, so this
+        # branch must never answer 200 unless the server is genuinely ready. An
+        # exception escaping to the outer handler would return the error page with
+        # a 200 and silently redirect the user onto a server that isn't up yet.
+        try:
+            print('waiting for instance to run')
+            # Only the primary has DNS; secondaries are auxiliary and don't gate the wait page.
+            primary, _ = resolve_server_instances(config[name])
+            while ec2.describe_instances(InstanceIds=[primary])['Reservations'][0]['Instances'][0]['State']['Name'] != 'running':
                 time.sleep(1)
-        print('dns right')
-        url = 'https://{}/bigbluebutton/api'.format(dnsname)
-        ans = requests.get(url)
-        while not ans.headers['Content-Type'].startswith('text/xml'):
-            time.sleep(1)
+            print('instance running')
+            public_ip_addr = ec2.describe_instances(InstanceIds=[primary])['Reservations'][0]['Instances'][0]['PublicIpAddress']
+            print('instance running on', public_ip_addr)
+            my_resolver = dns.resolver.Resolver()
+            dnsname = config[name]['fqdn']
+
+            # I put this here to make sure we're querying the domain's authoritative server,
+            # to avoid caching an old response for 60 seconds.
+            #
+            # zone_for_name(), not parent(): the fqdn's parent is only its zone when the
+            # fqdn is a subdomain (collaborate.freesoft.org -> freesoft.org). For a zone
+            # apex like itpietraining.com the parent is 'com.', whose gTLD servers answer
+            # a referral rather than an address, and resolve() below raises NoAnswer.
+            domain = dns.resolver.zone_for_name(dnsname)
+            my_resolver.nameservers = [a.address for ns in my_resolver.resolve(domain, rdtype='NS').rrset for a in my_resolver.resolve(str(ns.target)).rrset]
+
+            last_dns_IP = None
+            dns_IP = None
+            while dns_IP != public_ip_addr:
+                dns_IP = my_resolver.resolve(dnsname)[0].address
+                if dns_IP != public_ip_addr:
+                    if dns_IP != last_dns_IP:
+                        print('dns resolves wrong:', dns_IP)
+                        last_dns_IP = dns_IP
+                    time.sleep(1)
+            print('dns right')
+            url = 'https://{}/bigbluebutton/api'.format(dnsname)
             ans = requests.get(url)
-            print(ans)
-        return {'statusCode': 200, 'headers': {'Content-Type': 'text/plain'}, 'body': '' }
+            while not ans.headers['Content-Type'].startswith('text/xml'):
+                time.sleep(1)
+                ans = requests.get(url)
+                print(ans)
+            print('bbb-web ready')
+            return {'statusCode': 200, 'headers': {'Content-Type': 'text/plain'}, 'body': '' }
+        except Exception as ex:
+            print('waitpage failed:')
+            print(traceback.format_exc())
+            return {'statusCode': 500, 'headers': {'Content-Type': 'text/plain'}, 'body': '{}: {}'.format(type(ex).__name__, ex) }
     else:
         jwt = authenticate(config, token)
         if jwt:
@@ -362,6 +380,9 @@ def lambda_handler(event, context):
             error_page_formatted = limited_format(error_page, error='Your authentication key was not accepted')
             return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
   except Exception as ex:
+    # 200 is deliberate here: this is a browser navigation, so the error page is
+    # rendered. (The waitpage branch above must not do this -- see the note there.)
+    print(traceback.format_exc())
     error_page_formatted = limited_format(error_page, error=str(ex))
     return {'statusCode': 200, 'headers': {'Content-Type': 'text/html'}, 'body': error_page_formatted }
 
