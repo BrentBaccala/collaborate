@@ -1183,6 +1183,13 @@ SCRIPTEOF
         $options->{'pixelformat'} = $_[1];
         undef $options->{'depth'}; },
       'name=s'            => \$options->{'desktopName'},
+      # Force an empty desktop name. Unlike -name "", this takes no argument,
+      # so it survives socat's EXEC: word-splitting (which cannot carry an
+      # empty or whitespace-containing token). With desktopName defined-but-
+      # empty, the default "<HOSTFQDN>:<display> (<USER>)" is suppressed and
+      # Xtigervnc is launched with an empty -desktop, so RFB ServerInit
+      # advertises a zero-length name (no flash in the moderator user list).
+      'blank-name'        => sub { $options->{'desktopName'} = ""; },
       'kill'              => \$opts{'kill'},
       'help|h|?'          => \$opts{'help'},
       'fp=s'              => sub {

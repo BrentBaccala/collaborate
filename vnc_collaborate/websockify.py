@@ -444,7 +444,15 @@ def new_websocket_client(self):
             env['fullName'] = fullName
             # isn't this available as $USER?
             env['UNIXuser'] = UNIXuser
-            command = "python3 -m vnc_collaborate tigervncserver -quiet -fg -localhost yes -SecurityTypes None -I-KNOW-THIS-IS-INSECURE -inetd -xstartup python3 -- -m vnc_collaborate {}".format(vnc_function)
+            # -blank-name forces an empty RFB desktop name at spawn. Without it,
+            # tigervncserver's stock default ("<HOSTFQDN>:<display> (<USER>)")
+            # rides in the RFB ServerInit the client reads on connect, so the
+            # moderator user list briefly flashes e.g. "itpietraining.com:29
+            # (SamuelRodriguez)" before student_desktop.py blanks it a beat
+            # later. We use a dedicated no-argument flag (not -name "") because
+            # this command is word-split by socat's EXEC: address, which cannot
+            # carry an empty or whitespace-containing argument token.
+            command = "python3 -m vnc_collaborate tigervncserver -quiet -fg -localhost yes -SecurityTypes None -I-KNOW-THIS-IS-INSECURE -blank-name -inetd -xstartup python3 -- -m vnc_collaborate {}".format(vnc_function)
             sudo_command = ["sudo", "-u", UNIXuser]
             if bigbluebutton_group_exists:
                 sudo_command.extend(["-g", "bigbluebutton"])
