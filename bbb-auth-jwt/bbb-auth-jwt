@@ -128,12 +128,18 @@ def login(request_uri):
         password = role_password[decoded['role'].lower()[0]]
 
         # This API call will quietly fail if the meeting is already running.
+        # Recording params bind at create time only, so the meeting must be
+        # created fresh with them (end any pre-existing meeting to re-arm).
+        # record='true' makes the meeting recordable; a moderator still has to
+        # click Start Recording to actually begin (no autoStartRecording), so
+        # the bbb-vnc-recorder only captures once recording is deliberately on.
         if password == moderatorPW:
             bigbluebutton.create(name = roomName,
                                  meetingID = meetingID,
                                  attendeePW = attendeePW,
                                  moderatorPW = moderatorPW,
                                  isBreakoutRoom = False,
+                                 record = 'true',
             )
 
         if False:
