@@ -9,7 +9,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from bbb_vnc_recorder.gates import classify_message, ShareGateWatcher
+from bbb_vnc_recorder.gates import (classify_message,
+                                    classify_recording_message,
+                                    AkkaEventWatcher, ShareGateWatcher)
 from bbb_vnc_recorder.screenshare import diff_snapshots
 
 
@@ -22,6 +24,20 @@ def _persist_msg(plugin, event, meeting="mtg-internal-1"):
                        "meetingId": meeting, "userId": "u1"},
             "body": {"pluginName": plugin, "eventName": event,
                      "payloadJson": {"url": "wss://x/vnc", "sharedBy": "Teacher"}},
+        },
+    }
+
+
+def _recording_msg(recording, meeting="mtg-internal-1", set_by="mod1"):
+    # Mirrors BBB 3.0 RecordingStatusChangedEvtMsg
+    # (common2 UsersMsgs.scala: body {recording, setBy}).
+    return {
+        "envelope": {"name": "RecordingStatusChangedEvtMsg",
+                     "routing": {"msgType": "BROADCAST_TO_MEETING"}},
+        "core": {
+            "header": {"name": "RecordingStatusChangedEvtMsg",
+                       "meetingId": meeting, "userId": set_by},
+            "body": {"recording": recording, "setBy": set_by},
         },
     }
 
@@ -80,6 +96,108 @@ def test_watcher_state_and_transitions():
                                          "remote-desktop-share-stop", "m1")))
     assert w.is_sharing("m1") is False
     assert changes == [("m1", True), ("m1", False)]
+
+
+# ---- gate 1 (recording active) classification --------------------------------
+
+def test_recording_start():
+    rec, mid = classify_recording_message(_recording_msg(True))
+    assert rec is True
+    assert mid == "mtg-internal-1"
+
+
+def test_recording_pause():
+    rec, mid = classify_recording_message(_recording_msg(False))
+    assert rec is False
+    assert mid == "mtg-internal-1"
+
+
+def test_recording_non_recording_message_ignored():
+    assert classify_recording_message(_persist_msg(
+        "RemoteDesktop", "remote-desktop-share-start")) == (None, None)
+
+
+def test_recording_missing_bool_ignored():
+    msg = _recording_msg(True)
+    del msg["core"]["body"]["recording"]
+    assert classify_recording_message(msg) == (None, None)
+
+
+def test_recording_malformed_ignored():
+    assert classify_recording_message({}) == (None, None)
+    assert classify_recording_message({"core": "notadict"}) == (None, None)
+
+
+def test_gate1_pause_resume_sequence():
+    """The core bug: a pause must flip gate 1 false; a resume must flip it
+    back true; start/pause/resume/stop each drive exactly one transition."""
+    changes = []
+    w = AkkaEventWatcher({"channels": ["c"]}, {"name": "RemoteDesktop"},
+                         on_recording_change=lambda mid, r: changes.append((mid, r)))
+    assert w.is_recording("m1") is False
+    w.handle_raw(json.dumps(_recording_msg(True, "m1")))    # start
+    assert w.is_recording("m1") is True
+    w.handle_raw(json.dumps(_recording_msg(True, "m1")))    # dup start = no txn
+    w.handle_raw(json.dumps(_recording_msg(False, "m1")))   # PAUSE
+    assert w.is_recording("m1") is False
+    w.handle_raw(json.dumps(_recording_msg(True, "m1")))    # RESUME
+    assert w.is_recording("m1") is True
+    w.handle_raw(json.dumps(_recording_msg(False, "m1")))   # STOP
+    assert w.is_recording("m1") is False
+    assert changes == [("m1", True), ("m1", False), ("m1", True), ("m1", False)]
+
+
+def test_gate1_seed_and_event_override():
+    """Startup seeding from getMeetings is best-effort and is overridden by a
+    real event; re-seeding after an event is a no-op."""
+    w = AkkaEventWatcher({"channels": ["c"]}, {"name": "RemoteDesktop"})
+    # seed true (meeting appears to be recording)
+    w.seed_recording("m1", True)
+    assert w.is_recording("m1") is True
+    # re-seed with a different value is ignored (only first-seen seeds)
+    w.seed_recording("m1", False)
+    assert w.is_recording("m1") is True
+    # a real pause event overrides the seed...
+    w.handle_raw(json.dumps(_recording_msg(False, "m1")))
+    assert w.is_recording("m1") is False
+    # ...and a later seed (e.g. next getMeetings poll) does NOT clobber it
+    w.seed_recording("m1", True)
+    assert w.is_recording("m1") is False
+
+
+def test_gate1_seed_false_then_event_start():
+    w = AkkaEventWatcher({"channels": ["c"]}, {"name": "RemoteDesktop"})
+    w.seed_recording("m1", False)
+    assert w.is_recording("m1") is False
+    w.handle_raw(json.dumps(_recording_msg(True, "m1")))
+    assert w.is_recording("m1") is True
+
+
+def test_forget_clears_state():
+    w = AkkaEventWatcher({"channels": ["c"]}, {"name": "RemoteDesktop"})
+    w.handle_raw(json.dumps(_recording_msg(True, "m1")))
+    w.handle_raw(json.dumps(_persist_msg("RemoteDesktop",
+                                         "remote-desktop-share-start", "m1")))
+    assert w.is_recording("m1") is True and w.is_sharing("m1") is True
+    w.forget("m1")
+    assert w.is_recording("m1") is False and w.is_sharing("m1") is False
+    # after forget, seeding works again (meeting treated as first-seen)
+    w.seed_recording("m1", True)
+    assert w.is_recording("m1") is True
+
+
+def test_share_and_recording_share_subscriber():
+    """One subscriber handles both message types off the same channel."""
+    w = AkkaEventWatcher({"channels": ["c"]}, {"name": "RemoteDesktop"})
+    w.handle_raw(json.dumps(_recording_msg(True, "m1")))
+    w.handle_raw(json.dumps(_persist_msg("RemoteDesktop",
+                                         "remote-desktop-share-start", "m1")))
+    assert w.is_recording("m1") is True
+    assert w.is_sharing("m1") is True
+
+
+def test_shareGateWatcher_alias():
+    assert ShareGateWatcher is AkkaEventWatcher
 
 
 def test_diff_snapshots():

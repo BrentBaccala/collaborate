@@ -106,6 +106,9 @@ class DesktopRecorder(threading.Thread):
         self.geometry = None
         self.desktop_name = None
         self.bytes_written = 0
+        self.start_epoch = None
+        self.meta = None
+        self.reason = None
 
     # ---- teeing primitives -------------------------------------------------
 
@@ -165,8 +168,33 @@ class DesktopRecorder(threading.Thread):
             "desktop_name": name,
         }
         meta.update(self.identity)
+        self.meta = meta
+        self._flush_sidecar()
+
+    def _flush_sidecar(self):
+        if self.meta is None:
+            return
         with open(self.out_path + ".json", "w") as jf:
-            json.dump(meta, jf, indent=2)
+            json.dump(self.meta, jf, indent=2)
+
+    def _finalize_sidecar(self, end_epoch, reason):
+        """Stamp the end of the recording into the sidecar (any exit path).
+
+        Adds end_epoch_ms, duration_ms, bytes_recorded and exit_reason to the
+        already-written start metadata and rewrites it.  Best-effort: if the
+        handshake never completed there is no sidecar to update."""
+        if self.meta is None:
+            return
+        self.meta["end_epoch_ms"] = end_epoch
+        if self.start_epoch is not None:
+            self.meta["duration_ms"] = end_epoch - self.start_epoch
+        self.meta["bytes_recorded"] = self.bytes_written
+        self.meta["exit_reason"] = reason
+        try:
+            self._flush_sidecar()
+        except Exception as e:  # noqa: BLE001
+            self.log("failed to finalize sidecar for %s: %r"
+                     % (self.out_path, e))
 
     # ---- main loop ---------------------------------------------------------
 
@@ -186,9 +214,9 @@ class DesktopRecorder(threading.Thread):
             self._connect()
             self._f = open(self.out_path, "wb")
             self._f.write(b"FBSX0001\n")
-            start_epoch = now_ms()
+            self.start_epoch = now_ms()
             rfb_version, w, h, name = self._handshake()
-            self._write_sidecar(start_epoch, rfb_version, w, h, name)
+            self._write_sidecar(self.start_epoch, rfb_version, w, h, name)
             self.log("recording %s -> %s (%dx%d, %s)" %
                      (self.address, self.out_path, w, h, self.encoding))
             # Kick off with a full-screen (non-incremental) request, then drive
@@ -202,20 +230,45 @@ class DesktopRecorder(threading.Thread):
                 if r:
                     data = self._sock.recv(1 << 16)
                     if not data:
-                        self.log("desktop %s closed the connection" % (self.address,))
+                        if self._stopev.is_set():
+                            self.reason = "stopped"
+                            self.log("desktop %s: clean stop (socket shut down)"
+                                     % (self.address,))
+                        else:
+                            self.reason = "eof: desktop closed the connection"
+                            self.log("desktop %s closed the connection"
+                                     % (self.address,))
                         break
                     self._emit(data, now_ms())
                 if time.monotonic() >= next_req:
                     try:
                         self._sock.sendall(_fbur_msg(True, 0, 0, w, h))
-                    except OSError:
+                    except OSError as e:
+                        # Send-side break was previously silent; surface it so a
+                        # mid-session connection drop is diagnosable.
+                        if self._stopev.is_set():
+                            self.reason = "stopped"
+                            self.log("desktop %s: clean stop (send interrupted)"
+                                     % (self.address,))
+                        else:
+                            self.reason = "send-failed: %r" % e
+                            self.log("desktop %s send failed (FBUR), stopping: %r"
+                                     % (self.address, e))
                         break
                     next_req = time.monotonic() + interval
                     self._f.flush()
+            else:
+                # loop exited because _stopev was set (clean stop)
+                self.reason = "stopped"
+                self.log("desktop %s: clean stop requested" % (self.address,))
         except Exception as e:  # noqa: BLE001 - record and surface via .error
             self.error = e
+            self.reason = "error: %r" % e
             self.log("recorder error on %s: %r" % (self.address, e))
         finally:
+            end_epoch = now_ms()
+            if self.reason is None:
+                self.reason = "unknown"
             try:
                 if self._f:
                     self._f.flush()
@@ -227,6 +280,14 @@ class DesktopRecorder(threading.Thread):
                     self._sock.close()
             except Exception:
                 pass
+            self._finalize_sidecar(end_epoch, self.reason)
+            if self.start_epoch is not None:
+                dur = (end_epoch - self.start_epoch) / 1000.0
+            else:
+                dur = 0.0
+            self.log("finished recording %s -> %s (%.1fs, %dB, reason=%s)" %
+                     (self.identity.get("unix_user", self.address),
+                      self.out_path, dur, self.bytes_written, self.reason))
             if self.on_exit:
                 try:
                     self.on_exit(self)

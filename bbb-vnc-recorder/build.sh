@@ -1,7 +1,7 @@
 #!/bin/bash -ex
 
 PACKAGE=bbb-vnc-recorder
-VERSION=1.0.0+$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S')
+VERSION=1.1.0+$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S')
 BUILD=1
 EPOCH=1
 

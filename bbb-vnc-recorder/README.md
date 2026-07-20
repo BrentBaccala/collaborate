@@ -13,10 +13,33 @@ deliverable and is intentionally out of scope here.
 
 The recorder records a meeting's desktops only when **BOTH** are true:
 
-1. **The meeting is being recorded.** Detected from the BBB API:
-   `getMeetings()` / `getMeetingInfo`'s `<recording>` flag, polled every
-   `recording.poll_interval` seconds (via `python3-bigbluebutton`'s
-   `bigbluebutton.py`). The same poll yields the participant list.
+1. **The meeting's recording is *active* (not paused).** Driven by the
+   akka-apps event `RecordingStatusChangedEvtMsg`, whose body carries a
+   `recording` boolean — **true on record Start/Resume, false on Pause/Stop**.
+   akka broadcasts it (default case in `FromAkkaAppsMsgSenderActor`) on the
+   same `from-akka-apps-redis-channel` the recorder already subscribes to for
+   gate 2, so one subscriber (`AkkaEventWatcher`) tracks both gates.
+
+   > **Why not the `getMeetings` `<recording>` flag?** In BBB the moderator's
+   > "Stop Recording" button is a **pause**, not a stop: recording is captured
+   > as start/pause/resume *segments*, and `getMeetings` reports
+   > `recording=true` continuously from the first Start until the meeting ends
+   > — it **stays true across every pause**. So that flag can only tell you the
+   > meeting *is being recorded at all*, never that it is *paused right now*.
+   > Only `RecordingStatusChangedEvtMsg` reflects the real active/paused state,
+   > so gate 1 is event-driven. The `getMeetings` poll is still used to
+   > enumerate meetings and their participant lists.
+
+   **Startup seeding (and its limitation).** Redis pub/sub does not replay past
+   events, so a recorder started mid-meeting won't have seen the record-Start.
+   On first sight of a meeting, gate 1 is *seeded best-effort* from the
+   `getMeetings` `<recording>` flag; the first real `RecordingStatusChangedEvtMsg`
+   thereafter is authoritative and overrides the seed. Because the seed source
+   cannot distinguish "recording" from "paused", **a recorder that starts while
+   a meeting is paused will seed gate 1 true and record until the next
+   pause/resume event corrects it.** This only affects the window between
+   recorder start and the next recording event; steady-state pause/resume is
+   exact.
 
 2. **A remote-desktop share is active.** Detected from the
    `bbb-plugin-remote-desktop` plugin's persistEvents. The plugin emits
@@ -28,8 +51,12 @@ The recorder records a meeting's desktops only when **BOTH** are true:
    shipped in `bbb-plugin-remote-desktop` ≥ 0.3.0-16. Because manifests are
    fetched at meeting-create, a **fresh meeting** is needed to pick it up.)
 
-When either gate drops, the meeting's recorders (and its screenshare index)
-stop. When both come back, they restart.
+When either gate drops (e.g. a **record pause**), the meeting's per-desktop
+recorders stop and **finalize** their current segment; the meeting session
+object is *kept* so its segment counter survives. When both gates come back
+(e.g. **resume**), recording continues in a fresh numbered segment (see
+[Segments](#segments-pause--resume--reconnect)), never overwriting the paused
+one. The session is torn down only when the meeting actually ends.
 
 > The plugin "Share a remote desktop" **URL** is *not* a recording key — one
 > URL is fanned out by `bbb-wss-proxy` to every participant's own
@@ -60,9 +87,15 @@ Per meeting, under `storage.directory/<internalMeetingID>/`:
 
 | File | Contents |
 |------|----------|
-| `<unix_user>.fbsx`      | raw-RFB recording of that user's desktop (see below) |
-| `<unix_user>.fbsx.json` | sidecar: identity + format metadata |
-| `screenshare.jsonl`     | grid-mode projection index (see below) |
+| `<unix_user>.<n>.fbsx`      | raw-RFB recording of segment *n* of that user's desktop (see below) |
+| `<unix_user>.<n>.fbsx.json` | sidecar: identity + format metadata (+ finalize fields) |
+| `screenshare.jsonl`         | grid-mode projection index (see below) |
+
+Each desktop is recorded as one or more **segments** — `<user>.1.fbsx`,
+`<user>.2.fbsx`, … — one self-contained FBSX per recording run. A new segment
+begins whenever recording resumes after a pause, or after a mid-session
+connection drop is re-established (see below). Segments are ordered by their
+sidecar `start_epoch_ms`.
 
 **No audio.** Audio stays with BBB's own recorder and is aligned later via the
 shared epoch-ms clock.
@@ -98,7 +131,33 @@ the file.
 
 Sidecar `<file>.json` fields: `format`, `start_epoch_ms`, `geometry`,
 `pixel_format`, `encoding`, `rfb_version`, `desktop_name`, `unix_user`,
-`meeting_id`, `rfbport`.
+`meeting_id`, `segment`, `rfbport`. On finalize (any exit) the recorder also
+writes `end_epoch_ms`, `duration_ms`, `bytes_recorded`, and `exit_reason`
+(one of `stopped`, `eof: …`, `send-failed: …`, `error: …`, or `unknown`).
+
+### Segments (pause / resume / reconnect)
+
+Each per-desktop recorder opens its FBSX file with `wb` (an FBSX is a *single*
+continuous RFB session — handshake included — so a decoder replays it as one
+stream; you cannot concatenate two sessions into one file). To keep every run
+self-contained **and** never lose earlier data, each (re)start writes a **new
+numbered part file** `<user>.<n>.fbsx`:
+
+- **Pause → resume:** on gate-1 pause the recorder stops and finalizes segment
+  *n* (`exit_reason=stopped`); on resume it starts segment *n+1*. The segment
+  counter lives on the meeting session and survives the pause.
+- **Mid-session connection drop:** if the desktop socket dies, the recorder
+  exits with a logged reason (`eof: …` when the server closes the socket,
+  `send-failed: …` when the outgoing `FramebufferUpdateRequest` errors — this
+  path used to be a *silent* `break`) and finalizes the segment. The next 5 s
+  reconcile restarts a fresh segment against the same desktop. The bytes
+  captured before the drop are preserved in the earlier part file — a restart
+  **never truncates** a prior segment.
+
+Every recorder exit — clean stop, EOF, send failure, or unexpected error —
+logs a one-line `finished recording <user> -> <file> (<dur>s, <bytes>B,
+reason=<…>)` and stamps the finalize fields into the sidecar, so a
+(non-)recording is diagnosable from the log + sidecar alone.
 
 ### Screenshare index
 
@@ -132,7 +191,7 @@ the stored bytes reproduce the desktop pixels. The Tight decoder is a faithful
 port of noVNC's `decoders/tight.js`.
 
 ```
-fbsx-decode /var/lib/bbb-vnc-recorder/<meeting>/<user>.fbsx --ppm /tmp/frame.ppm
+fbsx-decode /var/lib/bbb-vnc-recorder/<meeting>/<user>.1.fbsx --ppm /tmp/frame.ppm
 ```
 
 (JPEG-compressed Tight rects need `python3-pil` to fully decode; without it
@@ -168,11 +227,18 @@ python3-bigbluebutton`.
 
 ## Tests
 
-- `tests/test_gates.py` — gate-2 message classification + screenshare diffing
-  (no broker needed).
+- `tests/test_gates.py` — gate-1 (`RecordingStatusChangedEvtMsg`) and gate-2
+  message classification, the pause/resume transition sequence, best-effort
+  startup seeding + event-override, and screenshare diffing (no broker needed).
 - `tests/test_fbsx_roundtrip.py` — records a throwaway Xtigervnc desktop with
   Tight *and* Raw, decodes both, asserts the frames are byte-identical and
   Tight is materially smaller (auto-skips if Xtigervnc is absent).
+- `tests/test_finalize.py` — records a throwaway Xtigervnc desktop and asserts
+  every exit path finalizes the sidecar (`end_epoch_ms`/`duration_ms`/
+  `bytes_recorded`/`exit_reason`) and logs a finish summary; that a server that
+  vanishes mid-recording exits with a non-silent reason; and that a drop +
+  restart writes a fresh `<user>.<n>.fbsx` segment without truncating the prior
+  one (auto-skips if Xtigervnc is absent).
 
 See `~/project/reports/bbb-vnc-recorder.md` for the validation write-up
 (what was proven locally vs. what still needs a live grid-mode BBB).

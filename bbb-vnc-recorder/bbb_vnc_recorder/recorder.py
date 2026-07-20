@@ -3,9 +3,18 @@
 Records the collaborate per-user VNC desktops of a meeting when BOTH gates
 hold:
 
-  Gate 1: the meeting is being recorded  (BBB getMeetingInfo <recording>).
-  Gate 2: a remote-desktop share is active (ShareGateWatcher, from the
+  Gate 1: the meeting's recording is ACTIVE, i.e. not paused
+          (RecordingStatusChangedEvtMsg on the akka Redis bus; seeded
+          best-effort from the getMeetings <recording> flag at startup).
+  Gate 2: a remote-desktop share is active (AkkaEventWatcher, from the
           RemoteDesktop plugin persistEvent broadcast on Redis).
+
+Both gates ride the same `from-akka-apps-redis-channel` subscriber
+(AkkaEventWatcher).  The getMeetings poll is still used to enumerate
+meetings and their attendees (the attendee -> UNIX-user map), but the
+*recording* half of gate 1 is event-driven: BBB's "Stop Recording" button
+is a PAUSE, and the getMeetings <recording> flag stays true across pauses,
+so it cannot see a pause -- only RecordingStatusChangedEvtMsg can.
 
 While both hold, one FBSX recorder + sidecar is kept running per
 participant UNIX desktop (/run/vnc/<user>), started/stopped as
@@ -27,7 +36,7 @@ import time
 
 from .config import load_config
 from .fbsx import DesktopRecorder
-from .gates import ShareGateWatcher
+from .gates import AkkaEventWatcher
 from .screenshare import ScreenshareIndexer
 
 # Prefer the canonical mapping from the collaborate package; fall back to the
@@ -82,6 +91,7 @@ class MeetingSession:
         self.cfg = cfg
         self.directory = os.path.join(cfg["storage"]["directory"], meeting_id)
         self.recorders = {}                     # unix_user -> DesktopRecorder
+        self._segments = {}                     # unix_user -> segments started
         self._lock = threading.Lock()
         os.makedirs(self.directory, exist_ok=True)
 
@@ -98,7 +108,15 @@ class MeetingSession:
                 self.recorders.pop(user, None)
 
     def update(self, users):
-        """Ensure exactly the live desktops among `users` are being recorded."""
+        """Ensure exactly the live desktops among `users` are being recorded.
+
+        Each (re)start of a desktop's recorder writes a fresh numbered part
+        file `<user>.<n>.fbsx` (n = 1, 2, ...), so a pause/resume or a
+        mid-session connection drop + restart produces a NEW segment rather
+        than truncating the prior recording.  The segment counter lives on the
+        session, so it survives a pause (recorders stopped, session kept) and
+        keeps numbering monotonically for the meeting's lifetime.
+        """
         run_dir = self.cfg["vnc"]["run_dir"]
         want = set()
         for user in users:
@@ -112,10 +130,13 @@ class MeetingSession:
                 if rec is not None and rec.is_alive():
                     continue
                 sock = os.path.join(run_dir, user)
-                out = os.path.join(self.directory, user + ".fbsx")
+                seg = self._segments.get(user, 0) + 1
+                self._segments[user] = seg
+                out = os.path.join(self.directory, "%s.%d.fbsx" % (user, seg))
                 identity = {
                     "unix_user": user,
                     "meeting_id": self.meeting_id,
+                    "segment": seg,
                     "rfbport": rfbport_for_user(run_dir, user),
                 }
                 rec = DesktopRecorder(
@@ -131,7 +152,15 @@ class MeetingSession:
                     rec.stop()
                     self.recorders.pop(user, None)
 
+    def active(self):
+        """True while at least one per-desktop recorder is running."""
+        with self._lock:
+            return bool(self.recorders)
+
     def stop(self):
+        """Stop all per-desktop recorders (finalizing each) but keep the
+        segment counter, so the session can be resumed after a pause without
+        clobbering earlier segments."""
         with self._lock:
             for rec in list(self.recorders.values()):
                 rec.stop()
@@ -143,8 +172,10 @@ class Recorder:
         self.cfg = cfg
         self.sessions = {}                      # internal meeting_id -> MeetingSession
         self._stopev = threading.Event()
-        self.gate2 = ShareGateWatcher(
-            cfg["redis"], cfg["plugin"], on_change=self._on_share_change,
+        self.events = AkkaEventWatcher(
+            cfg["redis"], cfg["plugin"],
+            on_change=self._on_share_change,
+            on_recording_change=self._on_recording_change,
             logger=log)
         self.screenshare = ScreenshareIndexer(
             cfg["postgres"], self._resolve_screenshare_dir, logger=log)
@@ -163,11 +194,16 @@ class Recorder:
                 return sess.directory
         return os.path.join(self.cfg["storage"]["directory"], table_meeting_id)
 
-    # ---- gate 2 callback ---------------------------------------------------
+    # ---- gate callbacks ----------------------------------------------------
 
     def _on_share_change(self, meeting_id, sharing):
         # A share transition should take effect promptly rather than waiting
         # for the next poll; trigger an immediate reconcile.
+        self._wake.set()
+
+    def _on_recording_change(self, meeting_id, recording):
+        # A record pause/resume must take effect promptly (a pause should stop
+        # capture within ~0s, not up to poll_interval seconds later).
         self._wake.set()
 
     # ---- BBB polling (gate 1 + participant list) --------------------------
@@ -198,13 +234,15 @@ class Recorder:
 
     def _reconcile(self):
         meetings = self._running_meetings()
-        active = set()
-        for internal, (external, recording, users) in meetings.items():
-            gate1 = recording
-            gate2 = self.gate2.is_sharing(internal)
+        for internal, (external, recording_flag, users) in meetings.items():
+            # Seed gate-1 recording state from getMeetings the first time we see
+            # a meeting (best-effort; real RecordingStatusChangedEvtMsg events,
+            # once observed, override the seed -- see AkkaEventWatcher).
+            self.events.seed_recording(internal, recording_flag)
+            gate1 = self.events.is_recording(internal)
+            gate2 = self.events.is_sharing(internal)
+            sess = self.sessions.get(internal)
             if gate1 and gate2:
-                active.add(internal)
-                sess = self.sessions.get(internal)
                 if sess is None:
                     log("START session meeting=%s (external=%s, %d users)"
                         % (internal, external, len(users)))
@@ -212,21 +250,26 @@ class Recorder:
                     self.sessions[internal] = sess
                 sess.update(users)
             else:
-                if internal in self.sessions:
-                    log("STOP session meeting=%s (gate1=%s gate2=%s)"
+                # Gate dropped (e.g. record paused, or share stopped): stop the
+                # recorders and finalize their segments, but KEEP the session so
+                # its segment counter survives -- a resume then continues with a
+                # fresh part file instead of clobbering the paused segment.
+                if sess is not None and sess.active():
+                    log("PAUSE session meeting=%s (gate1=%s gate2=%s)"
                         % (internal, gate1, gate2))
-                    self.sessions.pop(internal).stop()
+                    sess.stop()
         # tear down sessions whose meeting ended
         for internal in list(self.sessions.keys()):
             if internal not in meetings:
                 log("STOP session meeting=%s (meeting ended)" % internal)
                 self.sessions.pop(internal).stop()
+                self.events.forget(internal)
 
     # ---- run ---------------------------------------------------------------
 
     def run(self):
         self._wake = threading.Event()
-        self.gate2.start()
+        self.events.start()
         self.screenshare.start()
         interval = float(self.cfg["recording"]["poll_interval"])
         log("bbb-vnc-recorder started (storage=%s, encoding=%s, poll=%ss)"
@@ -242,7 +285,7 @@ class Recorder:
         log("shutting down")
         for sess in list(self.sessions.values()):
             sess.stop()
-        self.gate2.stop()
+        self.events.stop()
         self.screenshare.stop()
 
     def stop(self, *args):
