@@ -29,6 +29,59 @@
 # along with this software; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 # USA.
+#
+#########################################################################
+#
+# LOCAL MODIFICATIONS (freesoft.org collaborate)
+#
+# This is a VENDORED, FORKED copy of the TigerVNC/Debian `vncserver` perl
+# wrapper (the older monolithic script, NOT the smaller 2021+ rewrite
+# shipped as /usr/bin/tigervncserver). It is installed as package data of
+# python3-vnc-collaborate and invoked as `python3 -m vnc_collaborate
+# tigervncserver` by vnc_collaborate/websockify.py -- for BOTH the
+# per-connection inetd overlays and the persistent /run/vnc/USER desktops
+# (the latter via `machinectl shell USER@.host`). The system
+# tigervncserver is deliberately NOT used (see the -rfbunixpath item).
+#
+# The changes below adapt the wrapper for that use: running Xvnc in -inetd
+# mode with the RFB protocol on STDIN/STDOUT, and over UNIX-domain sockets
+# instead of TCP. Each is a single self-contained commit in the collaborate
+# git history -- run `git log -- vnc_collaborate/tigervncserver.pl` for the
+# full rationale and diffs. Keep this block in sync with git log (add the
+# commit that made the change); git log, not this comment, is authoritative.
+#
+#   2fec12b  2020-10-21  -inetd: don't wait for a TCP VNC socket to come up
+#                        (there is none in inetd mode; RFB runs over stdio).
+#   98310eb  2020-10-21  Add a -quiet switch (needed for -inetd; see df30115).
+#   df30115  2020-10-21  Extend -quiet to silence further startup warnings
+#                        that would corrupt the RFB protocol on STDIN.
+#                        (08a5ea8 fixed a `use experimental` placement here.)
+#   b4cee68  2020-10-23  Work around `xauth` resetting .Xauthority perms
+#                        (chown to group, chmod 0640) so group-readable
+#                        auth keeps working (teachers read student sockets).
+#   e48f038  2020-10-30  -rfbunixpath: don't wait for a TCP listen port when
+#                        a UNIX socket was requested. The system
+#                        tigervncserver's failure to do this is the reason
+#                        we vendor our own copy.
+#   ac3bb3c  2021-04-05  Don't start `vncconfig` by default (dropped from the
+#                        default xstartup); screenshares trigger faster.
+#   624d932  2024-05-30  Don't probe the 5900+n TCP range for availability --
+#                        these servers use UNIX sockets, not TCP ports.
+#   9a79441  2024-07-26  Allow X11 display numbers 100-199 (hosts with 50+
+#                        virtual desktops).
+#   b26f713  2024-07-30  Drop the -rfbwait option (removed in tigervnc 1.12+).
+#   b7def2b  2026-07-17  Add a no-argument -blank-name option that forces an
+#                        empty desktopName: suppresses the stock
+#                        "<HOSTFQDN>:<display> (<USER>)" default, so Xvnc is
+#                        launched with an empty -desktop and RFB ServerInit
+#                        advertises a zero-length name. websockify.py passes
+#                        it on the OVERLAY spawn only, to stop the moderator
+#                        user-list label flashing the default name on connect.
+#                        A no-arg flag (not -name "") is required because the
+#                        overlay command is word-split by socat's EXEC:
+#                        address, which cannot carry an empty token.
+#
+#########################################################################
 
 package config;
 
