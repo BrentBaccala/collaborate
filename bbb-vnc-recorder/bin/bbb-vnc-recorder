@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+"""bbb-vnc-recorder entrypoint."""
+import sys
+
+# Installed layout: this script is /usr/bin/bbb-vnc-recorder and the package
+# lives at /usr/lib/bbb-vnc-recorder.
+sys.path.insert(0, "/usr/lib/bbb-vnc-recorder")
+
+from bbb_vnc_recorder.recorder import main
+
+if __name__ == "__main__":
+    main()

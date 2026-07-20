@@ -1,0 +1,36 @@
+# bbb-vnc-recorder configuration.
+# Installed to /etc/bbb-vnc-recorder/config.yml.  All keys are optional; the
+# values below are the built-in defaults.
+
+storage:
+  directory: /var/lib/bbb-vnc-recorder
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: null
+  # akka-apps broadcasts the RemoteDesktop plugin's persistEvents
+  # (PluginPersistEventEvtMsg) on this channel.
+  channels:
+    - from-akka-apps-redis-channel
+
+postgres:
+  host: 127.0.0.1
+  dbname: collaborate
+  user: collaborate
+  password: collaborate
+
+recording:
+  # tight (compact, default) | zrle | raw.  The recorder never decodes at
+  # capture time; this only selects which encoding the VNC server sends.
+  encoding: tight
+  fps: 10
+  poll_interval: 5   # seconds between BBB getMeetingInfo polls (gate 1)
+
+vnc:
+  run_dir: /run/vnc
+
+plugin:
+  name: RemoteDesktop
+  share_start_event: remote-desktop-share-start
+  share_stop_event: remote-desktop-share-stop

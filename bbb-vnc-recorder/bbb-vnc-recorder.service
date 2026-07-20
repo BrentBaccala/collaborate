@@ -1,0 +1,19 @@
+[Unit]
+Description=BigBlueButton collaborate per-meeting VNC desktop recorder
+After=network-online.target redis-server.service postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Must read the collaborate desktops' RFB unix sockets in /run/vnc and write
+# recordings under /var/lib/bbb-vnc-recorder.  Runs as root so it can connect
+# to every user's /run/vnc/<user> socket regardless of ownership.
+ExecStart=/usr/bin/bbb-vnc-recorder
+Restart=on-failure
+RestartSec=10
+# Recording directory
+StateDirectory=bbb-vnc-recorder
+StateDirectoryMode=0750
+
+[Install]
+WantedBy=multi-user.target
