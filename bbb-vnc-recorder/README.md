@@ -5,9 +5,11 @@ records every meeting participant's persistent Xtigervnc desktop to a raw-RFB
 container (**FBSX**), **only while two gates both hold**, keyed on the UNIX
 username, on a single epoch-ms clock.
 
-This package is **record-only**: it produces the raw source-of-truth files.
-Transcoding those to video / building a playback UI is a separate future
-deliverable and is intentionally out of scope here.
+This package is **record-only**: capture never decodes; it produces the raw
+source-of-truth files. A basic companion transcoder (`fbsx-to-video`, see
+below) turns a segment into a real-time playback video, but a full
+transcode/publish pipeline and playback UI remain a separate future deliverable
+and are out of scope here.
 
 ## The two gates
 
@@ -196,6 +198,23 @@ fbsx-decode /var/lib/bbb-vnc-recorder/<meeting>/<user>.1.fbsx --ppm /tmp/frame.p
 
 (JPEG-compressed Tight rects need `python3-pil` to fully decode; without it
 those rects are skipped, everything else still decodes.)
+
+### Playback video
+
+`fbsx-to-video` (`/usr/bin/fbsx-to-video`) transcodes an FBSX segment into a
+real-time playback video. It reuses the `fbsx-decode` decoder, snapshots the
+framebuffer after each update, and holds every frame for its actual
+inter-update duration (using the epoch-ms timestamps), so playback runs at true
+wall-clock speed. Output is H.264 mp4 by default, or VP9 webm if the output name
+ends in `.webm`.
+
+```
+fbsx-to-video /var/lib/bbb-vnc-recorder/<meeting>/<user>.1.fbsx /tmp/clip.mp4
+```
+
+Needs `ffmpeg` on `PATH` (and `python3-pil` for JPEG-Tight regions, as above).
+Neither is a hard package dependency — the recorder itself never decodes; this
+is the companion decode/playback tool.
 
 ## Configuration
 

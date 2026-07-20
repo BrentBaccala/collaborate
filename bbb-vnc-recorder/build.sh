@@ -15,14 +15,16 @@ rm -f bbb-vnc-recorder*.deb
 #   /usr/lib/bbb-vnc-recorder/bbb_vnc_recorder/   python package
 #   /usr/bin/bbb-vnc-recorder                     service entrypoint
 #   /usr/bin/fbsx-decode                          decode / verify tool
+#   /usr/bin/fbsx-to-video                        transcode FBSX -> playback video
 #   /usr/lib/systemd/system/bbb-vnc-recorder.service
 #   /etc/bbb-vnc-recorder/config.yml
 mkdir -p staging/usr/lib/bbb-vnc-recorder/bbb_vnc_recorder
 cp bbb_vnc_recorder/*.py staging/usr/lib/bbb-vnc-recorder/bbb_vnc_recorder/
 
 mkdir -p staging/usr/bin
-install -m 755 bin/bbb-vnc-recorder staging/usr/bin/bbb-vnc-recorder
-install -m 755 bin/fbsx-decode.py   staging/usr/bin/fbsx-decode
+install -m 755 bin/bbb-vnc-recorder  staging/usr/bin/bbb-vnc-recorder
+install -m 755 bin/fbsx-decode.py    staging/usr/bin/fbsx-decode
+install -m 755 bin/fbsx-to-video.py  staging/usr/bin/fbsx-to-video
 
 mkdir -p staging/usr/lib/systemd/system
 cp bbb-vnc-recorder.service staging/usr/lib/systemd/system/
