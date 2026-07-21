@@ -48,6 +48,15 @@ running (there is no safe automatic teardown of a live desktop — see the
 comments in the unit), and a later `start` re-adopts it rather than spawning a
 duplicate. To actually tear a desktop down: `loginctl terminate-user <user>`.
 
+This is also the **remote end of a cross-server tunnel**. The `vnc-tunnel`
+package forwards a remote `/run/vnc/<user>` into a BBB host's
+`/run/vnc/<user>@<host>` over SSH, so a desktop on another machine appears as a
+cell in the teacher grid; `grid-desktop@<user>` is what brings that desktop up
+on the far end. Such a host needs `bbb-vnc-collaborate` but not the rest of BBB,
+and the remote user needs `loginctl enable-linger`, or the desktop dies a few
+minutes after the tunnel disconnects. (This role was previously filled by a
+standalone `vnc-desktop` package, retired 2026-07-21.)
+
 ## Teacher Mode
 
 The extension allows different VNC desktops to be presented to different
