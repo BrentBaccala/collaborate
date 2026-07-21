@@ -26,6 +26,28 @@ The remote desktop feature is provided by two components:
 | **freesoft-gnome-desktop** | GNOME desktop configuration for VNC environments (disables screen lock, setup wizard, etc.) |
 | **bbb-wss-proxy** | WebSocket proxy service |
 
+### Starting a desktop without the user logging in
+
+Desktops normally spawn on demand, when the user connects. For the cases where
+nobody will connect first — pre-warming a desktop before class, or pinning one
+that is really a shim to somewhere else (an `~/.xsession` that reconnects to a
+Windows host, say) — **bbb-vnc-collaborate** ships a `grid-desktop@` template
+unit:
+
+```bash
+systemctl start        grid-desktop@alice   # this boot only
+systemctl enable --now grid-desktop@alice   # and on every boot
+```
+
+The unit is installed but **not enabled**; nothing runs until an administrator
+instantiates it for a specific user. It runs whatever that user's `~/.xsession`
+runs, exactly as an on-demand spawn would.
+
+Stopping it is deliberately non-destructive: `systemctl stop` leaves the desktop
+running (there is no safe automatic teardown of a live desktop — see the
+comments in the unit), and a later `start` re-adopts it rather than spawning a
+duplicate. To actually tear a desktop down: `loginctl terminate-user <user>`.
+
 ## Teacher Mode
 
 The extension allows different VNC desktops to be presented to different

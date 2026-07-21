@@ -1,0 +1,83 @@
+# Bring up a user's VNC desktop without that user logging in.
+#
+# This unit is SHIPPED BUT NOT ENABLED.  Installing bbb-vnc-collaborate
+# only puts the template on disk; nothing starts until an administrator
+# instantiates it:
+#
+#     systemctl start          grid-desktop@alice   # now, this boot only
+#     systemctl enable --now   grid-desktop@alice   # now and on every boot
+#
+# The normal path into a desktop is on-demand: the user connects, the
+# websockify handler calls ensure_vnc_server(), and the desktop spawns.
+# This unit exists for the cases where nobody is going to connect first --
+# pre-warming a desktop before class, or pinning a desktop that is really a
+# shim to somewhere else (an ~/.xsession that is an xfreerdp reconnect loop
+# to a Windows host, say).  It replaces doing that with a transient
+# `systemd-run` unit, which lives in /run and silently does not come back
+# after a reboot.
+#
+# It is not specific to any kind of desktop: it runs whatever the user's
+# ~/.xsession runs, exactly as an on-demand spawn would.
+#
+# Developed on itpietraining.com; see the notes on stop semantics and the
+# boot-time display race below, which are the two non-obvious parts.
+
+[Unit]
+Description=VNC desktop for %i (via ~%i/.xsession)
+Documentation=https://github.com/BrentBaccala/collaborate
+After=network-online.target bbb-vnc-collaborate.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Route the spawn through ensure_vnc_server() rather than reimplementing it.
+# Calling machinectl/tigervncserver directly from here does work, but it
+# reinvents -- and gets wrong -- everything the websockify path already
+# solves: display-number selection, fail-fast when the spawn dies, retry with
+# jitter, and the socket group fix (a fresh /run/vnc/<user> is 0600
+# <user>:<user>, which the websockify proxy, running as bigbluebutton, cannot
+# read; the desktop is then invisible in the teacher grid until it is chgrp'd).
+# The user name is passed as argv[1], never interpolated into the source.
+#
+# The global flock serializes *different users* against each other, which
+# ensure_vnc_server deliberately does not do: its own lock is keyed on the
+# socket basename, so it is per-user (correct for the on-demand path, where
+# meetings must not stall each other).  That leaves simultaneous starts --
+# exactly what happens at boot when several instances are enabled -- racing to
+# auto-pick the same free display.  The lock is held only during startup:
+# ensure_vnc_server returns as soon as the socket exists, so desktops still
+# pick distinct displays on their own and no display number is hard-wired here.
+ExecStart=/usr/bin/flock /run/lock/grid-desktop-spawn.lock \
+    /usr/bin/python3 -c 'import sys; from vnc_collaborate.websockify import ensure_vnc_server; ensure_vnc_server(sys.argv[1], "/run/vnc/" + sys.argv[1])' %i
+
+# No ExecStop, deliberately.  There is no safe automatic teardown of a local
+# desktop: any kill of the VNC server tears down the session under it and
+# loses unsaved work, and `loginctl terminate-user` would take out every one
+# of that user's processes and sessions -- fine for a disposable RDP shim
+# whose state lives on the remote host, destructive for a real user's GNOME
+# session.  So stop fails safe: it leaves the desktop running.
+#
+# This works because the desktop does not live in this unit's cgroup.  The
+# machinectl chain puts it in its own logind session scope (session-NN.scope
+# under user-UID.slice); the unit cgroup holds only the short-lived shim.
+# `systemctl stop` therefore leaves the desktop and its socket up, and a
+# later `systemctl start` re-adopts it via ensure_vnc_server's
+# socket-already-exists check rather than spawning a duplicate.
+#
+# Teardown is an explicit act:  loginctl terminate-user <user>
+#
+# If some particular instance really is disposable and should tear down on
+# stop, that belongs in a per-instance drop-in (systemctl edit
+# grid-desktop@thatuser), never in this shared template.
+KillMode=process
+
+# Generous, because the global flock serializes instances: with several
+# enabled, each waits out the ones ahead of it, and ensure_vnc_server's own
+# bound is 40 s per spawn before it gives up.  A tight timeout here would kill
+# a late instance whose desktop was in fact coming up fine.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
