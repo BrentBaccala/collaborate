@@ -24,12 +24,12 @@ cp grid-desktop.tmpfiles staging/usr/lib/tmpfiles.d/grid-desktop.conf
 
 # What it actually takes to spawn a desktop, and nothing more.
 #
-# python3-vnc-collaborate for ensure_vnc_server.  python3-tk because
-# `import vnc_collaborate` runs the package __init__, which imports the whole
-# module set, and teacher_desktop imports tkinter -- verified by checking
-# sys.modules after the import, not just by grepping.  python3-vnc-collaborate
-# does not declare python3-tk itself, so we must.  systemd-container for
+# python3-vnc-collaborate for ensure_vnc_server, systemd-container for
 # machinectl, tigervnc for the server.  flock is util-linux (essential).
+#
+# tkinter is needed at import time (the vnc_collaborate __init__ imports
+# teacher_desktop), but it is python3-vnc-collaborate's job to declare that,
+# and as of 0.0.2+20260721 it does -- so we don't repeat it here.
 #
 # NOT python3-posix-ipc, despite bbb-vnc-collaborate declaring it: it is
 # imported lazily inside get_or_add_user(), on the auto-create-user path, and
@@ -39,7 +39,7 @@ cp grid-desktop.tmpfiles staging/usr/lib/tmpfiles.d/grid-desktop.conf
 # Deliberately NOT here: postgresql, nginx, fvwm, ssvnc, xdotool, socat.  Those
 # belong to the BBB-side proxy in bbb-vnc-collaborate, and requiring them is
 # what made that package unusable on a plain remote desktop host.
-DEPENDS="python3-vnc-collaborate,python3-tk,systemd-container,tigervnc-standalone-server(>=1.10)"
+DEPENDS="python3-vnc-collaborate,systemd-container,tigervnc-standalone-server(>=1.10)"
 
 # The unit moved here out of bbb-vnc-collaborate 2.4.10, which briefly shipped
 # it; Replaces lets dpkg hand the file over without a conflict.
