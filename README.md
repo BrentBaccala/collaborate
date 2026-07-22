@@ -20,6 +20,7 @@ The remote desktop feature is provided by two components:
 | Package | Description |
 |---------|-------------|
 | **bbb-vnc-collaborate** | VNC remote desktop service: websockify proxy, per-user TigerVNC servers, nginx config |
+| **grid-desktop** | `grid-desktop@.service` — bring up a user's desktop without them logging in. Installable on its own, on a host with no BBB |
 | **python3-vnc-collaborate** | Python module with VNC collaboration logic (teacher desktop, student desktop, etc.) |
 | **python3-bigbluebutton** | Python library wrapping the BBB REST API |
 | **bbb-auth-jwt** | JWT-based authentication service with `bbb-mklogin` CLI for generating login URLs |
@@ -31,8 +32,7 @@ The remote desktop feature is provided by two components:
 Desktops normally spawn on demand, when the user connects. For the cases where
 nobody will connect first — pre-warming a desktop before class, or pinning one
 that is really a shim to somewhere else (an `~/.xsession` that reconnects to a
-Windows host, say) — **bbb-vnc-collaborate** ships a `grid-desktop@` template
-unit:
+Windows host, say) — the **grid-desktop** package provides a template unit:
 
 ```bash
 systemctl start        grid-desktop@alice   # this boot only
@@ -52,10 +52,16 @@ This is also the **remote end of a cross-server tunnel**. The `vnc-tunnel`
 package forwards a remote `/run/vnc/<user>` into a BBB host's
 `/run/vnc/<user>@<host>` over SSH, so a desktop on another machine appears as a
 cell in the teacher grid; `grid-desktop@<user>` is what brings that desktop up
-on the far end. Such a host needs `bbb-vnc-collaborate` but not the rest of BBB,
-and the remote user needs `loginctl enable-linger`, or the desktop dies a few
+on the far end. That is why `grid-desktop` is its own package rather than part
+of `bbb-vnc-collaborate`: such a host runs no BBB, and `bbb-vnc-collaborate`
+would drag in a websockify proxy, an nginx config, and a postinst that requires
+PostgreSQL. `grid-desktop` needs four packages and a postinst that only creates
+`/run/vnc`. `bbb-vnc-collaborate` depends on it, so a BBB host gets the unit
+too.
+
+The remote user needs `loginctl enable-linger`, or the desktop dies a few
 minutes after the tunnel disconnects. (This role was previously filled by a
-standalone `vnc-desktop` package, retired 2026-07-21.)
+standalone `vnc-desktop` package, retired 2026-07-21 in favour of this one.)
 
 ## Teacher Mode
 

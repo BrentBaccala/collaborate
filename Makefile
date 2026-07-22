@@ -6,6 +6,8 @@
 # This makefile builds the server-side packages for BigBlueButton 3.0
 # remote desktop collaboration on Ubuntu 22.04 (jammy):
 #
+#    - grid-desktop — systemd unit to bring up a desktop without the user
+#                     logging in; installable on a non-BBB host (FPM via build.sh)
 #    - bbb-vnc-collaborate — VNC remote desktop service (FPM via build.sh)
 #    - python3-vnc-collaborate — Python VNC collaboration module (FPM via build.sh)
 #    - python3-bigbluebutton — BBB API bindings (FPM via build.sh)
@@ -32,7 +34,7 @@ CODENAME := bigbluebutton-jammy
 
 all: reprepro keys
 
-packages: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
+packages: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
 
 # Publish only. Deliberately has NO build prerequisite: the package targets in
 # `packages` are phony and rebuild unconditionally (npm/dpkg-buildpackage for
@@ -47,6 +49,12 @@ rsync:
 	rsync -avvz --delete $(REPO) ubuntu@u24.freesoft.org:/var/www/html
 
 # Packages with their own build.sh scripts
+
+grid-desktop:
+	cd grid-desktop && bash build.sh
+	mkdir -p build
+	rm -f build/grid-desktop*.deb
+	cp grid-desktop/grid-desktop*.deb build/
 
 bbb-vnc-collaborate:
 	cd bbb-vnc-collaborate && bash build.sh
@@ -219,5 +227,5 @@ clean:
 	cd freesoft-gnome-desktop && rm -rf staging *.deb
 
 .PHONY: all packages rsync clean reprepro keys
-.PHONY: bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton freesoft-gnome-desktop
+.PHONY: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton freesoft-gnome-desktop
 .PHONY: bbb-auth-jwt bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop

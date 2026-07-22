@@ -1,7 +1,7 @@
 #!/bin/bash -ex
 
 PACKAGE=bbb-vnc-collaborate
-VERSION=2.4.10+$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S')
+VERSION=2.4.11+$(git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%M%S')
 BUILD=1
 EPOCH=3
 
@@ -19,17 +19,8 @@ cp vnc-collaborate.nginx staging/etc/bigbluebutton/nginx
 mkdir -p staging/usr/lib/systemd/system
 cp bbb-vnc-collaborate.service staging/usr/lib/systemd/system
 
-# Shipped but NOT enabled -- a template unit is inert until an administrator
-# instantiates it (systemctl start grid-desktop@USER). after-install.sh
-# deliberately does not startService this one.
-cp 'grid-desktop@.service' staging/usr/lib/systemd/system
-
 mkdir -p staging/etc/default
 cp bbb-vnc-collaborate.default staging/etc/default/bbb-vnc-collaborate
-
-# /run/vnc must exist before the first VNC connection (see the .tmpfiles file)
-mkdir -p staging/usr/lib/tmpfiles.d
-cp bbb-vnc-collaborate.tmpfiles staging/usr/lib/tmpfiles.d/bbb-vnc-collaborate.conf
 
 mkdir -p staging/usr/share/fvwm/default-config
 cp fvwm-config staging/usr/share/fvwm/default-config/config
@@ -41,7 +32,7 @@ CONFFILES="--deb-no-default-config-files"
 
 # CONVENIENCE_DEPENDS="gnome-terminal,dbus-x11,chromium-browser,xournal"
 # don't know why python3-posix-ipc isn't picked up as a dependency by python3-vnc-collaborate
-DEPENDS="python3-vnc-collaborate,python3-posix-ipc,python3-tk,systemd-container,ssvnc,fvwm,dconf-cli,tigervnc-standalone-server(>=1.10),tigervnc-viewer(>=1.10),xdotool,socat"
+DEPENDS="grid-desktop,python3-vnc-collaborate,python3-posix-ipc,python3-tk,systemd-container,ssvnc,fvwm,dconf-cli,tigervnc-standalone-server(>=1.10),tigervnc-viewer(>=1.10),xdotool,socat"
 
 #
 # Build RPM package

@@ -140,13 +140,9 @@ print('bbb-vnc-collaborate: created bbb-html5.yml with plugin settings')
 "
 fi
 
-# /run is tmpfs (wiped on boot); the tmpfiles.d entry recreates /run/vnc on
-# every boot, but FPM packages don't get dpkg's automatic tmpfiles trigger, so
-# create it now too — otherwise the first connection after a fresh install
-# (with no reboot) hits ENOENT on /run/vnc/.USER.spawnlock and never spawns.
-if command -v systemd-tmpfiles >/dev/null 2>&1; then
-    systemd-tmpfiles --create /usr/lib/tmpfiles.d/bbb-vnc-collaborate.conf || true
-fi
+# /run/vnc is created by the grid-desktop package (tmpfiles.d + its own
+# postinst), which we depend on -- so it exists by the time we get here, even
+# on a fresh install with no reboot.
 
 startService bbb-vnc-collaborate || echo "bbb-vnc-collaborate service could not be registered or started"
 

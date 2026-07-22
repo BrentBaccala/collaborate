@@ -1,3 +1,7 @@
+# Owned by grid-desktop, not bbb-vnc-collaborate: this is the package that can
+# be installed on its own (a remote desktop host with no BBB), and the BBB side
+# inherits the directory by depending on us.
+#
 # /run is tmpfs and is wiped on every boot. vnc_collaborate keeps the per-user
 # VNC sockets in /run/vnc and takes a per-user spawn lock at
 # /run/vnc/.USER.spawnlock on the first connection — if the directory doesn't
