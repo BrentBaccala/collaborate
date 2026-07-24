@@ -86,6 +86,11 @@ class DesktopRecorder(threading.Thread):
 
     address may be a filesystem path (AF_UNIX, e.g. /run/vnc/<user>) or a
     (host, port) tuple (AF_INET).
+
+    out_path is created exclusively (O_EXCL): an existing recording is NEVER
+    truncated.  A collision is reported through .error/.reason like any other
+    startup failure, leaving the caller to pick a fresh name -- losing the tail
+    of one segment beats overwriting a completed one.
     """
 
     def __init__(self, address, out_path, identity=None, encoding="tight",
@@ -172,10 +177,22 @@ class DesktopRecorder(threading.Thread):
         self._flush_sidecar()
 
     def _flush_sidecar(self):
+        """Write the sidecar atomically (temp file + rename).
+
+        Rewriting in place truncates first, so a process killed between the
+        truncate and the flush leaves a 0-byte sidecar -- exactly what an
+        upgrade mid-recording produced in the field.  os.replace() is atomic
+        within the directory, so a reader sees either the previous complete
+        sidecar or the new one, never a partial."""
         if self.meta is None:
             return
-        with open(self.out_path + ".json", "w") as jf:
+        path = self.out_path + ".json"
+        tmp = path + ".tmp"
+        with open(tmp, "w") as jf:
             json.dump(self.meta, jf, indent=2)
+            jf.flush()
+            os.fsync(jf.fileno())
+        os.replace(tmp, path)
 
     def _finalize_sidecar(self, end_epoch, reason):
         """Stamp the end of the recording into the sidecar (any exit path).
@@ -212,7 +229,7 @@ class DesktopRecorder(threading.Thread):
     def run(self):
         try:
             self._connect()
-            self._f = open(self.out_path, "wb")
+            self._f = open(self.out_path, "xb")
             self._f.write(b"FBSX0001\n")
             self.start_epoch = now_ms()
             rfb_version, w, h, name = self._handshake()

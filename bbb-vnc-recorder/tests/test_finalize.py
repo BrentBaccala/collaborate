@@ -6,7 +6,9 @@ Covers the gate-1-fix follow-up requirements:
   * a clean stop is reasoned "stopped"; a server that vanishes mid-recording
     is reasoned "eof"/"send-failed" (NOT a silent break);
   * a mid-session drop + restart writes a NEW numbered part file
-    (<user>.<n>.fbsx) and does not truncate the earlier segment.
+    (<user>.<n>.fbsx) and does not truncate the earlier segment -- both within
+    one process and across a process restart (numbering is seeded from the
+    meeting directory, and part files are opened O_EXCL).
 
 Skipped automatically if Xtigervnc is not installed.
 """
@@ -160,6 +162,89 @@ def test_restart_no_clobber_segments():
             rec2.join(5)
         print("ok  restart no-clobber: seg1=%dB preserved, seg2 opened fresh"
               % size1)
+    finally:
+        _kill(xvnc)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_new_process_no_clobber_segments():
+    """A NEW recorder process (service restart / crash / apt upgrade) resumes
+    numbering from the meeting directory instead of restarting at .1 and
+    overwriting the segment a previous process wrote.
+
+    This is the field failure: an upgrade stopped the recorder mid-meeting, the
+    restart re-opened <user>.1.fbsx, and a 75-second re-take replaced a 134 MB
+    capture."""
+    tmp = tempfile.mkdtemp(prefix="fbsx-restart-")
+    run_dir = os.path.join(tmp, "run")
+    os.makedirs(run_dir)
+    sock = os.path.join(run_dir, "u")
+    xvnc = _start_xvnc(sock)
+    try:
+        assert os.path.exists(sock)
+        cfg = {
+            "storage": {"directory": os.path.join(tmp, "store")},
+            "vnc": {"run_dir": run_dir},
+            "recording": {"encoding": "tight", "fps": 10},
+        }
+        # ---- first process: records segment 1, then dies without cleanup
+        sess = MeetingSession("mtg-1", "ext-1", cfg)
+        sess.update(["u"])
+        time.sleep(1.2)
+        seg1 = os.path.join(sess.directory, "u.1.fbsx")
+        assert os.path.exists(seg1), "segment 1 not created"
+        rec1 = sess.recorders["u"]
+        rec1.stop()
+        rec1.join(5)
+        size1 = os.path.getsize(seg1)
+        assert size1 > 0
+        del sess                        # the process is gone; counter with it
+
+        # ---- second process: same meeting, fresh in-memory state
+        sess2 = MeetingSession("mtg-1", "ext-1", cfg)
+        assert sess2._segments == {}, "new session started with stale state"
+        sess2.update(["u"])
+        time.sleep(1.0)
+        seg2 = os.path.join(sess2.directory, "u.2.fbsx")
+        assert os.path.exists(seg2), \
+            "restart did not open a new segment (files: %s)" % \
+            sorted(os.listdir(sess2.directory))
+        assert os.path.getsize(seg1) == size1, \
+            "segment 1 was clobbered by the restart!"
+        m1 = _load_sidecar(seg1)
+        assert m1["segment"] == 1
+        rec2 = sess2.recorders.get("u")
+        sess2.stop()
+        if rec2 is not None:
+            rec2.join(5)
+        print("ok  restart across processes: seg1=%dB preserved, seg2 opened fresh"
+              % size1)
+    finally:
+        _kill(xvnc)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_recorder_never_truncates_existing_file():
+    """Belt and braces: a DesktopRecorder pointed at an existing part file must
+    fail rather than truncate it, whatever the caller's numbering did."""
+    tmp = tempfile.mkdtemp(prefix="fbsx-excl-")
+    sock = os.path.join(tmp, "sock")
+    xvnc = _start_xvnc(sock)
+    try:
+        assert os.path.exists(sock)
+        out = os.path.join(tmp, "u.1.fbsx")
+        with open(out, "wb") as f:
+            f.write(b"PRIOR RECORDING")
+        rec = DesktopRecorder(sock, out, encoding="tight", fps=10,
+                              identity={"unix_user": "u"})
+        rec.start()
+        rec.join(5)
+        assert not rec.is_alive()
+        assert isinstance(rec.error, FileExistsError), \
+            "expected FileExistsError, got %r" % rec.error
+        with open(out, "rb") as f:
+            assert f.read() == b"PRIOR RECORDING", "existing file was truncated!"
+        print("ok  exclusive open: existing recording left intact (%r)" % rec.reason)
     finally:
         _kill(xvnc)
         shutil.rmtree(tmp, ignore_errors=True)

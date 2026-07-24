@@ -59,6 +59,11 @@ def log(*args):
     sys.stdout.flush()
 
 
+def segment_re(user):
+    """Match this user's part files, capturing the segment number."""
+    return re.compile(r"^%s\.(\d+)\.fbsx$" % re.escape(user))
+
+
 def rfbport_for_user(run_dir, user):
     """Best-effort lookup of the TCP rfbport for a user's Xtigervnc, by
     scanning /proc for the process bound to /run/vnc/<user>."""
@@ -95,6 +100,34 @@ class MeetingSession:
         self._lock = threading.Lock()
         os.makedirs(self.directory, exist_ok=True)
 
+    def _next_segment(self, user):
+        """Allocate the next part-file number for `user`.
+
+        The in-memory counter is only a floor: it is empty in a freshly started
+        process, so on its own it restarts numbering at 1 after a service
+        restart and the first new segment overwrites the `.1` an earlier
+        process wrote for the same meeting (that is real, observed data loss --
+        an upgrade mid-meeting cost a 134 MB capture).  The meeting directory
+        is the durable record, so consult it too and take the higher of the
+        two.  DesktopRecorder additionally opens its part file exclusively, so
+        even a lost race here fails the recorder instead of truncating a
+        recording; the next reconcile then sees the file and numbers past it.
+        """
+        hi = self._segments.get(user, 0)
+        pat = segment_re(user)
+        try:
+            names = os.listdir(self.directory)
+        except OSError as e:  # noqa: BLE001 - directory unreadable; memory only
+            log("cannot scan %s for existing segments: %r" % (self.directory, e))
+            names = []
+        for name in names:
+            m = pat.match(name)
+            if m:
+                hi = max(hi, int(m.group(1)))
+        seg = hi + 1
+        self._segments[user] = seg
+        return seg
+
     def _on_recorder_exit(self, rec):
         # DesktopRecorder finished (desktop vanished or error) - drop it so a
         # later update() can restart if the desktop reappears.
@@ -111,11 +144,11 @@ class MeetingSession:
         """Ensure exactly the live desktops among `users` are being recorded.
 
         Each (re)start of a desktop's recorder writes a fresh numbered part
-        file `<user>.<n>.fbsx` (n = 1, 2, ...), so a pause/resume or a
-        mid-session connection drop + restart produces a NEW segment rather
-        than truncating the prior recording.  The segment counter lives on the
-        session, so it survives a pause (recorders stopped, session kept) and
-        keeps numbering monotonically for the meeting's lifetime.
+        file `<user>.<n>.fbsx` (n = 1, 2, ...), so a pause/resume, a mid-session
+        connection drop + restart, or a restart of the service itself produces
+        a NEW segment rather than truncating the prior recording.  Numbering is
+        seeded from the meeting directory (see _next_segment), so it is durable
+        across process replacement -- an in-memory counter alone is not.
         """
         run_dir = self.cfg["vnc"]["run_dir"]
         want = set()
@@ -130,8 +163,7 @@ class MeetingSession:
                 if rec is not None and rec.is_alive():
                     continue
                 sock = os.path.join(run_dir, user)
-                seg = self._segments.get(user, 0) + 1
-                self._segments[user] = seg
+                seg = self._next_segment(user)
                 out = os.path.join(self.directory, "%s.%d.fbsx" % (user, seg))
                 identity = {
                     "unix_user": user,
@@ -172,6 +204,7 @@ class Recorder:
         self.cfg = cfg
         self.sessions = {}                      # internal meeting_id -> MeetingSession
         self._stopev = threading.Event()
+        self._first_pass = True                 # for the startup gate-2 warning
         self.events = AkkaEventWatcher(
             cfg["redis"], cfg["plugin"],
             on_change=self._on_share_change,
@@ -234,6 +267,8 @@ class Recorder:
 
     def _reconcile(self):
         meetings = self._running_meetings()
+        first_pass = self._first_pass
+        self._first_pass = False
         for internal, (external, recording_flag, users) in meetings.items():
             # Seed gate-1 recording state from getMeetings the first time we see
             # a meeting (best-effort; real RecordingStatusChangedEvtMsg events,
@@ -241,6 +276,19 @@ class Recorder:
             self.events.seed_recording(internal, recording_flag)
             gate1 = self.events.is_recording(internal)
             gate2 = self.events.is_sharing(internal)
+            if first_pass and gate1 and not gate2:
+                # Gate 2 rides Redis pub/sub, which is never replayed, and
+                # unlike gate 1 it has no getMeetings equivalent to seed from.
+                # So for a meeting already running when we started, "not
+                # sharing" is indistinguishable from "sharing, but the
+                # share-start fired before we subscribed" -- and the latter
+                # records nothing while looking healthy.  Say so once, at the
+                # only moment the ambiguity exists.
+                log("WARNING: meeting %s was already running at startup and is "
+                    "recording, but no remote-desktop share has been seen. If a "
+                    "share is in progress it is NOT being captured -- re-share "
+                    "the desktop (and toggle Stop/Start Recording) to resume."
+                    % internal)
             sess = self.sessions.get(internal)
             if gate1 and gate2:
                 if sess is None:

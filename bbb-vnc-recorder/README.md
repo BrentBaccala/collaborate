@@ -139,22 +139,37 @@ writes `end_epoch_ms`, `duration_ms`, `bytes_recorded`, and `exit_reason`
 
 ### Segments (pause / resume / reconnect)
 
-Each per-desktop recorder opens its FBSX file with `wb` (an FBSX is a *single*
-continuous RFB session — handshake included — so a decoder replays it as one
-stream; you cannot concatenate two sessions into one file). To keep every run
-self-contained **and** never lose earlier data, each (re)start writes a **new
-numbered part file** `<user>.<n>.fbsx`:
+Each per-desktop recorder opens its FBSX file exclusively (`xb`, i.e. `O_EXCL`
+— an FBSX is a *single* continuous RFB session, handshake included, so a
+decoder replays it as one stream; you cannot concatenate two sessions into one
+file). To keep every run self-contained **and** never lose earlier data, each
+(re)start writes a **new numbered part file** `<user>.<n>.fbsx`:
 
 - **Pause → resume:** on gate-1 pause the recorder stops and finalizes segment
-  *n* (`exit_reason=stopped`); on resume it starts segment *n+1*. The segment
-  counter lives on the meeting session and survives the pause.
+  *n* (`exit_reason=stopped`); on resume it starts segment *n+1*.
 - **Mid-session connection drop:** if the desktop socket dies, the recorder
   exits with a logged reason (`eof: …` when the server closes the socket,
   `send-failed: …` when the outgoing `FramebufferUpdateRequest` errors — this
   path used to be a *silent* `break`) and finalizes the segment. The next 5 s
   reconcile restarts a fresh segment against the same desktop. The bytes
-  captured before the drop are preserved in the earlier part file — a restart
-  **never truncates** a prior segment.
+  captured before the drop are preserved in the earlier part file.
+- **Service restart / crash / apt upgrade:** the next number is taken from the
+  **meeting directory**, not just the in-memory counter, so a fresh process
+  resumes at `max(n) + 1` for that user instead of restarting at `.1`. Part
+  files are additionally opened `O_EXCL`, so even a lost race fails that
+  recorder (reported as `error: FileExistsError`, retried on the next
+  reconcile with a higher number) rather than truncating a recording.
+
+A restart **never truncates** a prior segment. Sidecars are written
+atomically (temp file + `os.replace`), so a process killed mid-write leaves
+the previous complete sidecar rather than a 0-byte one.
+
+> **Caveat when restarting mid-meeting:** gate 2 rides Redis pub/sub, which is
+> never replayed, and unlike gate 1 it has no `getMeetings` equivalent to seed
+> from. A share that started before the new process did is therefore invisible
+> to it — the recorder logs a `WARNING` naming the meeting at startup, and the
+> operator must re-share the desktop (and toggle Stop/Start Recording) for
+> capture to resume.
 
 Every recorder exit — clean stop, EOF, send failure, or unexpected error —
 logs a one-line `finished recording <user> -> <file> (<dur>s, <bytes>B,
@@ -208,6 +223,16 @@ inter-update duration (using the epoch-ms timestamps), so playback runs at true
 wall-clock speed. Output is H.264 mp4 by default, or VP9 webm if the output name
 ends in `.webm`.
 
+Frames are streamed into `ffmpeg` as raw rgb24 over a pipe and the
+variable-rate → constant-rate resample happens in-process, so **nothing is
+staged on disk**: peak temp-disk footprint is 0 and peak RAM is one framebuffer
+copy (pipe backpressure throttles decoding to the encode rate). Several
+transcodes can safely run in parallel. (Earlier versions wrote one
+uncompressed `w*h*3` PPM per update into a `/tmp` tempdir — tens of GB for a
+long, busy desktop, which filled the disk mid-run.) A mid-stream `DesktopSize`
+resize is padded/cropped to the recording's initial geometry, since a rawvideo
+pipe needs a fixed frame size.
+
 ```
 fbsx-to-video /var/lib/bbb-vnc-recorder/<meeting>/<user>.1.fbsx /tmp/clip.mp4
 ```
@@ -235,6 +260,14 @@ configured:
 sudo systemctl start bbb-vnc-recorder
 ```
 
+**On upgrade**, `prerm` deliberately leaves a running service alone and
+`postinst` restarts it only if it was active — an upgrade that silently ends
+the current capture is a recording outage nobody is told about (it cost a live
+meeting's desktop video on 2026-07-22). A fresh install is still left stopped.
+Because gate 2 cannot be recovered by a restart (see the caveat under
+[Segments](#segments-pause--resume--reconnect)), `postinst` prints the
+re-share instruction whenever it restarts the service.
+
 ## Building
 
 ```
@@ -248,16 +281,19 @@ python3-bigbluebutton`.
 
 - `tests/test_gates.py` — gate-1 (`RecordingStatusChangedEvtMsg`) and gate-2
   message classification, the pause/resume transition sequence, best-effort
-  startup seeding + event-override, and screenshare diffing (no broker needed).
+  startup seeding + event-override, the startup warning for a meeting whose
+  share state is unknowable, and screenshare diffing (no broker needed).
 - `tests/test_fbsx_roundtrip.py` — records a throwaway Xtigervnc desktop with
   Tight *and* Raw, decodes both, asserts the frames are byte-identical and
   Tight is materially smaller (auto-skips if Xtigervnc is absent).
 - `tests/test_finalize.py` — records a throwaway Xtigervnc desktop and asserts
   every exit path finalizes the sidecar (`end_epoch_ms`/`duration_ms`/
   `bytes_recorded`/`exit_reason`) and logs a finish summary; that a server that
-  vanishes mid-recording exits with a non-silent reason; and that a drop +
-  restart writes a fresh `<user>.<n>.fbsx` segment without truncating the prior
-  one (auto-skips if Xtigervnc is absent).
+  vanishes mid-recording exits with a non-silent reason; that a drop + restart
+  writes a fresh `<user>.<n>.fbsx` segment without truncating the prior one —
+  both within one process and across a **new** process (the apt-upgrade case);
+  and that a recorder pointed at an existing part file fails instead of
+  truncating it (auto-skips if Xtigervnc is absent).
 
 See `~/project/reports/bbb-vnc-recorder.md` for the validation write-up
 (what was proven locally vs. what still needs a live grid-mode BBB).

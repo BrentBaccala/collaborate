@@ -5,7 +5,9 @@ No live Redis / Postgres needed.
 """
 import json
 import os
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -206,6 +208,58 @@ def test_diff_snapshots():
         [("switch", "m1", "bob")]
     assert diff_snapshots({"m1": "alice"}, {}) == [("stop", "m1", "alice")]
     assert diff_snapshots({"m1": "alice"}, {"m1": "alice"}) == []
+
+
+def _stub_recorder(logs, storage):
+    """A Recorder wired to nothing: neither AkkaEventWatcher nor
+    ScreenshareIndexer touches Redis/Postgres until started."""
+    import bbb_vnc_recorder.recorder as R
+    R.log = lambda *a: logs.append(" ".join(str(x) for x in a))
+    cfg = {"redis": {}, "plugin": {}, "postgres": {},
+           "storage": {"directory": storage},
+           "vnc": {"run_dir": os.path.join(storage, "run")},  # no sockets
+           "recording": {"encoding": "tight", "fps": 10, "poll_interval": 5}}
+    return R.Recorder(cfg)
+
+
+def test_startup_warns_when_share_state_unknowable():
+    """A meeting already running when the recorder starts may have an active
+    share whose start event we never saw (Redis pub/sub is not replayed, and
+    gate 2 has no getMeetings equivalent to seed from).  That silently records
+    nothing, so it must be reported -- once, on the first pass only."""
+    logs = []
+    tmp = tempfile.mkdtemp(prefix="rec-warn-")
+    try:
+        rec = _stub_recorder(logs, tmp)
+        rec._running_meetings = lambda: {
+            "mtg-1": ("ext-1", True, ["alice"]),    # recording, share unknown
+        }
+        rec._reconcile()
+        warns = [l for l in logs if "WARNING" in l and "mtg-1" in l]
+        assert len(warns) == 1, "expected one startup warning, got %r" % logs
+        assert "re-share" in warns[0]
+
+        logs.clear()
+        rec._reconcile()                             # steady state: silent
+        assert not [l for l in logs if "WARNING" in l], \
+            "warning repeated after the first pass: %r" % logs
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_no_startup_warning_when_share_is_known():
+    """Once a share-start has been seen, there is no ambiguity to report."""
+    logs = []
+    tmp = tempfile.mkdtemp(prefix="rec-warn-")
+    try:
+        rec = _stub_recorder(logs, tmp)
+        rec._running_meetings = lambda: {"mtg-1": ("ext-1", True, [])}
+        rec.events.handle_raw(json.dumps(
+            _persist_msg("RemoteDesktop", "remote-desktop-share-start", "mtg-1")))
+        rec._reconcile()
+        assert not [l for l in logs if "WARNING" in l], logs
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _run():

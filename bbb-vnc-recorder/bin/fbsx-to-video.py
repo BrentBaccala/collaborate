@@ -15,11 +15,9 @@ python3-pil (missing PIL just skips those rects, same as fbsx-decode).
 import argparse
 import importlib.util
 import os
-import shutil
 import struct
 import subprocess
 import sys
-import tempfile
 from importlib.machinery import SourceFileLoader
 
 
@@ -47,13 +45,69 @@ def transcode(fbsx, out, fps=10):
     r.read(struct.unpack(">I", hdr[20:24])[0])              # desktop name
     fb = m.Framebuffer(w, h)
     tight = m.TightDecoder()
-    frames = []
-    tmp = tempfile.mkdtemp(prefix="fbsx-frames-")
+
+    # Frames stream straight into ffmpeg; nothing is staged to disk.  The
+    # source is variable-rate (one snapshot per FramebufferUpdate), so the
+    # VFR -> CFR resample the old concat-list + `-r` did happens here instead:
+    # walk the recording clock in 1000/fps ticks, holding each snapshot for its
+    # real inter-update duration.  Staging every frame as an uncompressed
+    # w*h*3 PPM first was tens of GB for a long busy desktop and filled the
+    # disk mid-run; peak temp-disk is now 0 and peak RAM one framebuffer copy,
+    # with pipe backpressure throttling the decoder to ffmpeg's encode rate.
+    W, H = w, h                                             # fixed pipe geometry
+    period = 1000.0 / fps                                   # output tick, ms
+
+    if out.endswith(".webm"):
+        vcodec = ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32"]
+    else:
+        vcodec = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+                  "-movflags", "+faststart"]
+    ff = subprocess.Popen(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error",
+         "-f", "rawvideo", "-pixel_format", "rgb24",
+         "-video_size", "%dx%d" % (W, H), "-framerate", str(fps), "-i", "-",
+         "-r", str(fps), "-pix_fmt", "yuv420p"] + vcodec + ["-y", out],
+        stdin=subprocess.PIPE)
+
+    snaps = 0
+    first = last = pend = None
+    outclk = 0.0
+
+    def conform():
+        """Current framebuffer as W*H*3 rgb24.  rawvideo over a pipe needs a
+        fixed frame size, so a mid-stream DesktopSize is padded/cropped to the
+        initial geometry (the old concat-of-PPMs path failed outright on it)."""
+        if fb.w == W and fb.h == H:
+            return bytes(fb.buf)
+        buf = bytearray(W * H * 3)
+        cols = min(fb.w, W) * 3
+        for row in range(min(fb.h, H)):
+            buf[row * W * 3:row * W * 3 + cols] = \
+                fb.buf[row * fb.w * 3:row * fb.w * 3 + cols]
+        return bytes(buf)
+
+    def emit(frame):
+        """Write one output frame, turning a dead ffmpeg into a clean error."""
+        try:
+            ff.stdin.write(frame)
+        except BrokenPipeError:
+            ff.wait()
+            sys.exit("fbsx-to-video: ffmpeg exited %d mid-stream" % ff.returncode)
+
     try:
         def snap(epoch):
-            p = os.path.join(tmp, "f%06d.ppm" % len(frames))
-            fb.write_ppm(p)
-            frames.append((epoch, p))
+            nonlocal snaps, first, last, pend, outclk
+            snaps += 1
+            cur = conform()
+            if pend is None:
+                first = epoch
+                outclk = float(epoch)
+            else:
+                while outclk < epoch:               # hold prev frame until now
+                    emit(pend)
+                    outclk += period
+            pend = cur
+            last = epoch
 
         def read_message():
             t = r.u8()
@@ -95,29 +149,27 @@ def transcode(fbsx, out, fps=10):
         except EOFError:
             pass
 
-        if not frames:
+        if pend is None:
+            ff.stdin.close()
+            ff.wait()
             sys.exit("fbsx-to-video: no framebuffer updates decoded")
 
-        # concat list with each frame held for its real inter-update duration
-        listpath = os.path.join(tmp, "list.txt")
-        with open(listpath, "w") as lst:
-            for i, (epoch, path) in enumerate(frames):
-                dur = (frames[i + 1][0] - epoch) / 1000.0 if i + 1 < len(frames) else 3.0
-                lst.write("file '%s'\nduration %.3f\n" % (path, max(dur, 0.001)))
-            lst.write("file '%s'\n" % frames[-1][1])       # concat quirk: repeat last
-
-        if out.endswith(".webm"):
-            vcodec = ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32"]
-        else:
-            vcodec = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
-                      "-movflags", "+faststart"]
-        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error",
-                        "-f", "concat", "-safe", "0", "-i", listpath,
-                        "-r", str(fps), "-pix_fmt", "yuv420p"] + vcodec + ["-y", out],
-                       check=True)
-        return len(frames), (frames[-1][0] - frames[0][0]) / 1000.0
+        end = last + 3000                                   # hold final frame 3s
+        while outclk < end:
+            emit(pend)
+            outclk += period
+        ff.stdin.close()
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        try:
+            if ff.stdin and not ff.stdin.closed:
+                ff.stdin.close()
+        except BrokenPipeError:
+            pass
+        ff.wait()
+
+    if ff.returncode:
+        sys.exit("fbsx-to-video: ffmpeg exited %d" % ff.returncode)
+    return snaps, (last - first) / 1000.0
 
 
 def main():
