@@ -1,0 +1,28 @@
+# The event bus between the system watcher and the per-user injectors.
+#
+# systemd has no way for a system unit to signal user units directly, so the
+# watcher's state file is the event: it rewrites the stamp, inotify wakes every
+# lingering user manager, and each one runs its own reconcile.  No polling, no
+# per-user daemon, and no FreeSWITCH credentials on the user side.
+#
+# Enable per user (the package enables nothing):
+#     sudo loginctl enable-linger <user>
+#     systemctl --user enable --now conf-audio-autojoin.path
+#
+# PathChanged= triggers on IN_CLOSE_WRITE -- "activated if the file which was
+# open for writing gets closed" (systemd.path(5)).  It watches the stamp file
+# rather than state.json for exactly that reason: state.json is replaced by
+# rename so readers never see it half-written, and a rename is IN_MOVED_TO, not
+# IN_CLOSE_WRITE.  The stamp is written in place, so the trigger is the
+# documented case rather than a bet on systemd's parent-directory watch.
+
+[Unit]
+Description=Watch for BigBlueButton conference changes (desktop audio injector)
+Documentation=https://github.com/BrentBaccala/collaborate
+
+[Path]
+PathChanged=/run/bbb-conf-audio/state.stamp
+Unit=conf-audio-autojoin.service
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,14 @@
+#!/usr/bin/pulseaudio -nF
+# Start from the stock system configuration
+.include /etc/pulse/default.pa
+
+### --- VLC -> BigBlueButton conference audio bridge (added by Claude) --- ###
+.nofail
+# Feed point: VLC plays here (shows up as "Virtual_Mic_Feed")
+load-module module-null-sink sink_name=vmic_sink sink_properties=device.description=Virtual_Mic_Feed
+# The virtual microphone baresip captures (fed by vmic_sink)
+load-module module-remap-source master=vmic_sink.monitor source_name=virtmic source_properties=device.description=Virtual_Microphone
+# Dead-end output so incoming conf audio / desktop sounds never loop back into the mic
+load-module module-null-sink sink_name=desktop_out sink_properties=device.description=Desktop_Output
+set-default-sink desktop_out
+.fail

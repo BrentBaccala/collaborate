@@ -1,0 +1,20 @@
+<!-- SIP directory user for the desktop-audio injector.
+     Installed to /opt/freeswitch/etc/freeswitch/directory/default/vlcinject.xml
+     by bbb-conf-audio's postinst, which substitutes @INJECTOR_SIP_PASSWORD@
+     with the password it generated into /etc/bigbluebutton/conf-audio.conf.
+     Edit that file and reinstall the package rather than editing this. -->
+<include>
+  <user id="vlcinject">
+    <params>
+      <param name="password" value="@INJECTOR_SIP_PASSWORD@"/>
+    </params>
+    <variables>
+      <variable name="user_context" value="default"/>
+      <variable name="bbb_authorized" value="true"/>
+      <variable name="effective_caller_id_name" value="Remote Desktop Injector"/>
+      <variable name="effective_caller_id_number" value="1001"/>
+      <variable name="rtp_secure_media" value="false"/>
+      <variable name="process_cdr" value="false"/>
+    </variables>
+  </user>
+</include>

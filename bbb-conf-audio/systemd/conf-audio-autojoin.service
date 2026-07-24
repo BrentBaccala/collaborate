@@ -1,0 +1,30 @@
+# The per-user half of the desktop-audio injector.  A oneshot, not a daemon:
+# it reads the watcher's state file, brings baresip into line with it, and
+# exits.  conf-audio-autojoin.path re-runs it whenever the state changes.
+#
+# It is also WantedBy=default.target so it runs once when the user manager
+# starts.  PathChanged= is inotify-driven and only fires on *changes*, so
+# without this a conference that was already live when the user logged in (or
+# when the machine booted) would never be joined.
+#
+# Enable per user -- both units, and the linger so it works without a login:
+#     sudo loginctl enable-linger <user>
+#     systemctl --user enable --now conf-audio-autojoin.path conf-audio-autojoin.service
+
+[Unit]
+Description=Join this desktop's audio to the live BigBlueButton conference
+Documentation=https://github.com/BrentBaccala/collaborate
+After=pulseaudio.service
+Wants=pulseaudio.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/conf-audio reconcile
+
+# baresip is launched detached (nohup ... &) and must outlive this oneshot,
+# which by default would take the whole cgroup down with it when it exits.
+KillMode=process
+RemainAfterExit=no
+
+[Install]
+WantedBy=default.target

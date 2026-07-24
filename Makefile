@@ -15,6 +15,8 @@
 #    - freesoft-gnome-desktop — GNOME desktop config for VNC (FPM via build.sh)
 #    - bbb-aws-hibernate — AWS auto-hibernate service (FPM)
 #    - python3-vncdotool — VNC client tool (not in Ubuntu repos; stdeb from GitHub)
+#    - bbb-conf-audio — bridge a desktop's audio into a BBB conference as a SIP
+#                     participant; system watcher + per-user units (FPM via build.sh)
 #
 # The remote desktop UI is provided by the bbb-plugin-remote-desktop BBB 3.0
 # plugin (git submodule).
@@ -34,7 +36,7 @@ CODENAME := bigbluebutton-jammy
 
 all: reprepro keys
 
-packages: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
+packages: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop bbb-conf-audio
 
 # Publish only. Deliberately has NO build prerequisite: the package targets in
 # `packages` are phony and rebuild unconditionally (npm/dpkg-buildpackage for
@@ -55,6 +57,12 @@ grid-desktop:
 	mkdir -p build
 	rm -f build/grid-desktop*.deb
 	cp grid-desktop/grid-desktop*.deb build/
+
+bbb-conf-audio:
+	cd bbb-conf-audio && bash build.sh
+	mkdir -p build
+	rm -f build/bbb-conf-audio*.deb
+	cp bbb-conf-audio/bbb-conf-audio*.deb build/
 
 bbb-vnc-collaborate:
 	cd bbb-vnc-collaborate && bash build.sh
@@ -228,4 +236,4 @@ clean:
 
 .PHONY: all packages rsync clean reprepro keys
 .PHONY: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton freesoft-gnome-desktop
-.PHONY: bbb-auth-jwt bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop
+.PHONY: bbb-auth-jwt bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop bbb-conf-audio

@@ -1,0 +1,34 @@
+# Publishes live FreeSWITCH conference state for the per-user desktop-audio
+# injectors.  This is the only piece that holds the Event Socket password (it
+# reads it straight out of FreeSWITCH's own config), which is why it is a
+# system service and the per-user side is not.
+
+[Unit]
+Description=BigBlueButton desktop-audio conference watcher
+Documentation=https://github.com/BrentBaccala/collaborate
+After=network-online.target freeswitch.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bbb-conf-audio-watcher
+Restart=always
+RestartSec=5
+
+# 0755: every desktop user must be able to read the state file.  Preserved
+# across a restart so an upgrade or a crash does not momentarily remove the
+# file that the per-user .path units are watching -- which would look like
+# "no conference" and disconnect every injector mid-meeting.
+RuntimeDirectory=bbb-conf-audio
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+
+# It only reads FreeSWITCH's config and talks to the loopback event socket.
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run/bbb-conf-audio
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

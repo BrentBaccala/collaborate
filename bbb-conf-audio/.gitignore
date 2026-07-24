@@ -1,0 +1,6 @@
+staging/
+*.deb
+*.buildinfo
+*.changes
+__pycache__/
+*.pyc

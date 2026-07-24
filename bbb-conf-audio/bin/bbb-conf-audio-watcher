@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+"""bbb-conf-audio-watcher - publish live FreeSWITCH conference state for the
+per-user desktop-audio injectors.
+
+This is the ONLY component that holds the FreeSWITCH Event Socket password, and
+it runs as root.  ESL is a full control channel -- originate, uuid_kill,
+conference kick, eavesdrop -- so it must never be readable by the desktop users
+this feature exists to serve.  The per-user side needs no authority at all,
+only two facts: which conference is live, and whether an injector is already in
+it.  So this daemon holds the credential and publishes those two facts to a
+world-readable file; the per-user units react to the file.
+
+It is event-driven, not polled: the ESL is a publish/subscribe socket, so we
+subscribe to conference::maintenance and block until FreeSWITCH pushes an
+event.  State is re-read (over the same socket, via `api`) only when an event
+says something changed.  An idle box does no work.
+
+Published state, /run/bbb-conf-audio/state.json:
+
+    {"conference": "78123",   # voice bridge to inject into, or null
+     "real": 2,               # real participants (excl. GLOBAL_AUDIO + injector)
+     "injector": false,       # an injector is already in that conference
+     "updated_ms": 1750000000000}
+
+Two files, deliberately.  state.json is replaced atomically (temp + rename) so
+a reader never sees a half-written file.  But `PathChanged=` in a .path unit
+triggers on IN_CLOSE_WRITE -- "activated if the file which was open for writing
+gets closed" (systemd.path(5)) -- and a rename is IN_MOVED_TO, not
+IN_CLOSE_WRITE.  Rather than depend on systemd's parent-directory watch
+catching the rename, the trigger is a separate stamp file written in place, so
+the wake-up is exactly the documented case.  Readers get atomicity, the path
+unit gets a documented trigger.  If the rename is ever confirmed to trigger
+reliably, the stamp can go away and the .path unit can watch state.json.
+"""
+
+import json
+import os
+import re
+import socket
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+ESL_HOST = "127.0.0.1"
+ESL_PORT = 8021
+EVENT_SOCKET_CONF = ("/opt/freeswitch/etc/freeswitch/autoload_configs/"
+                     "event_socket.conf.xml")
+RUN_DIR = "/run/bbb-conf-audio"
+STATE_PATH = os.path.join(RUN_DIR, "state.json")
+STAMP_PATH = os.path.join(RUN_DIR, "state.stamp")
+
+# The SIP user the injector authenticates as; member lines mentioning it are
+# an injector rather than a real participant.
+INJECTOR_USER = os.environ.get("CONF_AUDIO_INJECTOR_USER", "vlcinject")
+
+RECONNECT_DELAY = 3.0
+
+
+def log(*args):
+    sys.stdout.write("[%s] %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                                    " ".join(str(a) for a in args)))
+    sys.stdout.flush()
+
+
+def esl_password(path=None):
+    """Read the ESL password out of FreeSWITCH's own config.
+
+    Read rather than copied into our config: there is then exactly one place
+    the credential lives, and a BBB reinstall that rotates it does not leave us
+    authenticating with a stale value.
+    """
+    # Resolved at call time, not bound as a default argument, so the path stays
+    # overridable (tests point it at a fixture).
+    path = path or EVENT_SOCKET_CONF
+    root = ET.parse(path).getroot()
+    for param in root.iter("param"):
+        if param.get("name") == "password":
+            return param.get("value")
+    raise RuntimeError("no <param name='password'> in %s" % path)
+
+
+class ESL:
+    """Minimal ESL client: enough to authenticate, subscribe, and run `api`."""
+
+    def __init__(self, host, port, password):
+        self.sock = socket.create_connection((host, port))
+        self.f = self.sock.makefile("rwb")
+        self._read_message()                       # auth/request
+        self._command("auth %s" % password)
+        self.password = password
+
+    def close(self):
+        try:
+            self.f.close()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self.sock.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _read_message(self):
+        """One ESL message: headers, blank line, optional Content-Length body."""
+        headers = {}
+        while True:
+            line = self.f.readline()
+            if not line:
+                raise EOFError("ESL connection closed")
+            line = line.decode("utf-8", "replace").rstrip("\r\n")
+            if line == "":
+                break
+            if ":" in line:
+                k, v = line.split(":", 1)
+                headers[k.strip()] = v.strip()
+        body = b""
+        length = headers.get("Content-Length")
+        if length:
+            body = self.f.read(int(length))
+        return headers, body
+
+    def _command(self, cmd):
+        self.f.write((cmd + "\n\n").encode())
+        self.f.flush()
+        return self._read_message()
+
+    def subscribe(self, events):
+        self._command("event plain %s" % events)
+
+    def api(self, cmd):
+        """Run an api command, returning its output.
+
+        `api` replies are interleaved with the event stream, so skip forward to
+        the api/response rather than assuming the next message is ours; any
+        events read on the way are dropped -- the caller re-reads state after
+        this returns anyway, so a dropped event costs nothing.
+        """
+        self.f.write(("api %s\n\n" % cmd).encode())
+        self.f.flush()
+        while True:
+            headers, body = self._read_message()
+            ctype = headers.get("Content-Type", "")
+            if ctype in ("api/response", "command/reply"):
+                return body.decode("utf-8", "replace")
+
+    def next_event(self):
+        headers, body = self._read_message()
+        if headers.get("Content-Type") != "text/event-plain":
+            return None
+        event = {}
+        for line in body.decode("utf-8", "replace").splitlines():
+            if ":" in line:
+                k, v = line.split(":", 1)
+                event[k.strip()] = v.strip()
+        return event
+
+
+def conference_names(esl):
+    return re.findall(r"Conference (\S+) \(", esl.api("conference list summary"))
+
+
+def conference_members(esl, name):
+    """(real_participants, injector_present) for one conference.
+
+    Mirrors the member accounting from the original per-user daemon: member
+    lines are semicolon-delimited, GLOBAL_AUDIO is BBB's pseudo-member for
+    listen-only users, and our own injector must not count as a participant --
+    otherwise it holds the conference open by its own presence and never
+    disconnects.
+    """
+    real, injector = 0, False
+    for line in esl.api("conference %s list" % name).splitlines():
+        if ";" not in line:
+            continue
+        if INJECTOR_USER in line:
+            injector = True
+        elif "GLOBAL_AUDIO" in line:
+            continue
+        else:
+            real += 1
+    return real, injector
+
+
+def publish(state):
+    """Atomic state + in-place trigger stamp (see the module docstring)."""
+    os.makedirs(RUN_DIR, exist_ok=True)
+    tmp = STATE_PATH + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(state, f)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, STATE_PATH)
+    with open(STAMP_PATH, "w") as f:      # IN_CLOSE_WRITE: wakes the .path units
+        f.write("%d\n" % state["updated_ms"])
+    os.chmod(STAMP_PATH, 0o644)
+
+
+def select_conference(esl, current):
+    """Which conference should the injectors be in?
+
+    Stay with the current one while it still has a real participant, so a
+    second meeting starting elsewhere doesn't yank the injector out of a live
+    one.  Otherwise take the first conference that has anybody in it.
+    """
+    names = conference_names(esl)
+    if current in names:
+        real, injector = conference_members(esl, current)
+        if real >= 1:
+            return current, real, injector
+    for name in names:
+        if name == current:
+            continue
+        real, injector = conference_members(esl, name)
+        if real >= 1:
+            return name, real, injector
+    return None, 0, False
+
+
+def run_once():
+    password = esl_password()
+    esl = ESL(ESL_HOST, ESL_PORT, password)
+    try:
+        esl.subscribe("CUSTOM conference::maintenance")
+        log("connected to ESL; publishing to %s" % STATE_PATH)
+        published = None
+        current = None
+        while True:
+            name, real, injector = select_conference(esl, current)
+            current = name
+            state = {"conference": name, "real": real, "injector": injector,
+                     "updated_ms": int(time.time() * 1000)}
+            # Compare without the timestamp: republishing identical state would
+            # wake every user unit for nothing.
+            compare = (name, real, injector)
+            if compare != published:
+                publish(state)
+                published = compare
+                log("state: conference=%s real=%d injector=%s"
+                    % (name, real, injector))
+            # Block until FreeSWITCH tells us something changed.
+            while True:
+                event = esl.next_event()
+                if event is None:
+                    continue
+                if event.get("Event-Subclass") != "conference::maintenance":
+                    continue
+                if event.get("Action") in ("conference-create",
+                                           "conference-destroy",
+                                           "add-member", "del-member"):
+                    break
+    finally:
+        esl.close()
+
+
+def reloadxml():
+    """`fs_cli -x reloadxml` without putting the ESL password in a command line
+    where every user on the box can read it out of /proc.  Used by postinst."""
+    esl = ESL(ESL_HOST, ESL_PORT, esl_password())
+    try:
+        sys.stdout.write(esl.api("reloadxml"))
+    finally:
+        esl.close()
+
+
+def main():
+    if "--reloadxml" in sys.argv[1:]:
+        reloadxml()
+        return
+    while True:
+        try:
+            run_once()
+        except Exception as e:  # noqa: BLE001
+            # Deliberately do NOT publish an empty state here: a FreeSWITCH
+            # restart or a brief ESL blip would otherwise disconnect every
+            # injector mid-meeting.  The last known state stands until we can
+            # see the truth again.
+            log("ESL error (%r); retrying in %.0fs" % (e, RECONNECT_DELAY))
+        time.sleep(RECONNECT_DELAY)
+
+
+if __name__ == "__main__":
+    main()

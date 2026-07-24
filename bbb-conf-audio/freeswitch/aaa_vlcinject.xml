@@ -1,0 +1,10 @@
+<include>
+  <extension name="vlc_injector" continue="true">
+    <condition field="${sip_from_user}" expression="^vlcinject$" break="on-false">
+      <action application="log" data="INFO VLC injector authorizing call to conference ${destination_number}"/>
+      <action application="set" data="bbb_authorized=true"/>
+      <action application="set" data="rtp_manual_rtp_bugs=ACCEPT_ANY_PACKETS"/>
+      <action application="transfer" data="${destination_number} XML default"/>
+    </condition>
+  </extension>
+</include>

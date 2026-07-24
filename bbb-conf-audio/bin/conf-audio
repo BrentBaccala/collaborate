@@ -1,0 +1,229 @@
+#!/bin/bash
+# conf-audio - bridge this desktop's audio into a BigBlueButton (FreeSWITCH)
+#              conference as a SIP participant (baresip).
+#
+#   conf-audio setup                one-time per-user setup (audio devices,
+#                                   baresip config, enable the auto-join units)
+#   conf-audio start [voicebridge]  connect (uses the live conference if omitted)
+#   conf-audio stop                 disconnect
+#   conf-audio status               what's running, and what the watcher sees
+#   conf-audio reconcile            match the running state to the watcher's
+#                                   (this is what the systemd --user unit runs)
+#
+# Runs entirely as the desktop user and holds NO FreeSWITCH credentials.  The
+# injector's SIP password comes from a world-readable file the package
+# generates at install; the Event Socket password, which is a full FreeSWITCH
+# control channel, stays root-only with bbb-conf-audio-watcher.  Everything
+# this needs to know about live conferences comes from the watcher's state
+# file.
+#
+# Play audio into the "Virtual_Mic_Feed" device to send it to the conference.
+set -uo pipefail
+
+# Overridable so the reconcile logic can be tested without root, and so an
+# unusual install can point them elsewhere.
+CONF="${CONF_AUDIO_CONF:-/etc/bigbluebutton/conf-audio.conf}"
+STATE="${CONF_AUDIO_STATE:-/run/bbb-conf-audio/state.json}"
+BDIR="$HOME/.baresip"
+LOG="$BDIR/baresip.log"
+CURRENT="$BDIR/current-conference"
+
+[ -r "$CONF" ] || { echo "conf-audio: $CONF missing (is bbb-conf-audio installed?)" >&2; exit 1; }
+# shellcheck source=/dev/null
+. "$CONF"
+
+: "${INJECTOR_SIP_USER:=vlcinject}"
+: "${INJECTOR_SIP_NAME:=Remote Desktop Injector}"
+: "${INJECTOR_SIP_PASSWORD:?not set in $CONF}"
+: "${FREESWITCH_SIP_DOMAIN:?not set in $CONF}"
+: "${FREESWITCH_SIP_PORT:=5090}"
+
+export PULSE_SERVER="unix:/run/user/$(id -u)/pulse/native"
+
+running() { pgrep -u "$(id -u)" -f "baresip -f $BDIR" >/dev/null 2>&1; }
+
+# Read the watcher's state: prints the conference on line 1 and whether an
+# injector is already present on line 2.  Exits non-zero if the state cannot be
+# read or parsed -- callers MUST distinguish that from "no conference is live",
+# because the two demand opposite actions: an empty conference means disconnect,
+# while unreadable state means leave well alone.  Values are printed rather than
+# eval'd, so a conference name can never be shell-injected.
+read_state() {
+    [ -r "$STATE" ] || return 1
+    python3 - "$STATE" <<'EOF' 2>/dev/null
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    if not isinstance(d, dict):
+        raise ValueError("state is not an object")
+except Exception:
+    sys.exit(1)
+print(d.get("conference") or "")
+print("true" if d.get("injector") else "false")
+EOF
+}
+
+# ~/.baresip/accounts carries the SIP password, so it is rendered here from the
+# shared secret rather than shipped -- that way a rotated password reaches every
+# user on their next start, and the package never installs a credential into a
+# home directory it does not own.  The config is only written if absent, so a
+# user can tune it.
+ensure_baresip_config() {
+    mkdir -p "$BDIR"
+    chmod 700 "$BDIR"
+    if [ ! -e "$BDIR/config" ]; then
+        cp /usr/share/bbb-conf-audio/baresip.config "$BDIR/config"
+    fi
+    local tmp="$BDIR/.accounts.$$"
+    printf '"%s" <sip:%s@%s>;auth_user=%s;auth_pass=%s;outbound="sip:%s:%s;transport=udp";regint=0;mediaenc=;audio_codecs=opus/48000/2,pcmu,pcma;ptime=20\n' \
+        "$INJECTOR_SIP_NAME" "$INJECTOR_SIP_USER" "$FREESWITCH_SIP_DOMAIN" \
+        "$INJECTOR_SIP_USER" "$INJECTOR_SIP_PASSWORD" \
+        "$FREESWITCH_SIP_DOMAIN" "$FREESWITCH_SIP_PORT" > "$tmp"
+    chmod 600 "$tmp"
+    mv "$tmp" "$BDIR/accounts"
+}
+
+do_stop() {
+    if running; then
+        pkill -u "$(id -u)" -f "baresip -f $BDIR"
+        rm -f "$CURRENT"
+        return 0
+    fi
+    rm -f "$CURRENT"
+    return 1
+}
+
+do_start() {
+    local vb="$1"
+    ensure_baresip_config
+    running && { pkill -u "$(id -u)" -f "baresip -f $BDIR"; sleep 1; }
+    nohup baresip -f "$BDIR" -e "/dial $vb" >"$LOG" 2>&1 &
+    echo "$vb" > "$CURRENT"
+}
+
+case "${1:-status}" in
+
+  setup)
+    # Everything a user needs doing once, so that "any user on the system can
+    # use the service" is one command rather than a copy-these-five-files list.
+    ensure_baresip_config
+    echo "baresip config:      $BDIR/config, $BDIR/accounts"
+
+    pa="$HOME/.config/pulse/default.pa"
+    if [ -e "$pa" ]; then
+        if grep -q vmic_sink "$pa"; then
+            echo "audio devices:       already configured in $pa"
+        else
+            echo "audio devices:       $pa EXISTS and lacks the virtual mic." >&2
+            echo "                     Append the contents of" \
+                 "/usr/share/bbb-conf-audio/conf-audio.pa to it yourself --" \
+                 "refusing to edit a config you wrote." >&2
+        fi
+    else
+        mkdir -p "$(dirname "$pa")"
+        cp /usr/share/bbb-conf-audio/conf-audio.pa "$pa"
+        echo "audio devices:       wrote $pa (restart PulseAudio to apply:" \
+             "pulseaudio -k)"
+    fi
+
+    if systemctl --user enable --now conf-audio-autojoin.path \
+                                     conf-audio-autojoin.service 2>/dev/null; then
+        echo "auto-join:           enabled"
+    else
+        echo "auto-join:           could not enable (no user manager?)." >&2
+        echo "                     Over SSH, first:" \
+             "export XDG_RUNTIME_DIR=/run/user/\$(id -u)" >&2
+    fi
+
+    if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q 'Linger=yes'; then
+        echo
+        echo "NOTE: lingering is off, so the auto-join stops when you log out."
+        echo "      An administrator must run once:  sudo loginctl enable-linger $(id -un)"
+    fi
+    ;;
+
+  start)
+    vb="${2:-}"
+    if [ -z "$vb" ]; then
+        vb="$(read_state | sed -n 1p)"
+        if [ -z "$vb" ]; then
+            echo "No live conference (per $STATE). Start the BBB meeting and" \
+                 "connect audio first, or pass a voice bridge explicitly." >&2
+            exit 1
+        fi
+    fi
+    echo "Connecting audio to conference $vb ..."
+    do_start "$vb"
+    sleep 4
+    if running; then
+        echo "Connected. Set the player's output device to 'Virtual_Mic_Feed' and press Play."
+    else
+        echo "baresip did not stay up; see $LOG" >&2
+        exit 1
+    fi
+    ;;
+
+  stop)
+    if do_stop; then echo "Disconnected."; else echo "Not connected."; fi
+    ;;
+
+  status)
+    if running; then
+        echo "injector: RUNNING (conference $(cat "$CURRENT" 2>/dev/null || echo '?'))"
+    else
+        echo "injector: not running"
+    fi
+    if [ -r "$STATE" ]; then
+        echo "--- watcher state ($STATE) ---"
+        cat "$STATE"
+    else
+        echo "--- no watcher state; is bbb-conf-audio-watcher running? ---"
+    fi
+    ;;
+
+  reconcile)
+    # Driven by conf-audio-autojoin.path on every change the watcher publishes.
+    # State that is missing, truncated or corrupt means the watcher is down or
+    # mid-write; deliberately leave a running injector alone rather than tear
+    # one out of a live meeting because we lost sight of the truth.
+    if ! state="$(read_state)"; then
+        exit 0
+    fi
+    want="$(printf '%s\n' "$state" | sed -n 1p)"
+    injector="$(printf '%s\n' "$state" | sed -n 2p)"
+    have=""
+    running && have="$(cat "$CURRENT" 2>/dev/null)"
+
+    if [ -z "$want" ]; then
+        if running; then
+            echo "reconcile: no live conference -> disconnecting"
+            do_stop
+        fi
+        exit 0
+    fi
+
+    if [ -n "$have" ]; then
+        if [ "$have" != "$want" ]; then
+            echo "reconcile: conference moved $have -> $want; rejoining"
+            do_start "$want"
+        fi
+        exit 0
+    fi
+
+    # Not connected.  Only join if nobody else's injector already is: the SIP
+    # account is shared, so without this every user who enabled the service
+    # would pile into the same conference and mix their desktop audio together.
+    # First come, first served; the loser rejoins if the winner ever drops.
+    if [ "$injector" = "true" ]; then
+        exit 0
+    fi
+    echo "reconcile: conference $want is live -> connecting"
+    do_start "$want"
+    ;;
+
+  *)
+    echo "usage: conf-audio {start [voicebridge] | stop | status | reconcile}" >&2
+    exit 1
+    ;;
+esac
