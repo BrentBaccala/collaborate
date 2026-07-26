@@ -17,6 +17,8 @@
 #    - python3-vncdotool — VNC client tool (not in Ubuntu repos; stdeb from GitHub)
 #    - bbb-conf-audio — bridge a desktop's audio into a BBB conference as a SIP
 #                     participant; system watcher + per-user units (FPM via build.sh)
+#    - bbb-vnc-recorder — per-meeting recorder for the collaborate VNC desktops
+#                     (FPM via build.sh)
 #
 # The remote desktop UI is provided by the bbb-plugin-remote-desktop BBB 3.0
 # plugin (git submodule).
@@ -36,7 +38,7 @@ CODENAME := bigbluebutton-jammy
 
 all: reprepro keys
 
-packages: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop bbb-conf-audio
+packages: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop bbb-conf-audio bbb-vnc-recorder
 
 # Publish only. Deliberately has NO build prerequisite: the package targets in
 # `packages` are phony and rebuild unconditionally (npm/dpkg-buildpackage for
@@ -63,6 +65,14 @@ bbb-conf-audio:
 	mkdir -p build
 	rm -f build/bbb-conf-audio*.deb
 	cp bbb-conf-audio/bbb-conf-audio*.deb build/
+
+# Was published to the apt repo by hand and never wired in here, so `make
+# packages` silently skipped it and a `make reprepro` could not refresh it.
+bbb-vnc-recorder:
+	cd bbb-vnc-recorder && bash build.sh
+	mkdir -p build
+	rm -f build/bbb-vnc-recorder*.deb
+	cp bbb-vnc-recorder/bbb-vnc-recorder*.deb build/
 
 bbb-vnc-collaborate:
 	cd bbb-vnc-collaborate && bash build.sh
@@ -236,4 +246,4 @@ clean:
 
 .PHONY: all packages rsync clean reprepro keys
 .PHONY: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton freesoft-gnome-desktop
-.PHONY: bbb-auth-jwt bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop bbb-conf-audio
+.PHONY: bbb-auth-jwt bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop bbb-conf-audio bbb-vnc-recorder
