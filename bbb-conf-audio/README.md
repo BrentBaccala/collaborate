@@ -130,16 +130,35 @@ What the shared account does cost is **identity**:
 
 - Every injector shows up as "Remote Desktop Injector", so the user list cannot
   tell you which desktop a given one is.
-- Nothing can answer "is *my* injector still in the conference?". The original
-  daemon self-healed by noticing its injector had vanished and redialling; with
-  one shared account and several injectors, a global present/absent flag cannot
-  distinguish yours from someone else's, so that recovery is not implemented
-  here. A user whose call drops stays disconnected until the conference changes
-  state.
+- Asking FreeSWITCH "is *my* injector still in the conference?" has no answer,
+  since a global present/absent flag cannot distinguish yours from someone
+  else's. Per-user SIP accounts would fix that — but see below, because there
+  is a better place to ask the question.
 
-Both are fixed the same way, if it matters: give each user their own SIP
-account (a directory XML per user, generated at `conf-audio setup` time rather
-than at install). That is worth doing for identity, not for exclusion.
+Per-user accounts (a directory XML per user, generated at `conf-audio setup`
+time rather than at install) are therefore worth doing for the *name*, not for
+exclusion and not for recovery.
+
+## "Is my injector still connected?"
+
+Nothing detects a dropped call today, and process liveness does not tell you.
+baresip is a persistent user agent: when FreeSWITCH sends BYE the call ends and
+baresip returns to idle **without exiting**, so the `pgrep` that `conf-audio`
+uses proves the process is alive, not that a call is up. The failure is silent
+— the audio simply stops.
+
+Two local fixes, neither needing FreeSWITCH or per-user identity:
+
+- **`redial_attempts` / `redial_delay`** (menu module, both in baresip's own
+  example config, default `0` = off). baresip redials itself. Two config lines
+  and no code. Needs checking on a live box: whether redial fires on a normal
+  remote BYE or only on a failed outgoing attempt.
+- **`ctrl_tcp`** — a JSON control interface that reports call state, so the
+  reconcile could ask baresip directly. If used, it MUST be given an explicit
+  `ctrl_tcp_listen 127.0.0.1:<per-user port>`: the default is `0.0.0.0:4444`,
+  which exposes control of that user's baresip to the network and cannot be
+  bound by two users at once. That is why the shipped `baresip.config` no
+  longer loads the module at all.
 
 The remaining wrinkle is policy, not mechanism: with auto-join enabled, *every*
 user who ran `conf-audio setup` joins *every* meeting on the box. That is fine
