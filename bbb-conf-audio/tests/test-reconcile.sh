@@ -74,11 +74,16 @@ set_state '{"conference": null, "real": 0, "injector": false}'
 "$CONF_AUDIO" reconcile >/dev/null
 check "baresip running" "no" "$(running && echo yes || echo no)"
 
-echo "== someone else's injector is already in -> does NOT pile in"
+echo "== another injector already present -> joins anyway"
+# A conference takes any number of SIP legs and the account never REGISTERs, so
+# a second desktop injecting is not a collision.  This once refused to join,
+# which silently broke the legitimate two-desktops-both-contribute case.
 set_state '{"conference": "78123", "real": 2, "injector": true}'
 "$CONF_AUDIO" reconcile >/dev/null
 sleep 0.5
-check "baresip running" "no" "$(running && echo yes || echo no)"
+check "baresip running"  "yes"   "$(running && echo yes || echo no)"
+check "joined conference" "78123" "$(current)"
+"$CONF_AUDIO" stop >/dev/null
 
 echo "== watcher state missing while connected -> leaves it alone"
 set_state '{"conference": "78123", "real": 2, "injector": false}'

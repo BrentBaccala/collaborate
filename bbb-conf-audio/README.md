@@ -120,17 +120,32 @@ last one goes.
 
 ## Multiple users
 
-The SIP account is shared, so if several users enable the service they would
-all pile into the same conference and mix their desktop audio together. The
-reconcile guards against that with the watcher's `injector` flag: if an
-injector is already in the conference, nobody else joins. First come, first
-served; if the winner drops, the next state change lets someone else in.
+Several users can inject at once, and nothing stops them. A FreeSWITCH
+conference takes any number of SIP legs, BBB sets no `max-members`, and since
+the account never REGISTERs (`regint=0`) there is no shared registration state
+to contend over — each injector is an independent authenticated INVITE. Two
+desktops injecting is two people unmuting.
 
-That is a *guard*, not exclusion by design — two reconciles racing on the same
-event can both see `injector: false` and both join. If more than one desktop
-will genuinely inject, give each its own SIP account (a directory XML per user,
-generated at `conf-audio setup` time rather than at install), which also gives
-each a distinct name in the BBB user list.
+What the shared account does cost is **identity**:
+
+- Every injector shows up as "Remote Desktop Injector", so the user list cannot
+  tell you which desktop a given one is.
+- Nothing can answer "is *my* injector still in the conference?". The original
+  daemon self-healed by noticing its injector had vanished and redialling; with
+  one shared account and several injectors, a global present/absent flag cannot
+  distinguish yours from someone else's, so that recovery is not implemented
+  here. A user whose call drops stays disconnected until the conference changes
+  state.
+
+Both are fixed the same way, if it matters: give each user their own SIP
+account (a directory XML per user, generated at `conf-audio setup` time rather
+than at install). That is worth doing for identity, not for exclusion.
+
+The remaining wrinkle is policy, not mechanism: with auto-join enabled, *every*
+user who ran `conf-audio setup` joins *every* meeting on the box. That is fine
+when the injecting desktops are deliberate, and a footgun for someone who
+enabled it once and later plays music. Enabling is the opt-in;
+`systemctl --user disable --now conf-audio-autojoin.path` is the opt-out.
 
 ## Files
 

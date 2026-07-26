@@ -6,9 +6,11 @@ This is the ONLY component that holds the FreeSWITCH Event Socket password, and
 it runs as root.  ESL is a full control channel -- originate, uuid_kill,
 conference kick, eavesdrop -- so it must never be readable by the desktop users
 this feature exists to serve.  The per-user side needs no authority at all,
-only two facts: which conference is live, and whether an injector is already in
-it.  So this daemon holds the credential and publishes those two facts to a
-world-readable file; the per-user units react to the file.
+one fact: which conference is live.  So this daemon holds the credential and
+publishes that to a world-readable file; the per-user units react to the file.
+(`injector` is published alongside it for `conf-audio status` and debugging.
+Nothing acts on it: a conference takes any number of SIP legs, so a second
+injector is not a collision to be prevented.)
 
 It is event-driven, not polled: the ESL is a publish/subscribe socket, so we
 subscribe to conference::maintenance and block until FreeSWITCH pushes an

@@ -191,7 +191,6 @@ case "${1:-status}" in
         exit 0
     fi
     want="$(printf '%s\n' "$state" | sed -n 1p)"
-    injector="$(printf '%s\n' "$state" | sed -n 2p)"
     have=""
     running && have="$(cat "$CURRENT" 2>/dev/null)"
 
@@ -211,13 +210,12 @@ case "${1:-status}" in
         exit 0
     fi
 
-    # Not connected.  Only join if nobody else's injector already is: the SIP
-    # account is shared, so without this every user who enabled the service
-    # would pile into the same conference and mix their desktop audio together.
-    # First come, first served; the loser rejoins if the winner ever drops.
-    if [ "$injector" = "true" ]; then
-        exit 0
-    fi
+    # Not connected, and a conference is live: join.  Deliberately NOT
+    # conditional on whether another injector is already present.  A FreeSWITCH
+    # conference takes any number of SIP legs, and since the account never
+    # REGISTERs (regint=0) each is an independent authenticated INVITE with no
+    # shared state -- two desktops injecting is two people unmuting, which is
+    # the feature, not a collision.
     echo "reconcile: conference $want is live -> connecting"
     do_start "$want"
     ;;
