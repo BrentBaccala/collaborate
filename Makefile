@@ -47,10 +47,11 @@ packages: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbl
 # the plugin, a GitHub fetch for vncdotool, etc.), so chaining `rsync: all`
 # rebuilt ~6 packages just to publish an already-current repo.
 #
-# Build the package, `reprepro remove` + `includedeb` it into $(REPO) by hand
-# (NOT `make reprepro` -- see the warning on that target), then `make rsync`
-# to push $(REPO) as-is.  This target is safe: it only mirrors $(REPO), so it
-# publishes exactly what you put there.
+# Build the package, `reprepro includedeb` it into $(REPO) by hand (NOT
+# `make reprepro` -- see the warning on that target), then `make rsync` to push
+# $(REPO) as-is.  `make status` shows what is built vs what is published.  This
+# target is safe: it only mirrors $(REPO), so it publishes exactly what you put
+# there.
 rsync:
 	# No trailing slash on $(REPO): rsync syncs it *into* /var/www/html as
 	# the jammy-300/ subdir, so --delete is scoped to /var/www/html/jammy-300/
@@ -217,25 +218,31 @@ vncdotool:
 
 # Repository targets
 
+# What is built here vs what is published. Read-only; safe to run any time.
+# Run it before and after publishing -- it is the check that would have caught
+# build/ drifting two months behind the repo on freesoft-gnome-desktop.
+status:
+	@bash repo-status.sh
+
 # ##########################################################################
 # DO NOT USE `make reprepro`.  Publish one package at a time, by hand:
 #
 #     cd <pkg> && bash build.sh
-#     reprepro -b $(REPO) remove $(CODENAME) <pkg>
 #     reprepro -b $(REPO) includedeb $(CODENAME) <pkg>/<pkg>_<version>.deb
 #     make rsync
 #
-# Why: this target republishes EVERY .deb sitting in build/, not the ones
-# you just built.  build/ is never cleaned between sessions, so it
-# accumulates stale artifacts, and remove-then-includedeb happily replaces a
-# NEWER package in the repo with an OLDER one from build/ -- reprepro does
-# not compare versions here.
+# Run `make status` first and after -- it shows, per package, what is built
+# here against what is published.
 #
-# Observed 2026-07-25, publishing bbb-vnc-recorder + bbb-conf-audio: build/
-# still held freesoft-gnome-desktop 2.4.9+20260313T120309-1 while the repo
-# had 2.4.9+20260521T170138-1, so this target would have silently downgraded
-# a published package by two months, and bumped bbb-wss-proxy 0.3.0-15 -> -16
-# as a side effect.  Neither was intended or would have been noticed.
+# Why not this target: it publishes EVERY .deb sitting in build/, not the
+# ones you just built.  build/ is never cleaned between sessions, so it
+# accumulates artifacts from packages you are not touching.
+#
+# It can no longer *downgrade* a published package -- dropping the
+# `reprepro remove` restored reprepro's own refusal to go backwards -- but it
+# can still publish something you never meant to ship.  Observed 2026-07-25:
+# build/ held an unpublished bbb-wss-proxy 0.3.0-16 against the repo's -15,
+# so publishing two unrelated packages would have shipped it too.
 #
 # The `packages` prerequisite makes it worse: it rebuilds all twelve
 # packages (npm for the plugin, a GitHub fetch for vncdotool), so a one-line
@@ -248,19 +255,24 @@ vncdotool:
 reprepro: packages
 	mkdir -p $(REPO)/conf
 	cp reprepro/* $(REPO)/conf/
-	# Replace ONLY the packages we just built (one current .deb each in build/),
-	# leaving any other packages already in the repo untouched (e.g.
-	# bbb-plugin-rtt-monitor, vnc-desktop, vnc-tunnel, libxft*). The old target
+	# Touch ONLY the packages in build/, leaving anything else already in the
+	# repo alone (bbb-plugin-rtt-monitor, vnc-tunnel, libxft*). An older target
 	# wiped every package and re-added build/*.deb, which silently dropped those.
-	# remove-then-includedeb also makes a same-version rebuild idempotent.
 	#
-	# NB: "the packages we just built" is the flaw -- see the warning above.
-	# It is whatever is in build/, which includes anything left there by an
-	# earlier session.
+	# No `reprepro remove` first, deliberately: reprepro compares versions on
+	# includedeb and refuses to go backwards ("Skipping inclusion of 'x' '1.0',
+	# as it has already '2.0'"), so a stale .deb in build/ can no longer
+	# downgrade a published package. Removing first threw that protection away.
+	# The cost is that re-publishing the SAME version with different content is
+	# now a no-op -- which is correct, since the rule here is to bump the
+	# version on every rebuild. To genuinely replace a version in place, run an
+	# explicit `reprepro remove` yourself, as a deliberate act.
+	#
+	# NB: build/ is still whatever accumulated there, including from earlier
+	# sessions -- see the warning above.
 	for deb in build/*.deb; do \
 		pkg=$$(dpkg-deb -f "$$deb" Package); \
 		echo "reprepro: replacing $$pkg"; \
-		reprepro -b $(REPO) remove $(CODENAME) "$$pkg" >/dev/null 2>&1 || true; \
 		reprepro -b $(REPO) includedeb $(CODENAME) "$$deb"; \
 	done
 	echo "Header set Cache-Control no-cache" > $(REPO)/dists/.htaccess
@@ -281,6 +293,6 @@ clean:
 	cd python3-bigbluebutton && rm -rf staging *.deb
 	cd freesoft-gnome-desktop && rm -rf staging *.deb
 
-.PHONY: all packages rsync clean reprepro keys
+.PHONY: all packages rsync clean reprepro keys status
 .PHONY: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton freesoft-gnome-desktop
 .PHONY: bbb-auth-jwt bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop bbb-conf-audio bbb-vnc-recorder

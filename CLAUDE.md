@@ -99,24 +99,34 @@ The freesoft.org apt repo at `~/website/jammy-300` contains 6+ packages
 (no upstream BBB mirror). To update a package:
 
 ```bash
-cd ~/website/jammy-300
-reprepro remove bigbluebutton-jammy PACKAGE_NAME
-reprepro includedeb bigbluebutton-jammy /path/to/new.deb
+cd ~/collaborate
+make status                        # what's built here vs what's published
+reprepro -b ~/website/jammy-300 includedeb bigbluebutton-jammy /path/to/new.deb
+make status                        # confirm it landed
 ```
+
+**No `reprepro remove` first.** reprepro compares versions on `includedeb` and
+refuses to go backwards (`Skipping inclusion of 'x' '1.0', as it has already
+'2.0'`), which is the safety net that catches a stale `.deb`. Removing first
+throws it away. The cost is that re-publishing the *same* version with new
+content is a no-op — correct, since the rule is to bump the version on every
+rebuild. To genuinely replace a version in place, run `reprepro remove`
+yourself as a deliberate, separate act.
 
 Then `cd ~/collaborate && make rsync` to push to www.freesoft.org.
 (`dists/.htaccess` sets `Cache-Control: no-cache` on the repo metadata and
 each new version lands at a fresh `pool/` path, so no CloudFront
 invalidation is needed for apt.)
 
-**Do NOT use `make reprepro`** — it republishes every `.deb` in `build/`,
-not the one you just built, and `build/` is never cleaned between sessions.
-Since remove-then-includedeb does not compare versions, a stale artifact
-silently *downgrades* a published package. On 2026-07-25 it would have
-rolled `freesoft-gnome-desktop` back two months while publishing an
-unrelated package. Publish one package at a time, by hand, as above. Same
-goes for plain `make` (`all:` depends on `reprepro`). `make rsync` alone is
-safe — it only mirrors the repo directory.
+**Do NOT use `make reprepro`** — it republishes every `.deb` in `build/`, not
+the one you just built, and `build/` is never cleaned between sessions. It can
+no longer *downgrade* anything (the `reprepro remove` is gone, so reprepro's
+version check applies), but it will still ship something you never meant to:
+on 2026-07-25 `build/` held an unpublished `bbb-wss-proxy 0.3.0-16` against the
+repo's `-15`, so publishing two unrelated packages would have shipped it too.
+Publish one package at a time, by hand, as above. Same goes for plain `make`
+(`all:` depends on `reprepro`). `make rsync` alone is safe — it only mirrors
+the repo directory.
 
 ## Building packages
 
