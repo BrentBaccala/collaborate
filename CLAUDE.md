@@ -104,7 +104,19 @@ reprepro remove bigbluebutton-jammy PACKAGE_NAME
 reprepro includedeb bigbluebutton-jammy /path/to/new.deb
 ```
 
-Then rsync to www.freesoft.org and invalidate CloudFront cache.
+Then `cd ~/collaborate && make rsync` to push to www.freesoft.org.
+(`dists/.htaccess` sets `Cache-Control: no-cache` on the repo metadata and
+each new version lands at a fresh `pool/` path, so no CloudFront
+invalidation is needed for apt.)
+
+**Do NOT use `make reprepro`** — it republishes every `.deb` in `build/`,
+not the one you just built, and `build/` is never cleaned between sessions.
+Since remove-then-includedeb does not compare versions, a stale artifact
+silently *downgrades* a published package. On 2026-07-25 it would have
+rolled `freesoft-gnome-desktop` back two months while publishing an
+unrelated package. Publish one package at a time, by hand, as above. Same
+goes for plain `make` (`all:` depends on `reprepro`). `make rsync` alone is
+safe — it only mirrors the repo directory.
 
 ## Building packages
 

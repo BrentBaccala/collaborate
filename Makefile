@@ -36,6 +36,8 @@ TIMESTAMP := $(shell git log -n1 --pretty='format:%cd' --date=format:'%Y%m%dT%H%
 REPO := $(HOME)/website/jammy-300
 CODENAME := bigbluebutton-jammy
 
+# NB: depends on reprepro, so plain `make` inherits its hazard -- see the
+# warning on that target.  Do not run this either; publish by hand.
 all: reprepro keys
 
 packages: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbluebutton bbb-auth-jwt freesoft-gnome-desktop bbb-aws-hibernate vncdotool dash-to-panel bbb-plugin-remote-desktop bbb-conf-audio bbb-vnc-recorder
@@ -43,9 +45,12 @@ packages: grid-desktop bbb-vnc-collaborate python3-vnc-collaborate python3-bigbl
 # Publish only. Deliberately has NO build prerequisite: the package targets in
 # `packages` are phony and rebuild unconditionally (npm/dpkg-buildpackage for
 # the plugin, a GitHub fetch for vncdotool, etc.), so chaining `rsync: all`
-# rebuilt ~6 packages just to publish an already-current repo. Build + stage
-# explicitly first -- `make reprepro` (all packages) or a single package plus
-# `make reprepro` -- then `make rsync` to push $(REPO) as-is.
+# rebuilt ~6 packages just to publish an already-current repo.
+#
+# Build the package, `reprepro remove` + `includedeb` it into $(REPO) by hand
+# (NOT `make reprepro` -- see the warning on that target), then `make rsync`
+# to push $(REPO) as-is.  This target is safe: it only mirrors $(REPO), so it
+# publishes exactly what you put there.
 rsync:
 	# No trailing slash on $(REPO): rsync syncs it *into* /var/www/html as
 	# the jammy-300/ subdir, so --delete is scoped to /var/www/html/jammy-300/
@@ -212,6 +217,34 @@ vncdotool:
 
 # Repository targets
 
+# ##########################################################################
+# DO NOT USE `make reprepro`.  Publish one package at a time, by hand:
+#
+#     cd <pkg> && bash build.sh
+#     reprepro -b $(REPO) remove $(CODENAME) <pkg>
+#     reprepro -b $(REPO) includedeb $(CODENAME) <pkg>/<pkg>_<version>.deb
+#     make rsync
+#
+# Why: this target republishes EVERY .deb sitting in build/, not the ones
+# you just built.  build/ is never cleaned between sessions, so it
+# accumulates stale artifacts, and remove-then-includedeb happily replaces a
+# NEWER package in the repo with an OLDER one from build/ -- reprepro does
+# not compare versions here.
+#
+# Observed 2026-07-25, publishing bbb-vnc-recorder + bbb-conf-audio: build/
+# still held freesoft-gnome-desktop 2.4.9+20260313T120309-1 while the repo
+# had 2.4.9+20260521T170138-1, so this target would have silently downgraded
+# a published package by two months, and bumped bbb-wss-proxy 0.3.0-15 -> -16
+# as a side effect.  Neither was intended or would have been noticed.
+#
+# The `packages` prerequisite makes it worse: it rebuilds all twelve
+# packages (npm for the plugin, a GitHub fetch for vncdotool), so a one-line
+# fix to one package turns into republishing the whole repo.
+#
+# Fixing it properly means either cleaning build/ first (which breaks the
+# "stage several, publish once" workflow) or passing an explicit package
+# list.  Until then, publish by hand.
+# ##########################################################################
 reprepro: packages
 	mkdir -p $(REPO)/conf
 	cp reprepro/* $(REPO)/conf/
@@ -220,6 +253,10 @@ reprepro: packages
 	# bbb-plugin-rtt-monitor, vnc-desktop, vnc-tunnel, libxft*). The old target
 	# wiped every package and re-added build/*.deb, which silently dropped those.
 	# remove-then-includedeb also makes a same-version rebuild idempotent.
+	#
+	# NB: "the packages we just built" is the flaw -- see the warning above.
+	# It is whatever is in build/, which includes anything left there by an
+	# earlier session.
 	for deb in build/*.deb; do \
 		pkg=$$(dpkg-deb -f "$$deb" Package); \
 		echo "reprepro: replacing $$pkg"; \
