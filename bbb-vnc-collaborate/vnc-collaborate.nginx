@@ -9,11 +9,13 @@ location /vnc {
         client_body_timeout 6h;
         send_timeout 6h;
 
-        auth_request /bigbluebutton/connection/checkAuthorization;
-        auth_request_set $auth_status $upstream_status;
-
-        auth_request_set $user_id $sent_http_user_id;
-        auth_request_set $meeting_id $sent_http_meeting_id;
-        proxy_set_header User-Id $user_id;
-        proxy_set_header Meeting-Id $meeting_id;
+        # No auth_request here, deliberately.  The /vnc token check lives in
+        # websockify's new_websocket_client (it calls checkAuthorization on
+        # loopback itself and reads User-Id/Meeting-Id off that response).
+        # auth_request is binary -- it can only 401, which reaches the browser
+        # as a bare WS close 1006 and paints a blank panel with no explanation.
+        # Checking past the 101 instead lets an expired token be refused at the
+        # RFB layer with a reason string the remote-desktop plugin displays.
+        # Re-adding auth_request here silently shadows that path: the check
+        # still passes, but the user loses the message.
 }
