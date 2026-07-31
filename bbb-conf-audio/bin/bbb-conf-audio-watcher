@@ -41,6 +41,7 @@ import re
 import socket
 import sys
 import time
+import urllib.parse
 import xml.etree.ElementTree as ET
 
 ESL_HOST = "127.0.0.1"
@@ -152,7 +153,16 @@ class ESL:
         for line in body.decode("utf-8", "replace").splitlines():
             if ":" in line:
                 k, v = line.split(":", 1)
-                event[k.strip()] = v.strip()
+                # Event header VALUES are URL-encoded on the wire: the subclass
+                # arrives as 'conference%3A%3Amaintenance', not
+                # 'conference::maintenance'.  Without this decode every
+                # Event-Subclass test below fails, the watcher filters out every
+                # event it receives, and it blocks forever without ever
+                # publishing -- which looks exactly like "no events are being
+                # delivered".  Split on ':' FIRST and decode after, so an
+                # encoded ':' in a value can never be mistaken for the
+                # key/value separator.
+                event[k.strip()] = urllib.parse.unquote_plus(v.strip())
         return event
 
 
