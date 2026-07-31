@@ -100,11 +100,27 @@ sudo loginctl enable-linger <user>    # once, as admin: run without a login
 
 `conf-audio setup` writes `~/.config/pulse/default.pa` (only if absent — it
 will not edit a config you wrote), renders `~/.baresip/{config,accounts}` from
-the shared password, and enables both user units. Restart PulseAudio
-(`pulseaudio -k`) to pick up the virtual devices.
+the shared password, and enables both user units.
 
-Then play audio to the **Virtual_Mic_Feed** device and it goes into whatever
-conference is live.
+**No PulseAudio restart is needed.** `default.pa` only takes effect when
+PulseAudio *starts*, so on a long-lived desktop the config would be in place
+with none of the devices actually loaded — and the failure is quiet: baresip
+dies with `start_source failed (pulse.virtmic): No such device` while
+`conf-audio status` still says `RUNNING`, because baresip stays alive and idle
+after a failed call. So setup asks the *daemon* whether `virtmic` exists and,
+if not, replays the module lines from `/usr/share/bbb-conf-audio/conf-audio.pa`
+into it with `pactl`. Those lines are read from that one file rather than
+duplicated in the script, so the live and persistent paths cannot drift.
+
+`pulseaudio -k` would have worked too, and is what this used to tell you to run
+by hand, but it tears down every stream on the desktop — including any injector
+already in a conference, which is the one thing setup must not do as a side
+effect.
+
+Then play audio to the **Remote Desktop Injector** device and it goes into
+whatever conference is live. The playback device carries the same name the
+injector shows under in the BBB user list, so "play to Remote Desktop Injector"
+and "Remote Desktop Injector is in the meeting" refer to the same thing.
 
 ## Use
 
@@ -186,7 +202,7 @@ everybody.
 ## Audio path
 
 ```
-player -> [null-sink "vmic_sink"] -> its .monitor
+player -> [null-sink "vmic_sink" = "Remote Desktop Injector"] -> its .monitor
        -> [remap-source "virtmic"]  (the virtual microphone)
        -> baresip captures virtmic -> SIP/RTP (opus) -> FreeSWITCH conference
 ```

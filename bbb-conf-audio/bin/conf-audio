@@ -17,7 +17,8 @@
 # this needs to know about live conferences comes from the watcher's state
 # file.
 #
-# Play audio into the "Virtual_Mic_Feed" device to send it to the conference.
+# Play audio into the "Remote Desktop Injector" device to send it to the
+# conference -- the device is named for how it appears in the BBB user list.
 set -uo pipefail
 
 # Overridable so the reconcile logic can be tested without root, and so an
@@ -102,6 +103,68 @@ do_start() {
     echo "$vb" > "$CURRENT"
 }
 
+PA_TEMPLATE=/usr/share/bbb-conf-audio/conf-audio.pa
+
+pa_devices_present() {
+    # Ask the running daemon, not the config file.  These two disagree whenever
+    # PulseAudio started before the config was written.
+    pactl list short sources 2>/dev/null |
+        awk '$2 == "virtmic" { found = 1 } END { exit !found }'
+}
+
+load_pa_modules() {
+    # default.pa only takes effect when PulseAudio STARTS.  On a long-lived VNC
+    # desktop the daemon can predate this setup by weeks, leaving the config in
+    # place and none of the devices actually loaded -- baresip then dies with
+    # "start_source failed (pulse.virtmic): No such device" while `conf-audio
+    # status` still reports RUNNING, because baresip stays alive and idle after
+    # a failed call.  Loading the modules into the live daemon closes that gap.
+    #
+    # `pulseaudio -k` would also work, and is what this used to tell the user to
+    # do by hand, but it tears down every stream on the desktop -- including any
+    # injector already in a conference, which for this package is precisely the
+    # thing you must not do as a side effect of setup.
+    if ! pactl info >/dev/null 2>&1; then
+        echo "audio devices:       no reachable PulseAudio; devices will load" \
+             "when it next starts" >&2
+        return
+    fi
+    if pa_devices_present; then
+        echo "audio devices:       already live in PulseAudio"
+        return
+    fi
+    # Replay the module lines out of the shipped template rather than repeating
+    # them here, so the live path and default.pa cannot drift apart.
+    #
+    # Split on UNESCAPED whitespace and hand the tokens to pactl directly.  Not
+    # eval: the shell would strip the double quotes around a spaced
+    # device.description, and PulseAudio needs to see them -- unquoted, the
+    # module silently fails to load.  Every space inside a value is
+    # backslash-escaped in the template, so swapping "\ " for a sentinel before
+    # word-splitting yields exactly the argv pactl wants, with quotes and
+    # backslashes intact and no shell re-parsing of package data.
+    local sentinel=$'\001'
+    while IFS= read -r line; do
+        case "$line" in
+            load-module*|set-default-sink*) ;;
+            *) continue ;;
+        esac
+        local protected=${line//\\ /$sentinel}
+        local -a tok=() argv=()
+        read -r -a tok <<< "$protected"
+        local t
+        for t in "${tok[@]}"; do argv+=( "${t//$sentinel/\\ }" ); done
+        pactl "${argv[@]}" >/dev/null 2>&1 ||
+            echo "audio devices:       WARNING: failed: $line" >&2
+    done < "$PA_TEMPLATE"
+    if pa_devices_present; then
+        echo "audio devices:       loaded into the running PulseAudio"
+    else
+        echo "audio devices:       WARNING: loaded the modules but 'virtmic'" \
+             "is still absent; injecting will fail" >&2
+    fi
+}
+
 case "${1:-status}" in
 
   setup)
@@ -122,10 +185,12 @@ case "${1:-status}" in
         fi
     else
         mkdir -p "$(dirname "$pa")"
-        cp /usr/share/bbb-conf-audio/conf-audio.pa "$pa"
-        echo "audio devices:       wrote $pa (restart PulseAudio to apply:" \
-             "pulseaudio -k)"
+        cp "$PA_TEMPLATE" "$pa"
+        echo "audio devices:       wrote $pa"
     fi
+
+    # Writing the file only covers the next PulseAudio start; this covers now.
+    load_pa_modules
 
     if systemctl --user enable --now conf-audio-autojoin.path \
                                      conf-audio-autojoin.service 2>/dev/null; then
@@ -157,7 +222,7 @@ case "${1:-status}" in
     do_start "$vb"
     sleep 4
     if running; then
-        echo "Connected. Set the player's output device to 'Virtual_Mic_Feed' and press Play."
+        echo "Connected. Set the player's output device to 'Remote Desktop Injector' and press Play."
     else
         echo "baresip did not stay up; see $LOG" >&2
         exit 1

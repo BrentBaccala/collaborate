@@ -4,8 +4,18 @@
 
 ### --- VLC -> BigBlueButton conference audio bridge (added by Claude) --- ###
 .nofail
-# Feed point: VLC plays here (shows up as "Virtual_Mic_Feed")
-load-module module-null-sink sink_name=vmic_sink sink_properties=device.description=Virtual_Mic_Feed
+# Feed point: VLC plays here.  Named for how it appears in the BBB user list,
+# so "play to Remote Desktop Injector" and "Remote Desktop Injector is in the
+# meeting" name the same thing.
+#
+# A description containing spaces must be BOTH double-quoted AND have its
+# spaces backslash-escaped.  Quotes alone silently fail: PulseAudio 15.99 does
+# not load the module at all, so the device just never appears.  Verified both
+# ways -- via this file and via `pactl load-module` -- because `conf-audio
+# setup` replays these lines into a running daemon and both parsers have to
+# accept the identical text.  The escaping is also what lets setup split this
+# line on unescaped whitespace to rebuild the pactl argv.
+load-module module-null-sink sink_name=vmic_sink sink_properties=device.description="Remote\ Desktop\ Injector"
 # The virtual microphone baresip captures (fed by vmic_sink)
 load-module module-remap-source master=vmic_sink.monitor source_name=virtmic source_properties=device.description=Virtual_Microphone
 # Dead-end output so incoming conf audio / desktop sounds never loop back into the mic
