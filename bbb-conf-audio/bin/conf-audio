@@ -126,10 +126,16 @@ load_pa_modules() {
     # status` still reports RUNNING, because baresip stays alive and idle after
     # a failed call.  Loading the modules into the live daemon closes that gap.
     #
-    # `pulseaudio -k` would also work, and is what this used to tell the user to
-    # do by hand, but it tears down every stream on the desktop -- including any
-    # injector already in a conference, which for this package is precisely the
-    # thing you must not do as a side effect of setup.
+    # Do NOT reach for `pulseaudio -k` here (which is what this used to tell the
+    # user to run by hand).  PulseAudio is a systemd user service on these boxes
+    # and that command does not fit its lifecycle: observed on Ubuntu 22.04 it
+    # fails with "Failed to kill daemon: No such process", the daemon does not
+    # come back, and retrying trips pulseaudio.socket's start limit, leaving the
+    # user with no sound server at all.  `systemctl --user restart
+    # pulseaudio.service` is the correct restart -- but it still tears down
+    # every stream on the desktop, including any injector already in a
+    # conference, which for this package is precisely the thing you must not do
+    # as a side effect of setup.
     if ! pactl info >/dev/null 2>&1; then
         echo "audio devices:       no reachable PulseAudio; devices will load" \
              "when it next starts" >&2

@@ -131,10 +131,22 @@ if not, replays the module lines from
 lines are read from the same file the stub includes, rather than duplicated in
 the script, so the live and persistent paths cannot drift.
 
-`pulseaudio -k` would have worked too, and is what this used to tell you to run
-by hand, but it tears down every stream on the desktop — including any injector
-already in a conference, which is the one thing setup must not do as a side
-effect.
+Setup used to tell you to run `pulseaudio -k` by hand. **Don't** — on these
+boxes PulseAudio is a systemd *user* service (`pulseaudio.service` +
+`pulseaudio.socket`, both enabled, every daemon parented by systemd), and
+`pulseaudio -k` does not fit that lifecycle. Observed on Ubuntu 22.04: it exits
+with `Failed to kill daemon: No such process`, the daemon does not come back,
+`pactl` gives `Connection refused`, and retrying trips the socket unit's
+start-limit so it stays down until you run
+
+```
+systemctl --user restart pulseaudio.socket pulseaudio.service
+```
+
+`systemctl --user restart pulseaudio.service` is the correct way to reload the
+config. It is still disruptive — it tears down every stream on the desktop,
+including any injector already in a conference — which is why setup loads the
+modules live instead of restarting anything.
 
 Then play audio to the **Remote Desktop Injector** device and it goes into
 whatever conference is live. The playback device carries the same name the
