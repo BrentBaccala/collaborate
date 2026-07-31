@@ -1,24 +1,21 @@
 #!/usr/bin/pulseaudio -nF
-# Start from the stock system configuration
-.include /etc/pulse/default.pa
-
-### --- VLC -> BigBlueButton conference audio bridge (added by Claude) --- ###
-.nofail
-# Feed point: VLC plays here.  Named for how it appears in the BBB user list,
-# so "play to Remote Desktop Injector" and "Remote Desktop Injector is in the
-# meeting" name the same thing.
+# bbb-conf-audio: the per-user PulseAudio startup script, copied to
+# ~/.config/pulse/default.pa by `conf-audio setup`.
 #
-# A description containing spaces must be BOTH double-quoted AND have its
-# spaces backslash-escaped.  Quotes alone silently fail: PulseAudio 15.99 does
-# not load the module at all, so the device just never appears.  Verified both
-# ways -- via this file and via `pactl load-module` -- because `conf-audio
-# setup` replays these lines into a running daemon and both parsers have to
-# accept the identical text.  The escaping is also what lets setup split this
-# line on unescaped whitespace to rebuild the pactl argv.
-load-module module-null-sink sink_name=vmic_sink sink_properties=device.description="Remote\ Desktop\ Injector"
-# The virtual microphone baresip captures (fed by vmic_sink)
-load-module module-remap-source master=vmic_sink.monitor source_name=virtmic source_properties=device.description=Virtual_Microphone
-# Dead-end output so incoming conf audio / desktop sounds never loop back into the mic
-load-module module-null-sink sink_name=desktop_out sink_properties=device.description=Desktop_Output
-set-default-sink desktop_out
-.fail
+# Deliberately a two-line stub.  A user's ~/.config/pulse/default.pa REPLACES
+# /etc/pulse/default.pa rather than merging with it (default.pa(5): "when
+# ~/.config/pulse/default.pa exists, that file is used"), so:
+#
+#   - the first include puts the stock system configuration back, without which
+#     the session would come up with the virtual devices and no real ones --
+#     no udev detection, no ALSA cards, nothing;
+#   - the second include pulls in our devices from a package-owned file, so
+#     that changing the device set in a later release reaches users who have
+#     already run setup.  Inlining those lines here instead would freeze them
+#     into every user's home directory at the version they first ran.
+#
+# A missing second include is not fatal (tested): if the package is removed,
+# PulseAudio still starts and simply lacks the virtual devices.
+
+.include /etc/pulse/default.pa
+.include /usr/share/bbb-conf-audio/conf-audio-modules.pa

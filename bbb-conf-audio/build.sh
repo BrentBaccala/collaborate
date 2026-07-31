@@ -38,6 +38,7 @@ cp freeswitch/vlcinject.xml.in    staging/usr/share/bbb-conf-audio/
 cp freeswitch/aaa_vlcinject.xml   staging/usr/share/bbb-conf-audio/
 cp share/baresip.config           staging/usr/share/bbb-conf-audio/
 cp share/conf-audio.pa            staging/usr/share/bbb-conf-audio/
+cp share/conf-audio-modules.pa    staging/usr/share/bbb-conf-audio/
 
 # baresip does the SIP/RTP; openssl generates the credential in postinst.
 # python3 is the watcher and the state parsing in conf-audio.

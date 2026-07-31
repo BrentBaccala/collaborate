@@ -1,0 +1,37 @@
+# bbb-conf-audio: the virtual audio devices, and nothing else.
+#
+# Kept separate from the default.pa stub that includes it so that updates to
+# the device set reach existing users.  A user's ~/.config/pulse/default.pa
+# REPLACES /etc/pulse/default.pa rather than merging with it (see
+# default.pa(5)), so the stub has to re-include the system script -- and if the
+# stub also carried these module lines inline, changing them here would never
+# reach anyone who had already run `conf-audio setup`.
+#
+# Nothing in this file is user-specific: no usernames, no $HOME, no per-user
+# ports.  That is what makes one shared, package-owned copy correct for every
+# user on the box.
+#
+# `conf-audio setup` also replays these lines into an ALREADY-RUNNING
+# PulseAudio via pactl, because a .pa file only takes effect at daemon
+# start-up.  Keep every directive here valid for both parsers.
+.nofail
+
+# Feed point: the player targets this.  Named for how the injector appears in
+# the BBB user list, so "play to Remote Desktop Injector" and "Remote Desktop
+# Injector is in the meeting" name the same thing.
+#
+# A description containing spaces must be BOTH double-quoted AND have its
+# spaces backslash-escaped.  Quotes alone do not merely mis-render the name --
+# PulseAudio 15.99 fails to initialise the module and the device never appears
+# at all.  Verified through both parsers; every other combination tried (bare
+# spaces, quotes only, escapes only) failed in both.
+load-module module-null-sink sink_name=vmic_sink sink_properties=device.description="Remote\ Desktop\ Injector"
+
+# The virtual microphone baresip captures (fed by vmic_sink)
+load-module module-remap-source master=vmic_sink.monitor source_name=virtmic source_properties=device.description=Virtual_Microphone
+
+# Dead-end output so incoming conf audio / desktop sounds never loop back into the mic
+load-module module-null-sink sink_name=desktop_out sink_properties=device.description=Desktop_Output
+set-default-sink desktop_out
+
+.fail

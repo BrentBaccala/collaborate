@@ -103,7 +103,13 @@ do_start() {
     echo "$vb" > "$CURRENT"
 }
 
-PA_TEMPLATE=/usr/share/bbb-conf-audio/conf-audio.pa
+# The stub that becomes ~/.config/pulse/default.pa, and the device definitions
+# it includes.  The stub is copied; the modules file is referenced by path, so
+# a later release can change the device set without touching anyone's home
+# directory.  PA_MODULES is also what the pactl replay below reads, which is
+# what keeps the live and persistent paths from drifting.
+PA_STUB=/usr/share/bbb-conf-audio/conf-audio.pa
+PA_MODULES=/usr/share/bbb-conf-audio/conf-audio-modules.pa
 
 pa_devices_present() {
     # Ask the running daemon, not the config file.  These two disagree whenever
@@ -156,7 +162,7 @@ load_pa_modules() {
         for t in "${tok[@]}"; do argv+=( "${t//$sentinel/\\ }" ); done
         pactl "${argv[@]}" >/dev/null 2>&1 ||
             echo "audio devices:       WARNING: failed: $line" >&2
-    done < "$PA_TEMPLATE"
+    done < "$PA_MODULES"
     if pa_devices_present; then
         echo "audio devices:       loaded into the running PulseAudio"
     else
@@ -175,17 +181,24 @@ case "${1:-status}" in
 
     pa="$HOME/.config/pulse/default.pa"
     if [ -e "$pa" ]; then
-        if grep -q vmic_sink "$pa"; then
-            echo "audio devices:       already configured in $pa"
+        if grep -q "$PA_MODULES" "$pa"; then
+            echo "audio devices:       $pa already includes $PA_MODULES"
+        elif grep -q vmic_sink "$pa"; then
+            # Pre-stub layout: setup used to copy the module lines inline, which
+            # froze them into the home directory.  Say so rather than silently
+            # leaving the user on a config no future release can update.
+            echo "audio devices:       $pa has the devices inline (older layout)." >&2
+            echo "                     Replace its bbb-conf-audio section with:" \
+                 ".include $PA_MODULES" >&2
         else
             echo "audio devices:       $pa EXISTS and lacks the virtual mic." >&2
-            echo "                     Append the contents of" \
-                 "/usr/share/bbb-conf-audio/conf-audio.pa to it yourself --" \
-                 "refusing to edit a config you wrote." >&2
+            echo "                     Add this line to it yourself --" \
+                 "refusing to edit a config you wrote:" >&2
+            echo "                         .include $PA_MODULES" >&2
         fi
     else
         mkdir -p "$(dirname "$pa")"
-        cp "$PA_TEMPLATE" "$pa"
+        cp "$PA_STUB" "$pa"
         echo "audio devices:       wrote $pa"
     fi
 

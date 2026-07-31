@@ -102,15 +102,34 @@ sudo loginctl enable-linger <user>    # once, as admin: run without a login
 will not edit a config you wrote), renders `~/.baresip/{config,accounts}` from
 the shared password, and enables both user units.
 
+The `default.pa` it writes is a two-line stub:
+
+```
+.include /etc/pulse/default.pa
+.include /usr/share/bbb-conf-audio/conf-audio-modules.pa
+```
+
+A user's `default.pa` **replaces** the system one rather than merging with it
+(`default.pa(5)`), so the first include is what keeps the session's real sound
+devices. The second keeps the device definitions in a package-owned file
+instead of inlining them, so changing the device set in a later release reaches
+users who have already run setup — inline copies would freeze into each home
+directory at the version its owner first ran. Nothing in the modules file is
+user-specific, which is what makes one shared copy correct for everybody.
+
+If the package is later removed, the dangling include is not fatal (tested):
+PulseAudio still starts, just without the virtual devices.
+
 **No PulseAudio restart is needed.** `default.pa` only takes effect when
 PulseAudio *starts*, so on a long-lived desktop the config would be in place
 with none of the devices actually loaded — and the failure is quiet: baresip
 dies with `start_source failed (pulse.virtmic): No such device` while
 `conf-audio status` still says `RUNNING`, because baresip stays alive and idle
 after a failed call. So setup asks the *daemon* whether `virtmic` exists and,
-if not, replays the module lines from `/usr/share/bbb-conf-audio/conf-audio.pa`
-into it with `pactl`. Those lines are read from that one file rather than
-duplicated in the script, so the live and persistent paths cannot drift.
+if not, replays the module lines from
+`/usr/share/bbb-conf-audio/conf-audio-modules.pa` into it with `pactl`. Those
+lines are read from the same file the stub includes, rather than duplicated in
+the script, so the live and persistent paths cannot drift.
 
 `pulseaudio -k` would have worked too, and is what this used to tell you to run
 by hand, but it tears down every stream on the desktop — including any injector
@@ -193,6 +212,7 @@ enabled it once and later plays music. Enabling is the opt-in;
 | `freeswitch/vlcinject.xml.in` | template → `/opt/freeswitch/etc/freeswitch/directory/default/vlcinject.xml` (0640, holds the password) |
 | `freeswitch/aaa_vlcinject.xml` | `/opt/freeswitch/etc/freeswitch/dialplan/public/` |
 | `share/baresip.config`, `share/conf-audio.pa` | `/usr/share/bbb-conf-audio/` — templates for `conf-audio setup` |
+| `share/conf-audio-modules.pa` | `/usr/share/bbb-conf-audio/` — the virtual devices; `.include`d by each user's stub, and replayed via `pactl` at setup |
 
 `/usr/lib/systemd/user` is the system-wide location for *user* units, which is
 what makes this a system package that is nonetheless enabled per user.
