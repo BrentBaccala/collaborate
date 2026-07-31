@@ -239,9 +239,24 @@ player -> [null-sink "vmic_sink" = "Remote Desktop Injector"] -> its .monitor
        -> baresip captures virtmic -> SIP/RTP (opus) -> FreeSWITCH conference
 ```
 
-A second null sink, `desktop_out`, is the default sink and a dead end, so
-conference audio coming back (and ordinary desktop sounds) never loop into the
-microphone.
+A second null sink, `desktop_out`, is a dead end for audio coming *out* of the
+conference. baresip targets it explicitly (`audio_player`/`audio_alert` =
+`pulse,desktop_out`), so conference audio can never loop back into the mic no
+matter which sink is the default.
+
+**`vmic_sink` is the default sink**, so anything the desktop plays reaches the
+meeting without picking a device first. `desktop_out` used to be the default,
+on the theory that injecting should be opt-in per player — but the effect was
+that every PulseAudio restart silently reverted to "nothing I play is heard",
+and had to be fixed by hand in the settings dialog each time. A machine whose
+job is to be an audio source should default to being one. The deliberate cost
+is that *all* desktop audio goes out, notification sounds included.
+
+The `set-default-sink` line wins over `module-default-device-restore` (loaded
+by the system `default.pa` included first) because it runs after the sinks are
+created. A user who picks a different device in their settings dialog overrides
+it, and that choice persists in `~/.config/pulse/<machine-id>-default-sink` —
+the intended escape hatch.
 
 ## Tests
 

@@ -30,8 +30,26 @@ load-module module-null-sink sink_name=vmic_sink sink_properties=device.descript
 # The virtual microphone baresip captures (fed by vmic_sink)
 load-module module-remap-source master=vmic_sink.monitor source_name=virtmic source_properties=device.description=Virtual_Microphone
 
-# Dead-end output so incoming conf audio / desktop sounds never loop back into the mic
+# Dead end for audio coming OUT of the conference.  baresip targets this sink
+# explicitly (audio_player/audio_alert = pulse,desktop_out in baresip.config),
+# so conference audio can never loop back into the mic regardless of which sink
+# is the default.  It is not the default itself -- see below.
 load-module module-null-sink sink_name=desktop_out sink_properties=device.description=Desktop_Output
-set-default-sink desktop_out
+
+# Default to the injector, so anything this desktop plays reaches the meeting
+# without the user picking a device first.  This machine exists to be an audio
+# SOURCE; making the dead end the default meant every PulseAudio restart
+# silently reverted to "nothing I play is heard" and had to be corrected by
+# hand in the settings dialog each time.
+#
+# This line beats module-default-device-restore (loaded by the system
+# default.pa we include first) because it runs after the sinks are created.  A
+# user who then picks a different device in their settings dialog overrides it
+# and that choice persists in ~/.config/pulse/<machine-id>-default-sink, which
+# is the intended escape hatch.
+#
+# The cost, accepted deliberately: ALL desktop audio goes to the conference,
+# notification sounds included -- not just what you aim at the injector.
+set-default-sink vmic_sink
 
 .fail
